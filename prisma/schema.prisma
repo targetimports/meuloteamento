@@ -1,0 +1,1359 @@
+// meuloteamento — schema do banco
+
+generator client {
+  provider      = "prisma-client-js"
+  // Declara os dois engines: o Prisma as vezes detecta errado o openssl
+  // em shell nao-interativo (build/cron), entao mantemos ambos disponiveis.
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// USUÁRIOS
+// =====================================================================
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  nome         String
+  role         AdminRole @default(OPERADOR)
+  ativo        Boolean   @default(true)
+  ultimoLogin  DateTime?
+
+  // Tenant scoping: NULL = super admin (vê tudo).
+  // Preenchido = admin escopado àquela loteadora (vê apenas o que é dela).
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  historicoLote    LoteHistorico[]
+  leadInteracoes   LeadInteracao[]
+  vendaHistorico   VendaHistorico[]
+  parcelaHistorico ParcelaHistorico[]
+  envios           EnvioComunicacao[]
+
+  @@index([loteadoraId])
+  @@map("admin_users")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERADOR
+  FINANCEIRO
+}
+
+model Cliente {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String?
+  nome           String
+  cpfCnpj        String    @unique
+  rg             String?
+  telefone       String
+  dataNascimento DateTime?
+
+  // Dados qualificatórios usados em contratos (Lei 6.766/79 exige)
+  nacionalidade String? @default("Brasileiro(a)")
+  estadoCivil   String? // "Solteiro(a)" | "Casado(a)" | "Divorciado(a)" | "Viúvo(a)" | "União Estável"
+  profissao     String?
+
+  cep         String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
+
+  asaasCustomerId String? @unique
+
+  // Auth / área do comprador
+  emailVerificado       Boolean   @default(false)
+  emailVerifyToken      String?   @unique
+  resetPasswordToken    String?   @unique
+  resetPasswordExpiraEm DateTime?
+  ultimoLogin           DateTime?
+
+  // Preferências de comunicação
+  aceitaWhatsApp Boolean @default(true)
+  aceitaEmail    Boolean @default(true)
+
+  reservas Reserva[]
+  vendas   Venda[]
+  cobrancasAvulsas CobrancaAvulsa[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([emailVerifyToken])
+  @@index([resetPasswordToken])
+  @@map("clientes")
+}
+
+// =====================================================================
+// LOTEADORA (cliente B2B / tenant)
+// =====================================================================
+
+model Loteadora {
+  id   String @id @default(cuid())
+  slug String @unique
+  nome String
+
+  razaoSocial       String?
+  nomeFantasia      String?
+  cnpj              String? @unique
+  inscricaoEstadual String?
+
+  endereco String?
+  cidade   String?
+  estado   String?
+  cep      String?
+
+  telefone  String?
+  whatsapp  String?
+  email     String?
+  site      String?
+  instagram String?
+
+  parceiros Json?
+
+  logo          String?
+  corPrimaria   String?
+  corSecundaria String?
+
+  asaasApiKey  String?
+  asaasSandbox Boolean @default(true)
+
+  // Representante legal — assina os contratos pela loteadora
+  representanteNome String?
+  representanteCpf  String?
+  representanteRg   String?
+  representanteCargo String? @default("Sócio Administrador")
+
+  // Integrações de comunicação (cada loteadora pode usar suas próprias chaves)
+  whatsappProvider String? // "zapi" | "evolution" | "meta_cloud"
+  whatsappToken    String?
+  whatsappInstance String?
+  /// Base URL do servidor (usado pelo Evolution API, ex: https://evolution.dominio.com)
+  whatsappBaseUrl  String?
+  emailFromAddress String?
+  emailReplyTo     String?
+
+  // Provedor de assinatura eletrônica (por loteadora)
+  signProvider  String? // "clicksign" | "zapsign"
+  signApiToken  String?
+  signSandbox   Boolean @default(true)
+
+  // Régua de cobrança ativa
+  reguaCobrancaId String?
+  reguaCobranca   ReguaCobranca? @relation("LoteadoraReguaAtiva", fields: [reguaCobrancaId], references: [id])
+
+  /// Senha de autorização para venda SEM entrada (bcrypt hash).
+  /// - NULL → admin NÃO pode lançar venda com valorEntrada=0 (regra padrão)
+  /// - Hash setado → admin precisa digitar a senha correta no form pra liberar
+  ///   uma venda com entrada zero. Quando libera, a venda usa o valorTotal
+  ///   inteiro como base de cálculo das parcelas (sem subtrair entrada).
+  /// Definida pelo super admin ou pelo admin da loteadora em /admin/configuracoes.
+  vendaSemEntradaSenhaHash String?
+
+  sobreTexto String?
+
+  ativo Boolean @default(true)
+
+  loteamentos    Loteamento[]
+  adminUsers     AdminUser[]
+  contas         ContaFinanceira[]
+  reguasCobranca ReguaCobranca[]    @relation("LoteadoraReguas")
+  templates      ContratoTemplate[]
+  pipelines      PipelineLead[]
+  filtrosSalvos  FiltroSalvo[]
+  envios         EnvioComunicacao[]
+  cobrancasAvulsas CobrancaAvulsa[]
+  formularios    Formulario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reguaCobrancaId])
+  @@map("loteadoras")
+}
+
+// =====================================================================
+// CORRETORES
+// =====================================================================
+
+model Corretor {
+  id             String  @id @default(cuid())
+  nome           String
+  email          String  @unique
+  telefone       String?
+  cpfCnpj        String? @unique
+  creci          String?
+  comissaoPadrao Decimal @default(0) @db.Decimal(5, 2)
+  ativo          Boolean @default(true)
+  observacoes    String?
+
+  // Distribuição automática de leads
+  aceitaLeadsAuto  Boolean  @default(false)
+  capacidadeDiaria Int      @default(10)
+  cidadesAtende    String[] @default([])
+
+  vendas      Venda[]
+  leads       Lead[]
+  comissoes   ComissaoParcela[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("corretores")
+}
+
+// =====================================================================
+// COMISSÕES — pagamento parcelado ao corretor
+// =====================================================================
+// Regra atual (vendas residenciais):
+//   - Valor: R$ 2.500 por lote RESIDENCIAL da venda
+//   - 4 parcelas iguais, vinculadas a:
+//       parcela 1 → ENTRADA do cliente
+//       parcela 2 → 1ª mensal do cliente
+//       parcela 3 → 2ª mensal do cliente
+//       parcela 4 → 3ª mensal do cliente
+//   - Quando o cliente paga a parcela vinculada, a ComissaoParcela vira LIBERADA.
+//   - Admin marca como PAGA quando efetivamente repassa ao corretor.
+// =====================================================================
+
+model ComissaoParcela {
+  id         String   @id @default(cuid())
+  vendaId    String
+  venda      Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  corretorId String
+  corretor   Corretor @relation(fields: [corretorId], references: [id])
+
+  /// 1..4
+  numero Int
+  valor  Decimal @db.Decimal(12, 2)
+
+  /// Parcela do cliente que destrava esta comissão (1ª comissão vincula à entrada).
+  parcelaClienteId String?
+  parcelaCliente   Parcela? @relation(fields: [parcelaClienteId], references: [id], onDelete: SetNull)
+
+  status     ComissaoStatus @default(BLOQUEADA)
+  liberadaEm DateTime?      // quando o cliente pagou a parcela vinculada
+  pagaEm     DateTime?      // quando admin efetivamente pagou ao corretor
+  valorPago  Decimal?       @db.Decimal(12, 2)
+
+  /// De qual conta financeira saiu o dinheiro repassado ao corretor.
+  contaId String?
+  conta   ContaFinanceira? @relation(fields: [contaId], references: [id], onDelete: SetNull)
+
+  observacoes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendaId, corretorId, numero])
+  @@index([corretorId, status])
+  @@index([status, liberadaEm])
+  @@index([vendaId])
+  @@map("comissao_parcelas")
+}
+
+enum ComissaoStatus {
+  BLOQUEADA // cliente ainda não pagou a parcela vinculada
+  LIBERADA  // cliente pagou → comissão liberada para repasse
+  PAGA      // já repassada ao corretor
+  CANCELADA // venda cancelada/distratada
+}
+
+// =====================================================================
+// LOTEAMENTO
+// =====================================================================
+
+model Loteamento {
+  id   String @id @default(cuid())
+  slug String @unique
+  nome String
+
+  loteadoraId String
+  loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Restrict)
+
+  tagline          String?
+  subtagline       String?
+  parcelaAPartirDe Decimal? @db.Decimal(12, 2)
+  porqueInvestir   Json?
+  infraestrutura   Json?
+
+  descricao String?
+
+  endereco String
+  cidade   String
+  estado   String
+  cep      String?
+  lat      Float?
+  lng      Float?
+
+  // Dados cartoriais — usados em contratos
+  cartorio        String? // ex: "Cartório de Registro de Imóveis de Tucano/BA"
+  comarca         String? // se vazio, usa cidade
+
+  imagemCapa     String?
+  imagensGaleria String[] @default([])
+  imagemMapa     String?
+
+  videoApresentacao       String?
+  videoApresentacaoPoster String?
+  videoHero               String?
+  videoHeroPoster         String?
+
+  /// Calibração das posições dos lotes APENAS pra vista satélite (touch/3D).
+  /// JSON: { offsetX, offsetY, scale, rotation }
+  /// Não afeta posições da planta (mapaX/Y/W/H ficam intocados).
+  mapaSateliteCalib       Json?
+
+  cidadeTitulo String?
+  cidadeTexto  String?
+  cidadeFotos  Json?
+
+  diferenciais String[] @default([])
+  documentos   Json?
+
+  contatoNome     String?
+  contatoTelefone String?
+  contatoEmail    String?
+
+  ativo     Boolean @default(true)
+  publicado Boolean @default(false)
+
+  reservaMinutos       Int     @default(15)
+  permiteFinanciamento Boolean @default(true)
+  maxParcelas          Int     @default(120)
+
+  // Pipeline de leads ativo (sobrescreve o da loteadora se setado)
+  pipelineId String?
+  pipeline   PipelineLead? @relation(fields: [pipelineId], references: [id])
+
+  lotes        Lote[]
+  tabelasPreco TabelaPreco[]
+  termos       TermoContrato[]
+  leads        Lead[]
+  formularios  Formulario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pipelineId])
+  @@map("loteamentos")
+}
+
+model Lote {
+  id           String     @id @default(cuid())
+  loteamentoId String
+  loteamento   Loteamento @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
+
+  quadra String
+  numero String
+  codigo String
+
+  area    Decimal  @db.Decimal(10, 2)
+  testada Decimal? @db.Decimal(10, 2)
+  fundo   Decimal? @db.Decimal(10, 2)
+
+  preco     Decimal @db.Decimal(12, 2)
+  descricao String?
+
+  orientacaoSolar OrientacaoSolar?
+  esquina         Boolean          @default(false)
+  fronteAreaVerde Boolean          @default(false)
+  fotos           String[]         @default([])
+
+  mapaX       Float?
+  mapaY       Float?
+  mapaLargura Float?
+  mapaAltura  Float?
+
+  // Dados para o contrato — Lei 6.766/79 exige descrição precisa
+  matricula              String? // nº matrícula no Cartório de Registro de Imóveis
+  viaFrente              String? // "Rua Maria Conceição Andrade"
+  ladoVia                String? // "par" | "ímpar"
+  confrontacaoEsquerdo   String? // "lote 11"
+  confrontacaoDireito    String? // "lote 13"
+  confrontacaoFrente     String? // "Rua X"
+  confrontacaoFundo      String? // "propriedade Y / lote Z / via W"
+
+  status         LoteStatus @default(DISPONIVEL)
+  tipo           LoteTipo   @default(RESIDENCIAL)
+  motivoBloqueio String?
+
+  reservas  Reserva[]
+  vendas    Venda[]
+  historico LoteHistorico[]
+  leads     Lead[]
+  cobrancasAvulsas CobrancaAvulsa[]
+  vendaLotes VendaLote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([loteamentoId, codigo])
+  @@index([loteamentoId, status])
+  @@index([status, preco])
+  @@map("lotes")
+}
+
+enum LoteTipo {
+  RESIDENCIAL
+  COMERCIAL
+}
+
+enum LoteStatus {
+  DISPONIVEL
+  RESERVADO
+  EM_PAGAMENTO
+  VENDIDO
+  BLOQUEADO
+}
+
+enum OrientacaoSolar {
+  NORTE
+  SUL
+  LESTE
+  OESTE
+  NORDESTE
+  NOROESTE
+  SUDESTE
+  SUDOESTE
+}
+
+model LoteHistorico {
+  id           String     @id @default(cuid())
+  loteId       String
+  lote         Lote       @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  statusAntes  LoteStatus
+  statusDepois LoteStatus
+  motivo       String?
+  userId       String?
+  user         AdminUser? @relation(fields: [userId], references: [id])
+  userType     String?
+  createdAt    DateTime   @default(now())
+
+  @@index([loteId, createdAt])
+  @@map("lote_historico")
+}
+
+// =====================================================================
+// TABELAS DE PREÇO
+// =====================================================================
+
+model TabelaPreco {
+  id           String     @id @default(cuid())
+  loteamentoId String
+  loteamento   Loteamento @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
+
+  nome        String
+  descricao   String?
+  descontoPct Decimal? @db.Decimal(5, 2)
+  entradaPct  Decimal? @db.Decimal(5, 2)
+  parcelasMin Int      @default(1)
+  parcelasMax Int      @default(1)
+
+  ativo Boolean @default(true)
+  ordem Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteamentoId, ativo])
+  @@map("tabelas_preco")
+}
+
+// =====================================================================
+// RESERVA E VENDA
+// =====================================================================
+
+model Reserva {
+  id        String        @id @default(cuid())
+  loteId    String
+  lote      Lote          @relation(fields: [loteId], references: [id])
+  clienteId String
+  cliente   Cliente       @relation(fields: [clienteId], references: [id])
+  status    ReservaStatus @default(ATIVA)
+  expiraEm  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteId, status])
+  @@index([expiraEm, status])
+  @@map("reservas")
+}
+
+enum ReservaStatus {
+  ATIVA
+  EXPIRADA
+  CONVERTIDA
+  CANCELADA
+}
+
+model Venda {
+  id        String  @id @default(cuid())
+  numero    Int     @unique @default(autoincrement())
+  loteId    String
+  lote      Lote    @relation(fields: [loteId], references: [id])
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  corretorId    String?
+  corretor      Corretor? @relation(fields: [corretorId], references: [id])
+  comissaoPct   Decimal?  @db.Decimal(5, 2)
+  comissaoValor Decimal?  @db.Decimal(12, 2)
+
+  valorTotal     Decimal @db.Decimal(12, 2)
+  valorEntrada   Decimal @default(0) @db.Decimal(12, 2)
+  numeroParcelas Int     @default(1)
+  valorParcela   Decimal @db.Decimal(12, 2)
+  diaVencimento  Int     @default(10)
+
+  formaPagamento FormaPagamento
+
+  // Taxa de corretagem integrada ao preço (informativo no contrato)
+  taxaCorretagem Decimal? @db.Decimal(12, 2)
+  // Desconto por pontualidade (%) — usado na cláusula de PRECO E FORMA DE PAGAMENTO
+  descontoPontualidadePct Decimal? @db.Decimal(5, 2) @default(0)
+
+  status       VendaStatus @default(ATIVA)
+  dataContrato DateTime    @default(now())
+  dataQuitacao DateTime?
+
+  /// Origem da venda: ADMIN (criada manualmente no painel) ou CHECKOUT_ONLINE
+  /// (fluxo público — cliente fez sozinho pelo site). Usado pra distinguir
+  /// na lista de vendas (badge "online") e em relatórios de conversão.
+  origem VendaOrigem @default(ADMIN)
+
+  observacoes String?
+
+  // Contrato digital
+  contratoTemplateId     String?
+  contratoTemplate       ContratoTemplate? @relation(fields: [contratoTemplateId], references: [id])
+  contratoHtml           String? // snapshot do HTML renderizado no momento da geração
+  contratoPdfUrl         String? // PDF gerado (storage local /uploads/contratos/)
+  contratoStatus         ContratoStatus    @default(PENDENTE)
+  contratoHash           String? // sha256 do PDF (integridade)
+  contratoSignerUrl      String? // URL do provedor de assinatura (ZapSign/Clicksign etc.)
+  contratoSignerId       String? // ID do documento no provedor
+  contratoAssinadoEm     DateTime?
+  contratoAssinadoPdfUrl String? // PDF final com assinatura
+
+  parcelas         Parcela[]
+  historico        VendaHistorico[]
+  comissaoParcelas ComissaoParcela[]
+  /// Lotes adicionais (multi-lote em cobrança única).
+  /// O `loteId` acima referencia o lote PRINCIPAL (compatibilidade).
+  /// Para vendas multi-lote, todos os lotes aparecem em `vendaLotes`,
+  /// incluindo o principal — sempre consulte daqui para o total real.
+  vendaLotes VendaLote[]
+  /// Documentos anexados à venda (RG, CPF, comprovantes, contratos físicos, etc.).
+  arquivos VendaArquivo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, dataContrato])
+  @@index([clienteId, status])
+  @@index([corretorId, status])
+  @@map("vendas")
+}
+
+// =====================================================================
+// VENDA-LOTE (join) — permite múltiplos lotes em uma única venda/cobrança
+// =====================================================================
+
+model VendaLote {
+  id      String @id @default(cuid())
+  vendaId String
+  venda   Venda  @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  loteId  String
+  lote    Lote   @relation(fields: [loteId], references: [id], onDelete: Restrict)
+
+  /// Valor deste lote específico dentro da venda (a soma deve bater com Venda.valorTotal)
+  valor Decimal @db.Decimal(12, 2)
+  /// Ordem de exibição (0 = principal)
+  ordem Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([vendaId, loteId])
+  @@index([loteId])
+  @@map("venda_lotes")
+}
+
+enum ContratoStatus {
+  PENDENTE
+  GERADO
+  ENVIADO_ASSINATURA
+  ASSINADO
+  CANCELADO
+}
+
+// =====================================================================
+// ARQUIVOS DA VENDA — anexos manuais (RG, CPF, comprovantes, contratos,
+// fotos do imóvel, recibos, etc.). Armazenamento físico em
+// /public/uploads/vendas/<vendaId>/<arquivo>.
+// =====================================================================
+
+model VendaArquivo {
+  id      String @id @default(cuid())
+  vendaId String
+  venda   Venda  @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+
+  /// Nome original do arquivo enviado pelo usuário (mostrado na lista).
+  nomeOriginal String
+  /// Caminho relativo a /public, ex: /uploads/vendas/abc123/1700-rg.pdf
+  caminho      String
+  mimeType     String?
+  tamanho      Int? // bytes
+
+  /// Categoria livre escolhida pelo admin no upload (etiqueta visual):
+  /// "RG" | "CPF" | "COMPROVANTE_RESIDENCIA" | "CONTRATO" | "RECIBO" |
+  /// "CHEQUE" | "OUTRO" — sem enforcement no banco, só convenção.
+  categoria String?
+
+  /// Observação opcional (ex: "Frente do RG", "Comprovante de Mar/2025").
+  descricao String?
+
+  /// Quem fez o upload (admin). Nullable pra não quebrar se o user for removido.
+  uploadedById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([vendaId, createdAt])
+  @@map("venda_arquivos")
+}
+
+model ContaFinanceira {
+  id          String    @id @default(cuid())
+  loteadoraId String
+  loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  nome      String
+  tipo      ContaTipo
+  descricao String?
+
+  banco       String?
+  agencia     String?
+  numeroConta String?
+  chavePix    String?
+  titular     String?
+
+  saldoInicial Decimal @default(0) @db.Decimal(14, 2)
+  cor          String?
+
+  ativa Boolean @default(true)
+  ordem Int     @default(0)
+
+  parcelas         Parcela[]
+  comissoesPagasDe ComissaoParcela[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, ativa])
+  @@map("contas_financeiras")
+}
+
+enum ContaTipo {
+  ASAAS
+  CAIXA
+  BANCO
+  OUTROS
+}
+
+enum FormaPagamento {
+  A_VISTA
+  A_VISTA_ESPECIE
+  A_VISTA_CHEQUE
+  PARCELADO_BOLETO
+  PARCELADO_PIX
+  PARCELADO_CARTAO
+  PARCELADO_CHEQUE
+  PARCELADO_MISTO
+}
+
+enum VendaStatus {
+  ATIVA
+  INADIMPLENTE
+  QUITADA
+  CANCELADA
+  DISTRATADA
+}
+
+enum VendaOrigem {
+  ADMIN            // Lançada pelo painel admin (corretor/gerente)
+  CHECKOUT_ONLINE  // Cliente fez sozinho pelo site público
+  IMPORTACAO       // Importada de planilha/migração
+}
+
+model Parcela {
+  id      String      @id @default(cuid())
+  vendaId String
+  venda   Venda       @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  numero  Int
+  tipo    ParcelaTipo @default(MENSAL)
+
+  valor         Decimal  @db.Decimal(12, 2)
+  valorPago     Decimal? @db.Decimal(12, 2)
+  valorOriginal Decimal? @db.Decimal(12, 2) // antes do reajuste mais recente
+
+  vencimento DateTime
+  pagoEm     DateTime?
+
+  status ParcelaStatus @default(PENDENTE)
+
+  /// Forma de pagamento desta parcela específica. Permite mesclar formas
+  /// dentro de uma única venda (ex: entrada em espécie, mensais via PIX).
+  /// Quando NULL, herda Venda.formaPagamento.
+  formaPagamento FormaPagamento?
+
+  /// Dados do cheque (quando formaPagamento for A_VISTA_CHEQUE ou PARCELADO_CHEQUE).
+  /// Ciclo do cheque usa o status normal da parcela:
+  ///   PENDENTE   → cheque emitido, aguardando vencer
+  ///   PAGO       → cheque compensado
+  ///   ATRASADO   → venceu mas ainda não compensou (cron marca)
+  ///   ESTORNADO  → cheque devolvido pelo banco
+  chequeNumero    String?
+  chequeBanco     String?
+  /// Quem emitiu o cheque (caso seja de terceiro/cônjuge — senão = o cliente)
+  chequeEmitente  String?
+  /// Praça do cheque (cidade da agência) — útil pra compensação
+  chequePraca     String?
+
+  contaId String?
+  conta   ContaFinanceira? @relation(fields: [contaId], references: [id], onDelete: SetNull)
+
+  asaasPaymentId  String? @unique
+  asaasInvoiceUrl String?
+  asaasBoletoUrl  String?
+  asaasPixCode    String?
+  asaasPixQrCode  String?
+
+  // Histórico de envio de cobrança
+  ultimaCobrancaEm  DateTime?
+  cobrancasEnviadas Int       @default(0)
+
+  historico        ParcelaHistorico[]
+  envios           EnvioComunicacao[]
+  /// Comissões cuja liberação é destravada quando esta parcela for paga.
+  comissoesDestravadas ComissaoParcela[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendaId, numero])
+  @@index([status, vencimento])
+  @@index([contaId, status])
+  @@index([vencimento, status])
+  @@map("parcelas")
+}
+
+enum ParcelaTipo {
+  ENTRADA
+  MENSAL
+  ANUAL
+  EXTRA
+}
+
+enum ParcelaStatus {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+  ESTORNADO
+}
+
+// =====================================================================
+// AUDITORIA — Venda / Parcela
+// =====================================================================
+
+model VendaHistorico {
+  id        String     @id @default(cuid())
+  vendaId   String
+  venda     Venda      @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  action    String // CREATED | STATUS_CHANGED | EDITED | DISTRATADA | RENEGOCIADA
+  diff      Json? // {field: {antes, depois}}
+  motivo    String?
+  userId    String?
+  user      AdminUser? @relation(fields: [userId], references: [id])
+  userType  String? // ADMIN | CLIENTE | SYSTEM
+  createdAt DateTime   @default(now())
+
+  @@index([vendaId, createdAt])
+  @@map("venda_historico")
+}
+
+model ParcelaHistorico {
+  id        String     @id @default(cuid())
+  parcelaId String
+  parcela   Parcela    @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  action    String // PAGAMENTO | REAJUSTE | CANCELAMENTO | ESTORNO | RENEGOCIACAO
+  diff      Json?
+  motivo    String?
+  userId    String?
+  user      AdminUser? @relation(fields: [userId], references: [id])
+  userType  String?
+  createdAt DateTime   @default(now())
+
+  @@index([parcelaId, createdAt])
+  @@map("parcela_historico")
+}
+
+// =====================================================================
+// LEADS
+// =====================================================================
+
+model Lead {
+  id String @id @default(cuid())
+
+  nome     String
+  email    String
+  telefone String
+  mensagem String?
+
+  loteamentoId String?
+  loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: SetNull)
+  loteId       String?
+  lote         Lote?       @relation(fields: [loteId], references: [id], onDelete: SetNull)
+
+  origem String?
+  status LeadStatus @default(NOVO)
+
+  // Stage customizado dentro do pipeline configurável (opcional, sobrescreve status quando setado)
+  stageId String?
+  stage   PipelineStage? @relation(fields: [stageId], references: [id])
+
+  temperatura LeadTemperatura @default(MORNO)
+
+  // Score automático (0-100) calculado por regras/IA
+  score    Int     @default(50)
+  scoreObs String?
+
+  // SLA: quando entrou no status atual (recalcular em mudanças)
+  statusDesde DateTime @default(now())
+
+  proximaAcao     String?
+  proximaAcaoData DateTime?
+
+  tags Json?
+
+  ordem Float @default(0)
+
+  corretorId String?
+  corretor   Corretor? @relation(fields: [corretorId], references: [id])
+
+  observacoesInternas String?
+
+  // Tracking
+  ipAddress   String?
+  userAgent   String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  interacoes LeadInteracao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([status, ordem])
+  @@index([stageId, ordem])
+  @@index([corretorId, status])
+  @@index([loteamentoId, status])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NOVO
+  EM_ATENDIMENTO
+  AGENDADO
+  CONVERTIDO
+  PERDIDO
+}
+
+enum LeadTemperatura {
+  FRIO
+  MORNO
+  QUENTE
+}
+
+model LeadInteracao {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  tipo      LeadInteracaoTipo
+  conteudo  String
+  resultado String?
+
+  userId String?
+  user   AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@map("lead_interacoes")
+}
+
+enum LeadInteracaoTipo {
+  NOTA
+  LIGACAO
+  WHATSAPP
+  EMAIL
+  VISITA
+  REUNIAO
+  PROPOSTA
+  OUTRO
+}
+
+// =====================================================================
+// PIPELINE CONFIGURÁVEL (CRM evoluído)
+// =====================================================================
+
+model PipelineLead {
+  id          String     @id @default(cuid())
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+  nome        String
+  descricao   String?
+  ativo       Boolean    @default(true)
+  default     Boolean    @default(false)
+
+  stages      PipelineStage[]
+  loteamentos Loteamento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, ativo])
+  @@map("pipelines_lead")
+}
+
+model PipelineStage {
+  id         String       @id @default(cuid())
+  pipelineId String
+  pipeline   PipelineLead @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  nome       String
+  cor        String? // hex
+  ordem      Int          @default(0)
+  slaHoras   Int? // alerta se ficar parado mais que isso
+  ehFinal    Boolean      @default(false) // CONVERTIDO / PERDIDO
+  ehGanho    Boolean      @default(false)
+
+  leads Lead[]
+
+  @@index([pipelineId, ordem])
+  @@map("pipeline_stages")
+}
+
+// =====================================================================
+// FILTROS SALVOS (CRM, vendas, financeiro)
+// =====================================================================
+
+model FiltroSalvo {
+  id            String     @id @default(cuid())
+  loteadoraId   String?
+  loteadora     Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+  userId        String?
+  contexto      String // "leads" | "vendas" | "parcelas" | "lotes"
+  nome          String
+  query         Json // {status: "...", from: "...", etc}
+  compartilhado Boolean    @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, contexto])
+  @@index([userId, contexto])
+  @@map("filtros_salvos")
+}
+
+// =====================================================================
+// CONFIGURAÇÕES DA EMPRESA (singleton)
+// =====================================================================
+
+model EmpresaConfig {
+  id String @id @default("singleton")
+
+  razaoSocial       String?
+  nomeFantasia      String?
+  cnpj              String?
+  inscricaoEstadual String?
+
+  endereco String?
+  cidade   String?
+  estado   String?
+  cep      String?
+
+  telefone String?
+  email    String?
+  whatsapp String?
+
+  logo String?
+
+  asaasApiKey  String?
+  asaasSandbox Boolean @default(true)
+
+  bannerImagem    String?
+  bannerTitulo    String?
+  bannerSubtitulo String?
+  sobreTexto      String?
+  contatoTexto    String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("empresa_config")
+}
+
+// =====================================================================
+// CONTRATOS — Templates e termos
+// =====================================================================
+
+model TermoContrato {
+  id           String      @id @default(cuid())
+  nome         String
+  loteamentoId String?
+  loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
+  conteudo     String
+  ativo        Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("termos_contrato")
+}
+
+model ContratoTemplate {
+  id           String     @id @default(cuid())
+  loteadoraId  String?
+  loteadora    Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+  nome         String
+  descricao    String?
+  conteudoHtml String     @db.Text // HTML com variáveis {{cliente.nome}}, {{lote.codigo}}, etc.
+  ativo        Boolean    @default(true)
+  default      Boolean    @default(false)
+
+  vendas Venda[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, ativo])
+  @@map("contrato_templates")
+}
+
+// =====================================================================
+// RÉGUA DE COBRANÇA — automação financeira
+// =====================================================================
+
+model ReguaCobranca {
+  id          String  @id @default(cuid())
+  loteadoraId String
+  nome        String
+  descricao   String?
+  ativa       Boolean @default(true)
+  cobrarAtrasoDiario Boolean @default(false)
+
+  passos        ReguaCobrancaPasso[]
+  loteadoras    Loteadora[]          @relation("LoteadoraReguaAtiva")
+  loteadorasRel Loteadora[]          @relation("LoteadoraReguas")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reguas_cobranca")
+}
+
+model ReguaCobrancaPasso {
+  id         String           @id @default(cuid())
+  reguaId    String
+  regua      ReguaCobranca    @relation(fields: [reguaId], references: [id], onDelete: Cascade)
+  ordem      Int              @default(0)
+  // offset em dias relativo ao vencimento (negativo = antes, positivo = depois)
+  diasOffset Int
+  canal      CanalComunicacao
+  template   String           @db.Text // pode usar variáveis {{cliente.nome}}, {{parcela.numero}}, etc.
+  ativo      Boolean          @default(true)
+
+  @@index([reguaId, ordem])
+  @@map("regua_cobranca_passos")
+}
+
+enum CanalComunicacao {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+// =====================================================================
+// COMUNICAÇÃO — log de envios (WhatsApp/Email/SMS)
+// =====================================================================
+
+model EnvioComunicacao {
+  id          String     @id @default(cuid())
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: SetNull)
+
+  canal        CanalComunicacao
+  destinatario String // email ou telefone
+  assunto      String?
+  corpo        String           @db.Text
+  status       EnvioStatus      @default(PENDENTE)
+  erro         String?
+  providerId   String? // ID retornado pelo provedor (ZapI, etc.)
+  tentativas   Int              @default(0)
+  enviadoEm    DateTime?
+
+  // Contextos opcionais
+  parcelaId String?
+  parcela   Parcela? @relation(fields: [parcelaId], references: [id], onDelete: SetNull)
+
+  userId String?
+  user   AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Idempotência: evita reenviar mesmo conteúdo pro mesmo destinatário no mesmo dia
+  idempotencyKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([canal, status])
+  @@index([parcelaId])
+  @@index([createdAt])
+  @@map("envios_comunicacao")
+}
+
+enum EnvioStatus {
+  PENDENTE
+  ENVIADO
+  FALHOU
+  ENTREGUE
+  LIDO
+}
+
+// =====================================================================
+// ASAAS
+// =====================================================================
+
+model AsaasWebhookLog {
+  id          String    @id @default(cuid())
+  event       String
+  paymentId   String?
+  payload     Json
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?
+  tentativas  Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@unique([event, paymentId])
+  @@index([paymentId])
+  @@index([processed, createdAt])
+  @@map("asaas_webhook_logs")
+}
+
+// =====================================================================
+// AUDITORIA GERAL
+// =====================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userType  String?
+  action    String
+  entity    String
+  entityId  String?
+  diff      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// =====================================================================
+// RATE LIMITING — fallback se Redis não estiver disponível
+// =====================================================================
+
+model RateLimitBucket {
+  id        String   @id @default(cuid())
+  key       String   @unique // "ip:1.2.3.4:login" | "email:foo@bar:checkout"
+  hits      Int      @default(0)
+  windowEnd DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([windowEnd])
+  @@map("rate_limit_buckets")
+}
+
+// =====================================================================
+// COBRANÇA PIX AVULSA — cobranças PIX rápidas geradas no painel financeiro,
+// não vinculadas a uma Venda/Parcela. Pode ser para cliente cadastrado ou ad-hoc.
+// =====================================================================
+
+model CobrancaAvulsa {
+  id          String    @id @default(cuid())
+  loteadoraId String
+  loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  // Cliente vinculado (opcional)
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+
+  // Dados ad-hoc (usados quando cliente não está cadastrado)
+  nomeAdHoc     String?
+  cpfCnpjAdHoc  String?
+  emailAdHoc    String?
+  telefoneAdHoc String?
+
+  // Lote vinculado (opcional — usado quando a cobrança é da entrada de um lote)
+  loteId String?
+  lote   Lote?   @relation(fields: [loteId], references: [id], onDelete: SetNull)
+
+  valor      Decimal  @db.Decimal(12, 2)
+  descricao  String?
+  vencimento DateTime
+
+  // Asaas
+  asaasCustomerId String?
+  asaasPaymentId  String? @unique
+  asaasInvoiceUrl String?
+  asaasPixCode    String? @db.Text
+  asaasPixQrCode  String? @db.Text
+
+  status CobrancaAvulsaStatus @default(PENDENTE)
+  pagoEm DateTime?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, status])
+  @@index([clienteId])
+  @@index([loteId])
+  @@map("cobrancas_avulsas")
+}
+
+enum CobrancaAvulsaStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+  ESTORNADO
+}
+
+// =====================================================================
+// FORMULÁRIOS CUSTOMIZADOS — coleta de dados/documentos de clientes
+// =====================================================================
+
+model Formulario {
+  id          String     @id @default(cuid())
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  // Identificação
+  slug        String  @unique // usado em /f/<slug>
+  nome        String
+  descricao   String?
+  ativo       Boolean @default(true)
+
+  // Vinculo opcional com loteamento (afeta dropdown de lotes)
+  loteamentoId String?
+  loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: SetNull)
+
+  // Definição dos campos (JSON com lista de FormCampo)
+  campos Json
+
+  // Aparência / textos
+  corPrimaria      String?
+  logo             String?
+  mensagemSucesso  String? // mostrado após envio
+  redirectUrl      String? // se setado, redireciona após envio
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  respostas FormularioResposta[]
+
+  @@index([loteadoraId, ativo])
+  @@map("formularios")
+}
+
+model FormularioResposta {
+  id           String     @id @default(cuid())
+  formularioId String
+  formulario   Formulario @relation(fields: [formularioId], references: [id], onDelete: Cascade)
+
+  // Dados extraídos (indexados para busca rápida)
+  nome     String?
+  cpfCnpj  String?
+  email    String?
+  telefone String?
+  loteCodigo String?
+
+  // Todas as respostas (dadosCampoId → valor)
+  dados Json
+
+  status FormularioRespostaStatus @default(NOVA)
+
+  // Tracking
+  ipAddress String?
+  userAgent String?
+
+  // Quem visualizou pela primeira vez
+  vistaEm  DateTime?
+  vistaPor String?
+
+  arquivos FormularioArquivo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([formularioId, status, createdAt])
+  @@index([cpfCnpj])
+  @@map("formulario_respostas")
+}
+
+enum FormularioRespostaStatus {
+  NOVA
+  EM_ANALISE
+  PROCESSADA
+  ARQUIVADA
+}
+
+model FormularioArquivo {
+  id         String             @id @default(cuid())
+  respostaId String
+  resposta   FormularioResposta @relation(fields: [respostaId], references: [id], onDelete: Cascade)
+
+  // qual campo do formulário (ex: "rg", "comprovante_residencia")
+  campoId String
+
+  nomeOriginal String
+  caminho      String // path em disco, ex: /uploads/formularios/<respostaId>/<file>
+  mimeType     String?
+  tamanho      Int? // bytes
+
+  createdAt DateTime @default(now())
+
+  @@index([respostaId])
+  @@map("formulario_arquivos")
+}

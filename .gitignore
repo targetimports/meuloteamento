@@ -1,0 +1,34 @@
+node_modules
+.next
+out
+build
+dist
+
+.env
+.env.local
+.env*.local
+.env.bak*
+
+# Backups deixados por edição direta no servidor (código e binários)
+*.bak
+*.bak.*
+*.bak-*
+
+*.log
+npm-debug.log*
+
+.DS_Store
+Thumbs.db
+
+.vscode
+.idea
+*.swp
+
+coverage
+.cache
+.turbo
+
+next-env.d.ts
+
+# Uploads (mapas, fotos, etc) — persistem no servidor, fora do repo
+public/uploads/

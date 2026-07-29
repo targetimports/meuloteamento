@@ -1,0 +1,22 @@
+# Crontab para a VPS - meuloteamento
+# Instalar com: crontab -e (como root)
+#
+# IMPORTANTE: o CRON_TOKEN vai como HEADER (mais seguro que query string).
+# Defina CRON_TOKEN no /etc/meuloteamento/.env e copie aqui.
+
+CRON_TOKEN=COLE_SEU_CRON_TOKEN_AQUI
+
+# Expirar reservas PIX nao pagas (a cada 5 min)
+*/5 * * * * curl -fsS -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/expirar-reservas > /dev/null
+
+# Processar webhooks Asaas pendentes (a cada 1 min)
+* * * * * curl -fsS -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/processar-webhooks-asaas > /dev/null
+
+# Regua de cobranca (1x por dia as 9h00) + processa fila de envios
+0 9 * * * curl -fsS -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/regua-cobranca > /dev/null
+
+# Drena fila de comunicacoes a cada 10 minutos (caso falha temporaria do provedor)
+*/10 * * * * curl -fsS -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/processar-envios > /dev/null
+
+# Backup do banco (3h da manha)
+0 3 * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1

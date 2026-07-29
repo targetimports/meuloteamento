@@ -1,0 +1,326 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
+import { canAccessLoteamento, requireAdmin } from '@/lib/tenant';
+import { mudarStatusLote } from '@/lib/lote-status';
+import { deletePayment, AsaasError } from '@/lib/asaas';
+import { getLoteadoraAsaasContext } from '@/lib/asaas-context';
+import { cancelarComissoesDaVenda } from '@/lib/comissao';
+
+type StatusVendaFinal = 'CANCELADA' | 'DISTRATADA';
+
+/**
+ * Distrato/cancelamento de venda:
+ *  1. Marca a venda com o status final (CANCELADA ou DISTRATADA)
+ *  2. Cancela todas as parcelas que ainda estão PENDENTES ou ATRASADAS
+ *  3. Devolve o lote para o status escolhido (default: DISPONIVEL)
+ *  4. Registra histórico na auditoria do lote
+ *
+ *  Idempotente: se a venda já estiver finalizada, falha graciosamente.
+ */
+export async function distratarVenda(
+  vendaId: string,
+  formData: FormData
+): Promise<void> {
+  const session = await requireAdmin();
+
+  const motivo = String(formData.get('motivo') || '').trim();
+  const tipoStatus = (String(formData.get('tipoStatus') || 'DISTRATADA') as StatusVendaFinal);
+  const novoStatusLote = String(formData.get('novoStatusLote') || 'DISPONIVEL') as
+    | 'DISPONIVEL'
+    | 'RESERVADO'
+    | 'BLOQUEADO';
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: { lote: { include: { loteamento: { select: { slug: true, loteadoraId: true } } } } },
+  });
+  if (!venda) throw new Error('Venda não encontrada');
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    throw new Error('Sem permissão para esta venda');
+  }
+  if (venda.status === 'CANCELADA' || venda.status === 'DISTRATADA') {
+    throw new Error('Esta venda já foi finalizada (' + venda.status + ').');
+  }
+
+  // 1) ANTES de cancelar localmente: deletar TODAS as cobranças em aberto no Asaas
+  //    para que o cliente não consiga mais pagar PIX/boleto de uma venda cancelada.
+  const parcelasAbertas = await prisma.parcela.findMany({
+    where: {
+      vendaId,
+      status: { in: ['PENDENTE', 'ATRASADO'] },
+      asaasPaymentId: { not: null },
+    },
+    select: { id: true, asaasPaymentId: true, numero: true },
+  });
+
+  if (parcelasAbertas.length > 0) {
+    const ctx = await getLoteadoraAsaasContext(venda.lote.loteamento.loteadoraId);
+    if (ctx) {
+      for (const p of parcelasAbertas) {
+        if (!p.asaasPaymentId) continue;
+        try {
+          await deletePayment(ctx, p.asaasPaymentId);
+        } catch (err) {
+          // 404/400 = já deletado/inexistente — segue o jogo.
+          // Outros erros: loga mas NÃO aborta o distrato (a cobrança ainda pode ser
+          // cancelada manualmente no painel Asaas).
+          if (
+            !(err instanceof AsaasError) ||
+            (err.status !== 404 && err.status !== 400)
+          ) {
+            console.warn(
+              `[distratarVenda] falha ao deletar PIX ${p.asaasPaymentId} (parcela ${p.numero}):`,
+              err
+            );
+          }
+        }
+      }
+    } else {
+      console.warn(
+        `[distratarVenda] loteadora ${venda.lote.loteamento.loteadoraId} sem ctx Asaas — não foi possível deletar ${parcelasAbertas.length} cobrança(s) em aberto`
+      );
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Atualiza venda
+    await tx.venda.update({
+      where: { id: vendaId },
+      data: {
+        status: tipoStatus,
+        observacoes:
+          (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+          `[${new Date().toLocaleDateString('pt-BR')}] ${tipoStatus} por ${session.email}` +
+          (motivo ? ` — ${motivo}` : ''),
+      },
+    });
+
+    // Cancela parcelas em aberto
+    await tx.parcela.updateMany({
+      where: {
+        vendaId,
+        status: { in: ['PENDENTE', 'ATRASADO'] },
+      },
+      data: { status: 'CANCELADO' },
+    });
+
+    // Libera o lote
+    await mudarStatusLote({
+      loteId: venda.loteId,
+      novoStatus: novoStatusLote,
+      motivo:
+        novoStatusLote === 'BLOQUEADO'
+          ? motivo || `Bloqueado após ${tipoStatus.toLowerCase()} do contrato #${venda.numero}`
+          : `Liberado após ${tipoStatus.toLowerCase()} do contrato #${venda.numero}`,
+      userId: session.sub,
+      userType: 'ADMIN',
+      tx,
+    });
+  });
+
+  // Cancela comissões pendentes do corretor (BLOQUEADA/LIBERADA → CANCELADA).
+  // Comissões já pagas (status PAGA) são preservadas.
+  await cancelarComissoesDaVenda(vendaId);
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/vendas');
+  revalidatePath('/admin/financeiro');
+  revalidatePath('/admin/comissoes');
+  revalidatePath(`/${venda.lote.loteamento.slug}`);
+
+  redirect(`/admin/vendas?msg=distratada`);
+}
+
+/**
+ * Reajusta as parcelas PENDENTES/ATRASADAS de uma venda por um índice (%).
+ * Útil para aplicar IPCA/IGP-M anualmente.
+ *
+ * O percentual é cumulativo sobre o valor atual: novo = atual * (1 + pct/100).
+ * Idempotente apenas no sentido de não tocar em parcelas pagas/canceladas.
+ */
+export async function reajustarParcelas(
+  vendaId: string,
+  formData: FormData
+): Promise<void> {
+  const session = await requireAdmin();
+
+  const pctStr = String(formData.get('percentual') || '0').replace(',', '.');
+  const indice = String(formData.get('indice') || 'IPCA').trim().toUpperCase();
+  const pct = parseFloat(pctStr);
+
+  if (!isFinite(pct) || pct === 0) {
+    throw new Error('Percentual inválido. Informe um número diferente de zero.');
+  }
+  if (Math.abs(pct) > 50) {
+    throw new Error('Reajuste acima de 50% bloqueado por segurança. Confirme o índice.');
+  }
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: {
+      lote: { include: { loteamento: { select: { loteadoraId: true } } } },
+    },
+  });
+  if (!venda) throw new Error('Venda não encontrada');
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    throw new Error('Sem permissão.');
+  }
+  if (venda.status === 'CANCELADA' || venda.status === 'DISTRATADA' || venda.status === 'QUITADA') {
+    throw new Error('Venda finalizada não pode ser reajustada.');
+  }
+
+  const fator = 1 + pct / 100;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const parcelas = await tx.parcela.findMany({
+      where: { vendaId, status: { in: ['PENDENTE', 'ATRASADO'] } },
+      select: { id: true, valor: true },
+    });
+
+    for (const p of parcelas) {
+      const novo = Number(p.valor) * fator;
+      await tx.parcela.update({
+        where: { id: p.id },
+        data: { valor: novo.toFixed(2) },
+      });
+    }
+
+    // Anota no histórico via observação da venda
+    await tx.venda.update({
+      where: { id: vendaId },
+      data: {
+        observacoes:
+          (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+          `[${new Date().toLocaleDateString('pt-BR')}] Reajuste de ${pct.toFixed(2)}% (${indice}) aplicado em ${parcelas.length} parcela(s) por ${session.email}.`,
+      },
+    });
+
+    return parcelas.length;
+  });
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/financeiro');
+
+  // Não dá pra mandar query string num redirect via server action chamado por <form action>?
+  // Vamos só revalidar e deixar a UI mostrar o resultado novo.
+  redirect(`/admin/vendas/${vendaId}?msg=reajustada&n=${result}`);
+}
+
+/**
+ * Troca/adiciona/remove o corretor de uma venda já criada.
+ *
+ * Comportamento com COMISSÕES existentes:
+ *   - Comissões PAGAS  → preservadas (já saiu dinheiro)
+ *   - Comissões LIBERADAS → preservadas (compromisso pendente — admin decide
+ *                          se quer estornar antes)
+ *   - Comissões BLOQUEADAS → reatribuídas ao novo corretor (ou canceladas
+ *                          se o novo for null/removeu)
+ *
+ * Idempotente: se o corretor for o mesmo, retorna sem alterações.
+ */
+export async function mudarCorretorVenda(
+  vendaId: string,
+  novoCorretorId: string | null,
+  motivo?: string,
+): Promise<void> {
+  const session = await requireAdmin();
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: {
+      corretor: { select: { id: true, nome: true } },
+      lote: {
+        include: {
+          loteamento: { select: { loteadoraId: true, slug: true } },
+        },
+      },
+      comissaoParcelas: { select: { id: true, status: true, valor: true } },
+    },
+  });
+  if (!venda) throw new Error('Venda não encontrada');
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    throw new Error('Sem permissão para esta venda');
+  }
+
+  // Mesmo corretor? Não faz nada.
+  const atualId = venda.corretorId ?? null;
+  if (atualId === novoCorretorId) return;
+
+  // Valida que o novo corretor existe e pertence à mesma loteadora
+  // (corretores são compartilhados nesse modelo, mas validamos pra evitar erro)
+  let novoNome: string | null = null;
+  if (novoCorretorId) {
+    const novo = await prisma.corretor.findUnique({
+      where: { id: novoCorretorId },
+      select: { id: true, nome: true, ativo: true },
+    });
+    if (!novo) throw new Error('Novo corretor não encontrado');
+    if (!novo.ativo) throw new Error('Esse corretor está inativo');
+    novoNome = novo.nome;
+  }
+
+  const nomeAntigo = venda.corretor?.nome ?? '(sem corretor)';
+  const nomeNovo = novoNome ?? '(sem corretor)';
+
+  // Identifica comissões a reatribuir / cancelar
+  const bloqueadas = venda.comissaoParcelas.filter((c) => c.status === 'BLOQUEADA');
+  const liberadas = venda.comissaoParcelas.filter((c) => c.status === 'LIBERADA');
+
+  await prisma.$transaction(async (tx) => {
+    // 1) Atualiza o corretor da venda + anota no histórico
+    const obsNova =
+      (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+      `[${new Date().toLocaleDateString('pt-BR')}] Corretor: ${nomeAntigo} → ${nomeNovo} (por ${session.email})` +
+      (motivo ? ` — ${motivo}` : '');
+
+    await tx.venda.update({
+      where: { id: vendaId },
+      data: {
+        corretorId: novoCorretorId,
+        observacoes: obsNova,
+      },
+    });
+
+    // 2) Comissões BLOQUEADAS → reatribuir pro novo corretor (ou cancelar se removeu)
+    if (bloqueadas.length > 0) {
+      if (novoCorretorId) {
+        await tx.comissaoParcela.updateMany({
+          where: {
+            id: { in: bloqueadas.map((c) => c.id) },
+          },
+          data: { corretorId: novoCorretorId },
+        });
+      } else {
+        // Sem novo corretor → cancela as bloqueadas
+        await tx.comissaoParcela.updateMany({
+          where: {
+            id: { in: bloqueadas.map((c) => c.id) },
+          },
+          data: { status: 'CANCELADA' },
+        });
+      }
+    }
+
+    // 3) Comissões LIBERADAS — preservam corretor antigo (compromisso pendente)
+    //    mas anota observação se houver
+    if (liberadas.length > 0 && atualId) {
+      const valorLiberado = liberadas.reduce((s, c) => s + Number(c.valor), 0);
+      await tx.comissaoParcela.updateMany({
+        where: { id: { in: liberadas.map((c) => c.id) } },
+        data: {
+          observacoes:
+            `Corretor original mantido nesta comissão (já liberada). ` +
+            `Corretor da venda agora é ${nomeNovo}. ` +
+            `Valor pendente: ${valorLiberado.toFixed(2)}`,
+        },
+      });
+    }
+  });
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/vendas');
+  revalidatePath('/admin/comissoes');
+}
