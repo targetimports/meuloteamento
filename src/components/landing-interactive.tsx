@@ -43,23 +43,6 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    name: 'Iniciante',
-    monthlyPrice: 197,
-    tagline: 'Pra começar a digitalizar a venda',
-    cta: 'Começar grátis',
-    ctaHref: '/contato',
-    featured: false,
-    features: [
-      '1 loteamento ativo',
-      'Até 150 lotes',
-      'Landing page personalizada',
-      'Captação de leads',
-      'Painel administrativo',
-      'Suporte por e-mail',
-    ],
-    missing: ['Integração Asaas', 'Múltiplas loteadoras', 'Domínio próprio'],
-  },
-  {
     name: 'Profissional',
     monthlyPrice: 497,
     tagline: 'O escolhido por quem leva sério',
@@ -134,7 +117,7 @@ export function PricingTable() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 items-start">
+      <div className="grid md:grid-cols-2 gap-6 items-start max-w-4xl mx-auto">
         {plans.map((p) => {
           const displayPrice = yearly ? Math.round(p.monthlyPrice * 0.83) : p.monthlyPrice;
           const yearlyTotal = displayPrice * 12;

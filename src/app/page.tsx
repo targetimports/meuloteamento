@@ -1159,7 +1159,7 @@ function Faq() {
     },
     {
       q: 'Posso ter mais de um loteamento?',
-      a: 'Sim. No plano Iniciante é um, no Profissional até 5 e no Empresarial ilimitado. Cada um com sua identidade visual, seus lotes e suas condições.',
+      a: 'Sim. No plano Profissional são até 5 e no Empresarial ilimitado. Cada um com sua identidade visual, seus lotes e suas condições.',
     },
     {
       q: 'Os dados são meus?',
