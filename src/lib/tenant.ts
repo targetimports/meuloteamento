@@ -77,6 +77,38 @@ export async function canAccessLoteamento(
  * caso a tela deve pedir para escolher a loteadora em /admin/loteadoras.
  */
 /**
+ * Aborta se o loteamento não pertence à loteadora de quem está logado.
+ * Use no INÍCIO de toda server action que recebe um loteamentoId — proteger só
+ * a página não basta, porque a action é um endpoint POST próprio.
+ */
+export async function assertAcessoLoteamento(loteamentoId: string): Promise<void> {
+  const session = await requireAdmin();
+  if (!session.loteadoraId) return; // super admin passa
+
+  const lot = await prisma.loteamento.findUnique({
+    where: { id: loteamentoId },
+    select: { loteadoraId: true },
+  });
+  if (!lot || lot.loteadoraId !== session.loteadoraId) {
+    throw new Error('Acesso negado: este loteamento é de outra empresa.');
+  }
+}
+
+/** Mesma checagem, partindo de um lote. */
+export async function assertAcessoLote(loteId: string): Promise<void> {
+  const session = await requireAdmin();
+  if (!session.loteadoraId) return;
+
+  const lote = await prisma.lote.findUnique({
+    where: { id: loteId },
+    select: { loteamento: { select: { loteadoraId: true } } },
+  });
+  if (!lote || lote.loteamento.loteadoraId !== session.loteadoraId) {
+    throw new Error('Acesso negado: este lote é de outra empresa.');
+  }
+}
+
+/**
  * Filtro de loteadora para entidades que pendem direto dela (Corretor, por
  * exemplo). Super admin recebe {} e enxerga todas.
  *

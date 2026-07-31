@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { assertAcessoLoteamento } from '@/lib/tenant';
 import { getSession } from '@/lib/auth';
 
 const posicaoSchema = z.object({
@@ -22,6 +23,7 @@ export async function salvarPosicoes(
   loteamentoId: string,
   raw: unknown
 ): Promise<{ ok: boolean; error?: string; updated?: number }> {
+  await assertAcessoLoteamento(loteamentoId);
   const session = await getSession();
   if (!session) return { ok: false, error: 'Não autenticado' };
 
@@ -83,6 +85,7 @@ export async function salvarCalibracaoSatelite(
   loteamentoId: string,
   raw: unknown
 ): Promise<{ ok: boolean; error?: string }> {
+  await assertAcessoLoteamento(loteamentoId);
   const session = await getSession();
   if (!session) return { ok: false, error: 'Não autenticado' };
 
@@ -109,6 +112,7 @@ export async function salvarCalibracaoSatelite(
 export async function resetarCalibracaoSatelite(
   loteamentoId: string
 ): Promise<{ ok: boolean }> {
+  await assertAcessoLoteamento(loteamentoId);
   const session = await getSession();
   if (!session) return { ok: false };
   await prisma.loteamento.update({

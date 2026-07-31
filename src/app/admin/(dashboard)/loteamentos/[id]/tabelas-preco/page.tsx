@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { canAccessLoteamento } from '@/lib/tenant';
 import { NovaTabelaForm, EditarTabelaForm } from '@/components/TabelaPrecoForms';
 import { criarTabela, atualizarTabela, excluirTabela } from './actions';
 
@@ -9,9 +10,11 @@ export const dynamic = 'force-dynamic';
 export default async function TabelasPrecoPage({ params }: { params: { id: string } }) {
   const loteamento = await prisma.loteamento.findUnique({
     where: { id: params.id },
-    select: { id: true, nome: true },
+    select: { id: true, nome: true , loteadoraId: true },
   });
   if (!loteamento) notFound();
+  // Sem esta checagem um admin abre o loteamento de outra empresa pelo id.
+  if (!(await canAccessLoteamento(loteamento.loteadoraId))) notFound();
 
   const tabelas = await prisma.tabelaPreco.findMany({
     where: { loteamentoId: loteamento.id },

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { whereLoteadora } from '@/lib/tenant';
+import { whereLoteadora, tenantId } from '@/lib/tenant';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { LeadAtualizarForm } from '@/components/LeadForm';
 import { formatDateTime } from '@/lib/format';
@@ -10,9 +10,16 @@ import { atualizarLead, excluirLead } from '../actions';
 export const dynamic = 'force-dynamic';
 
 export default async function LeadDetalhe({ params }: { params: { id: string } }) {
+  const tid = await tenantId();
+
   const [lead, corretores] = await Promise.all([
-    prisma.lead.findUnique({
-      where: { id: params.id },
+    // findFirst com o mesmo filtro da listagem, e nao findUnique pelo id: sem
+    // isso qualquer admin abria o lead de outra empresa sabendo o id.
+    prisma.lead.findFirst({
+      where: {
+        id: params.id,
+        ...(tid ? { loteamento: { loteadoraId: tid } } : {}),
+      },
       include: {
         loteamento: { select: { id: true, nome: true } },
         lote: { select: { id: true, codigo: true } },

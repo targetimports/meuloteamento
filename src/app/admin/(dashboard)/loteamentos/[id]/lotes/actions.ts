@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { assertAcessoLoteamento, assertAcessoLote } from '@/lib/tenant';
 import { mudarStatusLote } from '@/lib/lote-status';
 import { getSession } from '@/lib/auth';
 import type { LoteStatus, OrientacaoSolar } from '@prisma/client';
@@ -46,6 +47,7 @@ const loteSchema = z.object({
 });
 
 export async function criarLote(loteamentoId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await assertAcessoLoteamento(loteamentoId);
   const raw = Object.fromEntries(formData.entries());
   const parsed = loteSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
@@ -97,6 +99,7 @@ export async function criarLotesEmMassa(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await assertAcessoLoteamento(loteamentoId);
   const raw = Object.fromEntries(formData.entries());
   const parsed = lotesBulkSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
@@ -157,6 +160,7 @@ const atualizarSchema = z.object({
 });
 
 export async function atualizarLote(loteId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await assertAcessoLote(loteId);
   const raw = Object.fromEntries(formData.entries());
   const parsed = atualizarSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
@@ -202,6 +206,7 @@ export async function atualizarLote(loteId: string, _prev: FormState, formData: 
 // =====================================================================
 
 export async function excluirLote(loteId: string): Promise<void> {
+  await assertAcessoLote(loteId);
   const vendas = await prisma.venda.count({ where: { loteId } });
   if (vendas > 0) {
     throw new Error('Não é possível excluir: lote já possui venda associada.');

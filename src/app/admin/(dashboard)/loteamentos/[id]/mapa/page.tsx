@@ -3,6 +3,7 @@ import path from 'path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { canAccessLoteamento } from '@/lib/tenant';
 import { MapaUploader } from '@/components/MapaUploader';
 import { MapaEditor } from '@/components/MapaEditor';
 import { salvarPosicoes, salvarCalibracaoSatelite, resetarCalibracaoSatelite } from './actions';
@@ -28,12 +29,14 @@ export default async function MapaPage({ params }: { params: { id: string } }) {
   const loteamento = await prisma.loteamento.findUnique({
     where: { id: params.id },
     select: {
-      id: true, nome: true, slug: true, imagemMapa: true,
+      id: true, nome: true, loteadoraId: true, slug: true, imagemMapa: true,
       lat: true, lng: true, updatedAt: true,
       mapaSateliteCalib: true,
     },
   });
   if (!loteamento) notFound();
+  // Sem esta checagem um admin abre o loteamento de outra empresa pelo id.
+  if (!(await canAccessLoteamento(loteamento.loteadoraId))) notFound();
 
   // Lê calibração do satélite (normaliza compat com formato legado de `scale` único)
   const sateliteCalib = normalizeSateliteCalib(loteamento.mapaSateliteCalib);

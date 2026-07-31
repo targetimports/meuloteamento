@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { assertAcessoLoteamento } from '@/lib/tenant';
 
 type FormState = { error?: string; ok?: boolean };
 
@@ -30,6 +31,7 @@ export async function criarTabela(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await assertAcessoLoteamento(loteamentoId);
   const parsed = tabelaSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
 
@@ -61,6 +63,8 @@ export async function atualizarTabela(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await assertAcessoTabela(tabelaId);
+
   const parsed = tabelaSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
 
@@ -88,6 +92,20 @@ export async function atualizarTabela(
 }
 
 export async function excluirTabela(tabelaId: string): Promise<void> {
+  // Confere ANTES de apagar: a versão anterior deletava e só então lia o
+  // registro, então a checagem chegaria tarde demais.
+  await assertAcessoTabela(tabelaId);
+
   const tabela = await prisma.tabelaPreco.delete({ where: { id: tabelaId } });
   revalidatePath(`/admin/loteamentos/${tabela.loteamentoId}/tabelas-preco`);
+}
+
+/** Resolve o loteamento da tabela e delega a checagem de dono. */
+async function assertAcessoTabela(tabelaId: string): Promise<void> {
+  const tabela = await prisma.tabelaPreco.findUnique({
+    where: { id: tabelaId },
+    select: { loteamentoId: true },
+  });
+  if (!tabela) throw new Error('Tabela de preço não encontrada.');
+  await assertAcessoLoteamento(tabela.loteamentoId);
 }
