@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { IconX } from './icons';
 import {
   mudarStatusInteressado,
-  marcarComoRespondido,
+  responderInteressado,
   salvarObservacoes,
 } from '@/app/admin/(dashboard)/interessados/actions';
 
@@ -53,19 +53,6 @@ function tempoRelativo(iso: string) {
 export function InteressadosTabela({ itens }: { itens: InteressadoUI[] }) {
   const [aberto, setAberto] = useState<InteressadoUI | null>(null);
   const [salvando, setSalvando] = useState(false);
-
-  async function responder(i: InteressadoUI) {
-    const assunto = `Sobre seu interesse no plano ${i.plano} — meuloteamento`;
-    const corpo =
-      `Olá, ${i.nome.split(' ')[0]}!\n\n` +
-      `Recebemos seu contato sobre o plano ${i.plano}.\n\n`;
-    window.location.href =
-      `mailto:${i.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
-
-    const fd = new FormData();
-    fd.set('id', i.id);
-    await marcarComoRespondido({}, fd);
-  }
 
   async function trocarStatus(id: string, status: InteressadoUI['status']) {
     setSalvando(true);
@@ -138,18 +125,11 @@ export function InteressadosTabela({ itens }: { itens: InteressadoUI[] }) {
                     {tempoRelativo(i.createdAt)}
                   </td>
                   <td className="px-4 py-3 align-top">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end">
                       <button
                         type="button"
                         onClick={() => setAberto(i)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-medium transition whitespace-nowrap"
-                      >
-                        Ver mensagem
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => responder(i)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition whitespace-nowrap"
+                        className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition whitespace-nowrap"
                       >
                         Responder
                       </button>
@@ -167,7 +147,6 @@ export function InteressadosTabela({ itens }: { itens: InteressadoUI[] }) {
           item={aberto}
           salvando={salvando}
           onFechar={() => setAberto(null)}
-          onResponder={() => responder(aberto)}
           onTrocarStatus={(s) => trocarStatus(aberto.id, s)}
           onSalvarObservacoes={(t) => gravarObservacoes(aberto.id, t)}
         />
@@ -180,19 +159,37 @@ function DetalheInteressado({
   item,
   salvando,
   onFechar,
-  onResponder,
   onTrocarStatus,
   onSalvarObservacoes,
 }: {
   item: InteressadoUI;
   salvando: boolean;
   onFechar: () => void;
-  onResponder: () => void;
   onTrocarStatus: (s: InteressadoUI['status']) => void;
   onSalvarObservacoes: (texto: string) => void;
 }) {
   const [obs, setObs] = useState(item.observacoes ?? '');
   const [montado, setMontado] = useState(false);
+  const [resposta, setResposta] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [envioOk, setEnvioOk] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
+
+  async function enviarResposta() {
+    setEnviando(true);
+    setErroEnvio(null);
+    const fd = new FormData();
+    fd.set('id', item.id);
+    fd.set('mensagem', resposta);
+    const r = await responderInteressado({}, fd);
+    setEnviando(false);
+    if (r.error) {
+      setErroEnvio(r.error);
+      return;
+    }
+    setEnvioOk(true);
+    setResposta('');
+  }
 
   // Esc fecha e a rolagem do fundo trava, como no modal da landing.
   useEffect(() => {
@@ -308,19 +305,63 @@ function DetalheInteressado({
             ))}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-5">
-            <p className="text-xs text-slate-400">
-              {item.respondidoEm
-                ? `Respondido ${tempoRelativo(item.respondidoEm)}`
-                : 'Ainda não respondido'}
-            </p>
-            <button
-              type="button"
-              onClick={onResponder}
-              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition"
-            >
-              Responder por e-mail
-            </button>
+          <div className="border-t border-slate-200 pt-5">
+            <div className="flex items-baseline justify-between gap-3 mb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Responder por e-mail
+              </p>
+              <p className="text-xs text-slate-400">
+                {item.respondidoEm
+                  ? `Respondido ${tempoRelativo(item.respondidoEm)}`
+                  : 'Ainda não respondido'}
+              </p>
+            </div>
+
+            {envioOk ? (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
+                <p className="text-sm font-medium text-emerald-900">
+                  Resposta enviada para {item.email}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEnvioOk(false)}
+                  className="mt-2 text-xs text-emerald-700 hover:underline"
+                >
+                  Escrever outra
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={resposta}
+                  onChange={(e) => setResposta(e.target.value)}
+                  rows={5}
+                  placeholder={`Olá, ${item.nome.split(' ')[0]}! Obrigado pelo contato...`}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+                <p className="text-xs text-slate-400 mt-1.5">
+                  Vai como e-mail de <strong>Meu Loteamento</strong> para {item.email}. A
+                  saudação e a assinatura são adicionadas automaticamente.
+                </p>
+
+                {erroEnvio && (
+                  <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                    {erroEnvio}
+                  </p>
+                )}
+
+                <div className="flex justify-end mt-4">
+                  <button
+                    type="button"
+                    disabled={enviando || resposta.trim().length < 5}
+                    onClick={enviarResposta}
+                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition"
+                  >
+                    {enviando ? 'Enviando...' : 'Enviar resposta'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
