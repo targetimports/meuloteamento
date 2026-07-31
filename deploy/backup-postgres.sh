@@ -70,14 +70,18 @@ if [ ! -s "$FILE" ] || ! gzip -t "$FILE" 2>/dev/null; then
   rm -f "$FILE"
   exit 1
 fi
-if ! gunzip -c "$FILE" | grep -q "CREATE TABLE"; then
-  log "ERRO: dump sem CREATE TABLE — não capturou o schema"
+# grep -c e não grep -q: com `set -o pipefail`, o -q sai no primeiro acerto,
+# o gunzip leva SIGPIPE e o pipeline inteiro retorna erro — reprovando um
+# backup que estava perfeito.
+tabelas=$(gunzip -c "$FILE" | grep -c '^CREATE TABLE' || true)
+if [ "${tabelas:-0}" -lt 1 ]; then
+  log "ERRO: dump sem nenhum CREATE TABLE — não capturou o schema"
   rm -f "$FILE"
   exit 1
 fi
 
 chmod 600 "$FILE"
-log "dump ok ($(du -h "$FILE" | cut -f1))"
+log "dump ok ($(du -h "$FILE" | cut -f1), $tabelas tabelas)"
 
 # Rotação local
 ls -1t "$BACKUP_DIR/${DB_NAME}-db-"*.sql.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f
