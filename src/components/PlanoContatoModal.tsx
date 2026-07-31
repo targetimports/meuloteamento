@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconArrowRight, IconCheck, IconX } from './icons';
+import { IconArrowRight, IconCheck, IconX, IconWhatsApp } from './icons';
 import { maskTelefone } from '@/lib/format';
+import { linkWhatsAppPlataforma, WHATSAPP_PLATAFORMA_EXIBICAO } from '@/lib/contato-plataforma';
 
 export interface PlanoOpcao {
   name: string;
@@ -25,6 +26,8 @@ type Status = 'idle' | 'enviando' | 'ok' | 'erro';
 export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
   const [plano, setPlano] = useState(planoInicial);
   const [telefone, setTelefone] = useState('');
+  // Guardado no envio, so para personalizar o link do WhatsApp na tela de sucesso.
+  const [nomeEnviado, setNomeEnviado] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [erro, setErro] = useState<string | null>(null);
 
@@ -97,6 +100,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
             : 'Não foi possível enviar agora. Tente novamente.'
         );
       }
+      setNomeEnviado(String(dados.nome ?? '').trim());
       setStatus('ok');
     } catch (err) {
       setStatus('erro');
@@ -188,6 +192,28 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 ))}
               </ul>
             </div>
+
+            {/*
+              Caminho alternativo: quem prefere conversar agora vai direto para
+              o WhatsApp, com o plano ja escrito na mensagem. Fica como opcao
+              secundaria de proposito — pelo formulario o contato entra no
+              painel; pelo WhatsApp, nao.
+            */}
+            <div className="mt-5 pt-5 border-t border-slate-200">
+              <p className="text-sm text-slate-500 mb-3">Prefere falar agora?</p>
+              <a
+                href={linkWhatsAppPlataforma(planoAtual.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300 font-medium text-sm transition"
+              >
+                <IconWhatsApp className="w-5 h-5" />
+                Chamar no WhatsApp
+                <span className="text-emerald-600 font-normal">
+                  {WHATSAPP_PLATAFORMA_EXIBICAO}
+                </span>
+              </a>
+            </div>
           </div>
 
           {/* ---------------- Coluna da direita: formulario ---------------- */}
@@ -204,10 +230,22 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                   Seu interesse no plano <strong>{plano}</strong> foi registrado.
                   Um consultor vai falar com você pelos dados que deixou.
                 </p>
+
+                {/* Aqui o contato ja esta salvo, entao puxar a conversa para o
+                    WhatsApp so acelera — nao custa o registro. */}
+                <a
+                  href={linkWhatsAppPlataforma(plano, nomeEnviado || undefined)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition mb-3"
+                >
+                  <IconWhatsApp className="w-5 h-5" />
+                  Falar agora no WhatsApp
+                </a>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium transition"
+                  className="px-6 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium transition"
                 >
                   Fechar
                 </button>
