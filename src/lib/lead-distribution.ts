@@ -14,7 +14,13 @@ export async function distribuirLead(input: {
   inicioDia.setHours(0, 0, 0, 0);
 
   const candidatos = await prisma.corretor.findMany({
-    where: { ativo: true, aceitaLeadsAuto: true },
+    where: {
+      ativo: true,
+      aceitaLeadsAuto: true,
+      // O parametro loteadoraId chegava aqui e era ignorado: o lead de uma
+      // empresa podia cair para o corretor de outra.
+      ...(input.loteadoraId ? { loteadoraId: input.loteadoraId } : {}),
+    },
     select: {
       id: true,
       cidadesAtende: true,

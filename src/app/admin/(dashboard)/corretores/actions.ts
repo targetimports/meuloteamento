@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin, whereLoteadora, loteadoraAlvoId } from '@/lib/tenant';
 
 const checkbox = z.preprocess((v) => v === 'on' || v === true, z.boolean());
 
@@ -34,20 +35,36 @@ function buildData(parsed: z.infer<typeof corretorSchema>) {
 }
 
 export async function criarCorretor(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+
   const parsed = corretorSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
 
-  const data = buildData(parsed.data);
-
-  const existingEmail = await prisma.corretor.findUnique({ where: { email: data.email } });
-  if (existingEmail) return { error: 'Já existe um corretor com este e-mail.' };
-
-  if (data.cpfCnpj) {
-    const existingCpf = await prisma.corretor.findUnique({ where: { cpfCnpj: data.cpfCnpj } });
-    if (existingCpf) return { error: 'Já existe um corretor com este CPF/CNPJ.' };
+  const loteadoraId = await loteadoraAlvoId();
+  if (!loteadoraId) {
+    return {
+      error:
+        'Não foi possível identificar a loteadora deste corretor. Abra a empresa em /admin/loteadoras e cadastre por lá.',
+    };
   }
 
-  const created = await prisma.corretor.create({ data });
+  const data = buildData(parsed.data);
+
+  // Unicidade agora e POR loteadora: a mesma pessoa pode ser corretor de duas
+  // empresas diferentes sem colidir.
+  const existingEmail = await prisma.corretor.findFirst({
+    where: { loteadoraId, email: data.email },
+  });
+  if (existingEmail) return { error: 'Já existe um corretor com este e-mail nesta empresa.' };
+
+  if (data.cpfCnpj) {
+    const existingCpf = await prisma.corretor.findFirst({
+      where: { loteadoraId, cpfCnpj: data.cpfCnpj },
+    });
+    if (existingCpf) return { error: 'Já existe um corretor com este CPF/CNPJ nesta empresa.' };
+  }
+
+  const created = await prisma.corretor.create({ data: { ...data, loteadoraId } });
 
   revalidatePath('/admin/corretores');
   redirect(`/admin/corretores/${created.id}`);
@@ -58,21 +75,30 @@ export async function atualizarCorretor(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
+
   const parsed = corretorSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
+
+  // Confere que o corretor e da loteadora de quem esta editando.
+  const alvo = await prisma.corretor.findFirst({
+    where: { id, ...(await whereLoteadora()) },
+    select: { loteadoraId: true },
+  });
+  if (!alvo) return { error: 'Corretor não encontrado.' };
 
   const data = buildData(parsed.data);
 
   const conflictEmail = await prisma.corretor.findFirst({
-    where: { email: data.email, NOT: { id } },
+    where: { loteadoraId: alvo.loteadoraId, email: data.email, NOT: { id } },
   });
-  if (conflictEmail) return { error: 'Já existe outro corretor com este e-mail.' };
+  if (conflictEmail) return { error: 'Já existe outro corretor com este e-mail nesta empresa.' };
 
   if (data.cpfCnpj) {
     const conflictCpf = await prisma.corretor.findFirst({
-      where: { cpfCnpj: data.cpfCnpj, NOT: { id } },
+      where: { loteadoraId: alvo.loteadoraId, cpfCnpj: data.cpfCnpj, NOT: { id } },
     });
-    if (conflictCpf) return { error: 'Já existe outro corretor com este CPF/CNPJ.' };
+    if (conflictCpf) return { error: 'Já existe outro corretor com este CPF/CNPJ nesta empresa.' };
   }
 
   await prisma.corretor.update({ where: { id }, data });
@@ -83,6 +109,14 @@ export async function atualizarCorretor(
 }
 
 export async function excluirCorretor(id: string): Promise<void> {
+  await requireAdmin();
+
+  const alvo = await prisma.corretor.findFirst({
+    where: { id, ...(await whereLoteadora()) },
+    select: { id: true },
+  });
+  if (!alvo) throw new Error('Corretor não encontrado.');
+
   const vendas = await prisma.venda.count({ where: { corretorId: id } });
   if (vendas > 0) {
     throw new Error(`Não é possível excluir: corretor tem ${vendas} venda(s) vinculada(s). Inative em vez de excluir.`);

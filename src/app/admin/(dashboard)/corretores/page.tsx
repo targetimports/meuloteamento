@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { whereLoteadora } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CorretoresPage() {
   const corretores = await prisma.corretor.findMany({
+    // Sem este filtro cada loteadora enxergava a equipe de vendas das outras.
+    where: await whereLoteadora(),
     orderBy: [{ ativo: 'desc' }, { nome: 'asc' }],
     include: { _count: { select: { vendas: true, leads: true } } },
   });

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { tenantId, isSuperAdmin } from '@/lib/tenant';
+import { tenantId, isSuperAdmin, whereLoteadora } from '@/lib/tenant';
 import { LeadsKanban, type LeadUI } from '@/components/LeadsKanban';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export default async function LeadsPage() {
       },
     }),
     prisma.corretor.findMany({
-      where: { ativo: true },
+      where: { ...(await whereLoteadora()), ativo: true },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true },
     }),

@@ -17,7 +17,7 @@ export default async function NovaVendaPage({
 }) {
   const tid = await tenantId();
   const tenantWhereLote = tid ? { loteamento: { loteadoraId: tid } } : {};
-  const tenantWhereCorretor = {}; // corretores são globais por enquanto
+  const tenantWhereCorretor = tid ? { loteadoraId: tid } : {};
 
   const [lotes, clientes, corretores, contas] = await Promise.all([
     prisma.lote.findMany({

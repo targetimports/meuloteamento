@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { whereLoteadora } from '@/lib/tenant';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { LeadAtualizarForm } from '@/components/LeadForm';
 import { formatDateTime } from '@/lib/format';
@@ -19,7 +20,7 @@ export default async function LeadDetalhe({ params }: { params: { id: string } }
       },
     }),
     prisma.corretor.findMany({
-      where: { ativo: true },
+      where: { ...(await whereLoteadora()), ativo: true },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true },
     }),

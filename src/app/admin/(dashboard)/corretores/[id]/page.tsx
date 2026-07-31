@@ -4,12 +4,15 @@ import { prisma } from '@/lib/prisma';
 import { CorretorForm } from '@/components/CorretorForm';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { atualizarCorretor, excluirCorretor } from '../actions';
+import { whereLoteadora } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditCorretorPage({ params }: { params: { id: string } }) {
-  const corretor = await prisma.corretor.findUnique({
-    where: { id: params.id },
+  // findFirst com o filtro da loteadora, e nao findUnique pelo id: assim um
+  // admin nao abre o corretor de outra empresa sabendo o id.
+  const corretor = await prisma.corretor.findFirst({
+    where: { id: params.id, ...(await whereLoteadora()) },
     include: { _count: { select: { vendas: true, leads: true } } },
   });
   if (!corretor) notFound();

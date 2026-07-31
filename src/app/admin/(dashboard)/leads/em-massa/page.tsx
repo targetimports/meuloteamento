@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { tenantId } from '@/lib/tenant';
+import { tenantId, whereLoteadora } from '@/lib/tenant';
 import { formatDate } from '@/lib/format';
 import BulkLeadsPanel from './BulkLeadsPanel';
 
@@ -56,7 +56,7 @@ export default async function LeadsBulkPage({
       },
     }),
     prisma.corretor.findMany({
-      where: { ativo: true },
+      where: { ...(await whereLoteadora()), ativo: true },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true },
     }),

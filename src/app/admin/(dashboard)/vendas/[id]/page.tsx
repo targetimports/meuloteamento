@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { canAccessLoteamento, tenantId } from '@/lib/tenant';
+import { canAccessLoteamento, tenantId, whereLoteadora } from '@/lib/tenant';
 import { formatBRL, formatDate, formatDateTime } from '@/lib/format';
 import { DistratoForm } from '@/components/DistratoForm';
 import { distratarVenda, reajustarParcelas } from './actions';
@@ -90,7 +90,7 @@ export default async function VendaDetalhePage({
 
   // Lista de corretores ativos pra trocar/adicionar
   const corretoresAtivos = await prisma.corretor.findMany({
-    where: { ativo: true },
+    where: { ...(await whereLoteadora()), ativo: true },
     orderBy: { nome: 'asc' },
     select: { id: true, nome: true },
   });

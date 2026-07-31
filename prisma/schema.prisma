@@ -170,6 +170,7 @@ model Loteadora {
 
   loteamentos    Loteamento[]
   adminUsers     AdminUser[]
+  corretores     Corretor[]
   contas         ContaFinanceira[]
   reguasCobranca ReguaCobranca[]    @relation("LoteadoraReguas")
   templates      ContratoTemplate[]
@@ -191,11 +192,19 @@ model Loteadora {
 // =====================================================================
 
 model Corretor {
-  id             String  @id @default(cuid())
-  nome           String
-  email          String  @unique
+  id String @id @default(cuid())
+
+  // A qual empresa-cliente o corretor pertence. Sem isso ele era global: toda
+  // loteadora enxergava a equipe de vendas das outras.
+  loteadoraId String
+  loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  nome String
+  // E-mail e CPF são únicos DENTRO da loteadora, não no sistema inteiro — a
+  // mesma pessoa pode ser corretor de duas empresas diferentes.
+  email          String
   telefone       String?
-  cpfCnpj        String? @unique
+  cpfCnpj        String?
   creci          String?
   comissaoPadrao Decimal @default(0) @db.Decimal(5, 2)
   ativo          Boolean @default(true)
@@ -213,6 +222,9 @@ model Corretor {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([loteadoraId, email])
+  @@unique([loteadoraId, cpfCnpj])
+  @@index([loteadoraId])
   @@map("corretores")
 }
 

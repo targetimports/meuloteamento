@@ -109,12 +109,21 @@ export async function atribuirCorretor(input: {
 }): Promise<{ ok: boolean; error?: string }> {
   const session = await requireAdmin();
   try {
+    // Confere que o corretor e da mesma loteadora de quem esta atribuindo —
+    // senao daria para pendurar o lead no corretor de outra empresa.
     const corretor = input.corretorId
-      ? await prisma.corretor.findUnique({
-          where: { id: input.corretorId },
+      ? await prisma.corretor.findFirst({
+          where: {
+            id: input.corretorId,
+            ...(session.loteadoraId ? { loteadoraId: session.loteadoraId } : {}),
+          },
           select: { nome: true },
         })
       : null;
+
+    if (input.corretorId && !corretor) {
+      return { ok: false, error: 'Corretor não encontrado nesta empresa.' };
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.lead.update({

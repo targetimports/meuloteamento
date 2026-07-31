@@ -76,6 +76,19 @@ export async function canAccessLoteamento(
  * Retorna null se for super admin e houver 0 ou mais de 1 loteadora — nesse
  * caso a tela deve pedir para escolher a loteadora em /admin/loteadoras.
  */
+/**
+ * Filtro de loteadora para entidades que pendem direto dela (Corretor, por
+ * exemplo). Super admin recebe {} e enxerga todas.
+ *
+ *   const corretores = await prisma.corretor.findMany({
+ *     where: { ...(await whereLoteadora()), ativo: true },
+ *   });
+ */
+export async function whereLoteadora(): Promise<{ loteadoraId?: string }> {
+  const session = await requireAdmin();
+  return session.loteadoraId ? { loteadoraId: session.loteadoraId } : {};
+}
+
 export async function loteadoraAlvoId(): Promise<string | null> {
   const session = await requireAdmin();
   if (session.loteadoraId) return session.loteadoraId;
