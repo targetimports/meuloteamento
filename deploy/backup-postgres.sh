@@ -15,7 +15,8 @@
 #   BACKUP_ON             "false" desliga sem precisar mexer no crontab
 #
 # Crontab (root):
-#   0 3 * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
+#   0 3  * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
+#   0 12 * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
 #
 # Restaurar do zero:
 #   gunzip -c meuloteamento-db-AAAAMMDD-HHMMSS.sql.gz | sudo -u postgres psql -d meuloteamento
