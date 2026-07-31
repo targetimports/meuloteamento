@@ -27,7 +27,7 @@ function digits(s: string): string {
   return s.replace(/\D/g, '');
 }
 
-async function sendWhatsApp(params: {
+export async function sendWhatsApp(params: {
   loteadoraId?: string | null;
   destinatario: string;
   corpo: string;
@@ -130,7 +130,7 @@ async function sendWhatsApp(params: {
   }
 }
 
-async function sendEmail(params: {
+export async function sendEmail(params: {
   loteadoraId?: string | null;
   destinatario: string;
   assunto: string;

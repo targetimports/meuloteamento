@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
+import { notificarNovoInteressado } from '@/lib/notificar-interessado';
 
 /**
  * Contato de quem quer ASSINAR A PLATAFORMA (dono de loteadora).
@@ -61,6 +62,22 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get('user-agent') ?? null,
     },
   });
+
+  // Avisa os admins da plataforma. Nunca derruba o cadastro: o contato ja esta
+  // gravado, e perder o interessado por causa de uma notificacao seria pior do
+  // que a notificacao falhar.
+  try {
+    await notificarNovoInteressado({
+      id: interessado.id,
+      nome: interessado.nome,
+      email: interessado.email,
+      telefone: interessado.telefone,
+      plano: interessado.plano,
+      mensagem: interessado.mensagem,
+    });
+  } catch (err) {
+    console.error('[interessados] falha ao notificar administradores:', err);
+  }
 
   return NextResponse.json({ ok: true, id: interessado.id });
 }
