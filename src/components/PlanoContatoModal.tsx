@@ -132,7 +132,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
       <div
         ref={painelRef}
         onKeyDown={onKeyDownPainel}
-        className="relative w-full sm:w-[68vw] sm:min-w-[880px] sm:max-w-[1200px] max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
+        className="relative w-full sm:w-[82vw] sm:min-w-[960px] sm:max-w-[1400px] max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
       >
         <button
           type="button"
@@ -143,7 +143,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           <IconX />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-10 md:gap-16 p-6 sm:p-12">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-14 p-6 sm:p-10">
           {/* ---------------- Coluna da esquerda: contexto ---------------- */}
           <div className="flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary-600 mb-4">
@@ -163,7 +163,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
             </p>
 
             {/* Resumo do plano escolhido — acompanha o select */}
-            <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
                 Plano selecionado
               </p>
@@ -239,33 +239,34 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="modal-email" className="block text-sm font-medium text-slate-700 mb-1.5">
-                    E-mail *
-                  </label>
-                  <input
-                    id="modal-email"
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="voce@sualoteadora.com.br"
-                    className={campoBase}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="modal-telefone" className="block text-sm font-medium text-slate-700 mb-1.5">
-                    WhatsApp *
-                  </label>
-                  <input
-                    id="modal-telefone"
-                    name="telefone"
-                    required
-                    minLength={8}
-                    inputMode="tel"
-                    placeholder="(11) 99999-9999"
-                    className={campoBase}
-                  />
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="modal-email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                      E-mail *
+                    </label>
+                    <input
+                      id="modal-email"
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="voce@sualoteadora.com.br"
+                      className={campoBase}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="modal-telefone" className="block text-sm font-medium text-slate-700 mb-1.5">
+                      WhatsApp *
+                    </label>
+                    <input
+                      id="modal-telefone"
+                      name="telefone"
+                      required
+                      minLength={8}
+                      inputMode="tel"
+                      placeholder="(11) 99999-9999"
+                      className={campoBase}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -297,7 +298,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                   <textarea
                     id="modal-mensagem"
                     name="mensagem"
-                    rows={4}
+                    rows={3}
                     placeholder="Quantos loteamentos você tem hoje? Alguma dúvida específica?"
                     className={campoBase}
                   />
