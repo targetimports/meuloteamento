@@ -240,7 +240,12 @@ export function PricingTable() {
     {planoAberto && (
       <PlanoContatoModal
         planoInicial={planoAberto}
-        planos={plans.map(({ name, price, tagline }) => ({ name, price, tagline }))}
+        planos={plans.map(({ name, price, tagline, features }) => ({
+          name,
+          price,
+          tagline,
+          destaques: features.slice(0, 4).map((f) => f.text),
+        }))}
         onClose={() => setPlanoAberto(null)}
       />
     )}

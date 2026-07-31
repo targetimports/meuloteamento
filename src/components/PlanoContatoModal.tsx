@@ -7,6 +7,8 @@ export interface PlanoOpcao {
   name: string;
   price: number;
   tagline: string;
+  /** Principais itens do plano — resumidos na coluna da esquerda. */
+  destaques: string[];
 }
 
 interface Props {
@@ -108,8 +110,10 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
     }
   }
 
+  // bg-white e text-slate-900 explicitos: sem isso o Chrome em dark mode pinta
+  // os campos de cinza escuro, destoando do modal branco.
   const campoBase =
-    'w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition';
+    'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition';
 
   return (
     <div
@@ -128,7 +132,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
       <div
         ref={painelRef}
         onKeyDown={onKeyDownPainel}
-        className="relative w-full sm:max-w-4xl max-h-[94vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
+        className="relative w-full sm:w-[68vw] sm:min-w-[880px] sm:max-w-[1200px] max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
       >
         <button
           type="button"
@@ -139,7 +143,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           <IconX />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 p-6 sm:p-10">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-16 p-6 sm:p-12">
           {/* ---------------- Coluna da esquerda: contexto ---------------- */}
           <div className="flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary-600 mb-4">
@@ -147,38 +151,47 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
             </p>
             <h2
               id="titulo-modal-plano"
-              className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-4"
+              className="text-4xl sm:text-5xl font-bold text-slate-900 leading-[1.1] tracking-tight mb-5"
             >
               Vamos ver o sistema
               <br />
               com o seu loteamento?
             </h2>
-            <p className="text-slate-600 mb-8">
+            <p className="text-lg text-slate-600 mb-8">
               A gente mostra a plataforma funcionando, tira suas dúvidas e você
               decide sem compromisso.
             </p>
 
             {/* Resumo do plano escolhido — acompanha o select */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-xs font-medium text-slate-500 mb-2">
+            <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
                 Plano selecionado
               </p>
-              <div className="flex items-baseline gap-1.5 mb-1">
-                <span className="text-xl font-bold text-slate-900">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-2xl font-bold text-slate-900">
                   {planoAtual.name}
                 </span>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-700 font-semibold tabular-nums">
+                <span className="text-slate-300">·</span>
+                <span className="text-lg text-slate-700 font-semibold tabular-nums">
                   R$ {planoAtual.price.toLocaleString('pt-BR')}
                 </span>
                 <span className="text-sm text-slate-500">/mês</span>
               </div>
-              <p className="text-sm text-slate-600">{planoAtual.tagline}</p>
+              <p className="text-sm text-slate-600 mb-5">{planoAtual.tagline}</p>
+
+              <ul className="space-y-2.5 border-t border-slate-200 pt-5">
+                {planoAtual.destaques.map((d) => (
+                  <li key={d} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <IconCheck className="flex-shrink-0 mt-0.5 text-primary-600" />
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
           {/* ---------------- Coluna da direita: formulario ---------------- */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 sm:p-7">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8">
             {status === 'ok' ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-8">
                 <div className="mb-4 w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
@@ -200,7 +213,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={onSubmit} className="space-y-5">
                 {/* honeypot — invisivel para humanos */}
                 <input
                   type="text"
@@ -299,7 +312,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 <button
                   type="submit"
                   disabled={status === 'enviando'}
-                  className="w-full flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-semibold py-3.5 rounded-xl shadow-lg shadow-gold-600/25 transition"
+                  className="w-full flex items-center justify-center gap-2 bg-gold-500 hover:bg-gold-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-semibold py-4 rounded-xl shadow-lg shadow-gold-600/25 transition"
                 >
                   {status === 'enviando' ? 'Enviando...' : 'Quero uma demonstração'}
                   {status !== 'enviando' && <IconArrowRight />}
