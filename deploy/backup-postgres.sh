@@ -10,7 +10,8 @@
 #
 # Configuração no .env:
 #   BACKUP_RCLONE_REMOTE  destino no rclone (ex.: gdrive:MeuLoteamento-Backups)
-#   BACKUP_KEEP           quantos backups manter, local e na nuvem (padrão 30)
+#   BACKUP_KEEP           quantos backups manter, local e na nuvem (padrão 30;
+#                         com 2 execuções por dia, 60 = 30 dias de histórico)
 #   BACKUP_DIR            pasta local (padrão /var/backups/meuloteamento)
 #   BACKUP_ON             "false" desliga sem precisar mexer no crontab
 #
