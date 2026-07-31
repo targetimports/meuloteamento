@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { IconArrowRight, IconCheck, IconX } from './icons';
+import { PlanoContatoModal } from './PlanoContatoModal';
 
 // =====================================================================
 // HERO SPOTLIGHT — radial gradient que segue o mouse (assinatura Cruip)
@@ -41,7 +41,6 @@ interface Plan {
   price: number;
   tagline: string;
   cta: string;
-  ctaHref: string;
   featured: boolean;
   /** Titulo da lista. Deixa explicito que o plano de cima ja inclui o anterior. */
   featuresTitulo: string;
@@ -55,7 +54,6 @@ const plans: Plan[] = [
     price: 500,
     tagline: 'O escolhido por quem leva sério',
     cta: 'Começar grátis',
-    ctaHref: '/contato',
     featured: true,
     featuresTitulo: 'Tudo que você precisa para vender:',
     features: [
@@ -76,7 +74,6 @@ const plans: Plan[] = [
     price: 1000,
     tagline: 'Pra grupos com várias loteadoras',
     cta: 'Falar com vendas',
-    ctaHref: '/contato',
     featured: false,
     featuresTitulo: 'Tudo do Profissional, e mais:',
     features: [
@@ -94,7 +91,11 @@ const plans: Plan[] = [
 ];
 
 export function PricingTable() {
+  // Nome do plano cujo modal esta aberto (null = fechado).
+  const [planoAberto, setPlanoAberto] = useState<string | null>(null);
+
   return (
+    <>
     <div className="grid md:grid-cols-2 gap-8 items-stretch max-w-4xl mx-auto">
       {plans.map((p) => (
         <div
@@ -154,13 +155,16 @@ export function PricingTable() {
           </div>
 
           {/*
-            O ::after cobre o card inteiro, entao clicar em qualquer lugar
-            aciona este link. Continua sendo UM link de verdade: navegavel por
-            teclado e lido corretamente por leitor de tela.
+            O ::after cobre o card inteiro, entao clicar em qualquer ponto abre
+            o modal. E um <button> de verdade: acionavel por teclado e anunciado
+            como botao que abre dialogo — melhor que onClick numa div.
           */}
-          <Link
-            href={p.ctaHref}
-            className={`flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl mb-8 transition focus:outline-none after:absolute after:inset-0 after:z-10 after:rounded-3xl after:content-[''] ${
+          <button
+            type="button"
+            onClick={() => setPlanoAberto(p.name)}
+            aria-haspopup="dialog"
+            aria-label={`${p.cta} — plano ${p.name}`}
+            className={`w-full flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl mb-8 transition focus:outline-none after:absolute after:inset-0 after:z-10 after:rounded-3xl after:content-[''] ${
               p.featured
                 ? 'bg-gold-500 group-hover:bg-gold-400 text-slate-950 shadow-lg shadow-gold-600/25'
                 : 'bg-slate-900 group-hover:bg-slate-800 text-white'
@@ -168,7 +172,7 @@ export function PricingTable() {
           >
             {p.cta}
             <IconArrowRight />
-          </Link>
+          </button>
 
           <div
             className={`h-px w-full mb-5 ${p.featured ? 'bg-white/10' : 'bg-slate-100'}`}
@@ -232,5 +236,14 @@ export function PricingTable() {
         </div>
       ))}
     </div>
+
+    {planoAberto && (
+      <PlanoContatoModal
+        planoInicial={planoAberto}
+        planos={plans.map((p) => p.name)}
+        onClose={() => setPlanoAberto(null)}
+      />
+    )}
+    </>
   );
 }
