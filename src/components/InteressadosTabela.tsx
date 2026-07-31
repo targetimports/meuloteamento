@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconX } from './icons';
 import {
   mudarStatusInteressado,
@@ -191,10 +192,35 @@ function DetalheInteressado({
   onSalvarObservacoes: (texto: string) => void;
 }) {
   const [obs, setObs] = useState(item.observacoes ?? '');
+  const [montado, setMontado] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-950/60" onClick={onFechar} aria-hidden />
+  // Esc fecha e a rolagem do fundo trava, como no modal da landing.
+  useEffect(() => {
+    setMontado(true);
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onFechar();
+    }
+    document.addEventListener('keydown', onKey);
+    const overflowAntes = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflowAntes;
+    };
+  }, [onFechar]);
+
+  if (!montado) return null;
+
+  /*
+    Renderizado por portal no <body>: dentro do layout do admin o modal ficava
+    preso abaixo da topbar (sticky z-30) e da sidebar, e o fundo escuro nao
+    cobria o topo da tela. No body ele escapa de qualquer contexto de
+    empilhamento — inclusive de ancestral com transform, que faz `fixed` se
+    comportar como `absolute`.
+  */
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onFechar} aria-hidden />
 
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
         <button
@@ -298,6 +324,7 @@ function DetalheInteressado({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
