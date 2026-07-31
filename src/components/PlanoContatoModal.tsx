@@ -132,7 +132,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
       <div
         ref={painelRef}
         onKeyDown={onKeyDownPainel}
-        className="relative w-full sm:w-[82vw] sm:min-w-[960px] sm:max-w-[1400px] max-h-[96vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
+        className="relative w-full sm:w-[82vw] sm:min-w-[960px] sm:max-w-[1400px] max-h-[97vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
       >
         {/*
           O botao flutua sobre o canto do cartao do formulario — afasta-lo por
@@ -144,12 +144,12 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           type="button"
           onClick={onClose}
           aria-label="Fechar"
-          className="absolute top-5 right-5 z-20 p-2.5 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-gold-500 transition"
+          className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-gold-500 transition"
         >
           <IconX />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-14 p-6 sm:p-10 sm:pt-16">
+        <div className="grid md:grid-cols-2 gap-8 md:gap-14 p-6 sm:p-10 sm:pt-[4.5rem]">
           {/* ---------------- Coluna da esquerda: contexto ---------------- */}
           <div className="flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary-600 mb-4">
