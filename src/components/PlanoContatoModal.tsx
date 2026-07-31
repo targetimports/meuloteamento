@@ -132,7 +132,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
       <div
         ref={painelRef}
         onKeyDown={onKeyDownPainel}
-        className="relative w-full sm:w-[82vw] sm:min-w-[960px] sm:max-w-[1400px] max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
+        className="relative w-full sm:w-[82vw] sm:min-w-[960px] sm:max-w-[1400px] max-h-[94vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
       >
         <button
           type="button"
@@ -143,7 +143,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           <IconX />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-10 md:gap-14 p-6 sm:p-10">
+        <div className="grid md:grid-cols-2 gap-8 md:gap-14 p-6 sm:p-8">
           {/* ---------------- Coluna da esquerda: contexto ---------------- */}
           <div className="flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary-600 mb-4">
@@ -151,13 +151,13 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
             </p>
             <h2
               id="titulo-modal-plano"
-              className="text-4xl sm:text-5xl font-bold text-slate-900 leading-[1.1] tracking-tight mb-5"
+              className="text-3xl sm:text-4xl font-bold text-slate-900 leading-[1.15] tracking-tight mb-5"
             >
               Vamos ver o sistema
               <br />
               com o seu loteamento?
             </h2>
-            <p className="text-lg text-slate-600 mb-8">
+            <p className="text-base text-slate-600 mb-7">
               A gente mostra a plataforma funcionando, tira suas dúvidas e você
               decide sem compromisso.
             </p>
@@ -191,7 +191,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           </div>
 
           {/* ---------------- Coluna da direita: formulario ---------------- */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 sm:p-7">
             {status === 'ok' ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-8">
                 <div className="mb-4 w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
@@ -213,7 +213,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-5">
+              <form onSubmit={onSubmit} className="space-y-4">
                 {/* honeypot — invisivel para humanos */}
                 <input
                   type="text"
@@ -225,7 +225,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 />
 
                 <div>
-                  <label htmlFor="modal-nome" className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label htmlFor="modal-nome" className="block text-sm font-medium text-slate-700 mb-1">
                     Nome *
                   </label>
                   <input
@@ -239,9 +239,9 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                   />
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-5">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="modal-email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                    <label htmlFor="modal-email" className="block text-sm font-medium text-slate-700 mb-1">
                       E-mail *
                     </label>
                     <input
@@ -254,7 +254,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                     />
                   </div>
                   <div>
-                    <label htmlFor="modal-telefone" className="block text-sm font-medium text-slate-700 mb-1.5">
+                    <label htmlFor="modal-telefone" className="block text-sm font-medium text-slate-700 mb-1">
                       WhatsApp *
                     </label>
                     <input
@@ -270,7 +270,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 </div>
 
                 <div>
-                  <label htmlFor="modal-plano" className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label htmlFor="modal-plano" className="block text-sm font-medium text-slate-700 mb-1">
                     Plano de interesse
                   </label>
                   <select
@@ -292,7 +292,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 </div>
 
                 <div>
-                  <label htmlFor="modal-mensagem" className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label htmlFor="modal-mensagem" className="block text-sm font-medium text-slate-700 mb-1">
                     Mensagem <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
                   <textarea
