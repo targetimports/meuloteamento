@@ -21,14 +21,6 @@ interface Props {
 
 type Status = 'idle' | 'enviando' | 'ok' | 'erro';
 
-function slug(s: string) {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-');
-}
-
 export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
   const [plano, setPlano] = useState(planoInicial);
   const [status, setStatus] = useState<Status>('idle');
@@ -82,7 +74,9 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
     const mensagemUsuario = (dados.mensagem ?? '').trim();
 
     try {
-      const res = await fetch('/api/leads', {
+      // Vai para /api/interessados, nao para /api/leads: quem quer assinar a
+      // plataforma nao e lead de lote e nao pode cair no CRM dos corretores.
+      const res = await fetch('/api/interessados', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,10 +84,8 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           email: dados.email,
           telefone: dados.telefone,
           website: dados.website, // honeypot
-          origem: `plano-${slug(plano)}`,
-          mensagem: mensagemUsuario
-            ? `Plano de interesse: ${plano}\n\n${mensagemUsuario}`
-            : `Plano de interesse: ${plano}`,
+          plano,
+          mensagem: mensagemUsuario || undefined,
         }),
       });
       if (!res.ok) {

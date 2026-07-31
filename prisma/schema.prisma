@@ -1357,3 +1357,53 @@ model FormularioArquivo {
   @@index([respostaId])
   @@map("formulario_arquivos")
 }
+
+// ---------------------------------------------------------------------------
+// Interessados na PLATAFORMA (donos de loteadora querendo assinar o sistema).
+// Nao confundir com Lead, que e quem quer comprar um LOTE.
+// ---------------------------------------------------------------------------
+
+model Interessado {
+  id       String  @id @default(cuid())
+  nome     String
+  email    String
+  telefone String
+  /// Nome do plano escolhido no site (texto livre — os planos vivem na landing)
+  plano    String
+  mensagem String?
+
+  status       InteressadoStatus @default(NOVO)
+  respondidoEm DateTime?
+  /// Anotacoes internas do time comercial
+  observacoes  String?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("interessados")
+}
+
+enum InteressadoStatus {
+  NOVO
+  NEGOCIANDO
+  CLIENTE
+  PERDIDO
+}
+
+// ---------------------------------------------------------------------------
+// Lock de cron. A tabela ja existia no banco e era manipulada apenas por SQL
+// cru (src/app/api/cron/regua-cobranca). Declarar aqui evita que um
+// `prisma db push` a derrube — o que pararia a regua de cobranca.
+// ---------------------------------------------------------------------------
+
+model CronLock {
+  name        String    @id
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  @@map("cron_locks")
+}
