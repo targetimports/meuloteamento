@@ -47,6 +47,20 @@ export function formatPhone(value: string): string {
   return value;
 }
 
+/**
+ * Mascara de telefone para DIGITACAO: formata enquanto o usuario escreve.
+ * Diferente de formatPhone(), que so formata numero ja completo e devolve a
+ * entrada crua no meio da digitacao.
+ * Aceita fixo (10 digitos) e celular (11).
+ */
+export function maskTelefone(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 10) {
+    return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d{1,4})$/, '$1-$2');
+  }
+  return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d{1,4})$/, '$1-$2');
+}
+
 export function onlyDigits(value: string): string {
   return value.replace(/\D/g, '');
 }

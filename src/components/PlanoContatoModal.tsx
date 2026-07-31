@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { IconArrowRight, IconCheck, IconX } from './icons';
+import { maskTelefone } from '@/lib/format';
 
 export interface PlanoOpcao {
   name: string;
@@ -23,6 +24,7 @@ type Status = 'idle' | 'enviando' | 'ok' | 'erro';
 
 export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
   const [plano, setPlano] = useState(planoInicial);
+  const [telefone, setTelefone] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [erro, setErro] = useState<string | null>(null);
 
@@ -259,8 +261,12 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                       id="modal-telefone"
                       name="telefone"
                       required
-                      minLength={8}
                       inputMode="tel"
+                      value={telefone}
+                      onChange={(e) => setTelefone(maskTelefone(e.target.value))}
+                      // 14 caracteres = "(99) 9999-9999", o fixo. Valida no
+                      // formato ja mascarado porque e isso que o campo envia.
+                      minLength={14}
                       placeholder="(11) 99999-9999"
                       className={campoBase}
                     />

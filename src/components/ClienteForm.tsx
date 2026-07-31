@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
+import { maskTelefone } from '@/lib/format';
 
 export interface ClienteFormValues {
   nome?: string;
@@ -45,14 +46,6 @@ function maskCpfCnpj(v: string): string {
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1/$2')
     .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-}
-
-function maskTelefone(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11);
-  if (d.length <= 10) {
-    return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d{1,4})$/, '$1-$2');
-  }
-  return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d{1,4})$/, '$1-$2');
 }
 
 function maskCep(v: string): string {
