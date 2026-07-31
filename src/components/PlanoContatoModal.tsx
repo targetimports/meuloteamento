@@ -149,7 +149,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           <IconX />
         </button>
 
-        <div className="grid md:grid-cols-2 gap-8 md:gap-14 p-6 sm:p-10 sm:pt-12">
+        <div className="grid md:grid-cols-2 gap-8 md:gap-14 p-6 sm:p-10 sm:pt-16">
           {/* ---------------- Coluna da esquerda: contexto ---------------- */}
           <div className="flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary-600 mb-4">
@@ -197,7 +197,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
           </div>
 
           {/* ---------------- Coluna da direita: formulario ---------------- */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 sm:p-7">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
             {status === 'ok' ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-8">
                 <div className="mb-4 w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
@@ -219,7 +219,7 @@ export function PlanoContatoModal({ planoInicial, planos, onClose }: Props) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={onSubmit} className="space-y-3.5">
                 {/* honeypot — invisivel para humanos */}
                 <input
                   type="text"
