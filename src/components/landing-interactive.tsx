@@ -30,6 +30,12 @@ export function HeroSpotlight({ children }: { children: React.ReactNode }) {
 // PRICING — preco mensal unico, sem toggle
 // =====================================================================
 
+interface Feature {
+  text: string;
+  /** Destaca o item — usado no que diferencia o plano. */
+  destaque?: boolean;
+}
+
 interface Plan {
   name: string;
   price: number;
@@ -37,7 +43,9 @@ interface Plan {
   cta: string;
   ctaHref: string;
   featured: boolean;
-  features: string[];
+  /** Titulo da lista. Deixa explicito que o plano de cima ja inclui o anterior. */
+  featuresTitulo: string;
+  features: Feature[];
   missing: string[];
 }
 
@@ -49,16 +57,17 @@ const plans: Plan[] = [
     cta: 'Começar grátis',
     ctaHref: '/contato',
     featured: true,
+    featuresTitulo: 'Tudo que você precisa para vender:',
     features: [
-      'Até 5 loteamentos',
-      'Lotes ilimitados',
-      'Branding completo (logo + cores)',
-      'Integração Asaas (PIX/Boleto/Cartão)',
-      'Lock automático de reserva',
-      'Corretores + comissões',
-      'Tabelas de preço flexíveis',
-      'Webhooks idempotentes',
-      'Suporte prioritário (WhatsApp)',
+      { text: 'Até 5 loteamentos', destaque: true },
+      { text: 'Lotes ilimitados' },
+      { text: 'Branding completo (logo + cores)' },
+      { text: 'Integração Asaas (PIX/Boleto/Cartão)' },
+      { text: 'Lock automático de reserva' },
+      { text: 'Corretores + comissões' },
+      { text: 'Tabelas de preço flexíveis' },
+      { text: 'Webhooks idempotentes' },
+      { text: 'Suporte prioritário (WhatsApp)' },
     ],
     missing: ['Domínio próprio'],
   },
@@ -69,15 +78,16 @@ const plans: Plan[] = [
     cta: 'Falar com vendas',
     ctaHref: '/contato',
     featured: false,
+    featuresTitulo: 'Tudo do Profissional, e mais:',
     features: [
-      'Loteamentos ilimitados',
-      'White-label completo',
-      'Domínio próprio (CNAME)',
-      'API REST para integração',
-      'SLA 99,9% garantido',
-      'Gerente de conta dedicado',
-      'Integração com seu ERP',
-      'Onboarding assistido',
+      { text: 'Loteamentos ilimitados', destaque: true },
+      { text: 'Domínio próprio (CNAME)', destaque: true },
+      { text: 'White-label completo' },
+      { text: 'API REST para integração' },
+      { text: 'SLA 99,9% garantido' },
+      { text: 'Gerente de conta dedicado' },
+      { text: 'Integração com seu ERP' },
+      { text: 'Onboarding assistido' },
     ],
     missing: [],
   },
@@ -89,25 +99,22 @@ export function PricingTable() {
       {plans.map((p) => (
         <div
           key={p.name}
-          className={`relative flex flex-col rounded-3xl p-8 transition duration-300 ${
+          className={`group relative flex flex-col rounded-3xl p-8 cursor-pointer transition duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-gold-500 ${
             p.featured
-              ? 'bg-slate-950 text-white border border-gold-500/40 shadow-2xl shadow-gold-600/20 hover:shadow-gold-500/30'
-              : 'bg-white border border-slate-200 text-slate-900 shadow-sm hover:border-slate-300 hover:shadow-md'
+              ? 'bg-slate-950 text-white border border-gold-500/40 shadow-2xl shadow-gold-600/20 hover:shadow-gold-500/40 focus-within:ring-offset-slate-50'
+              : 'bg-white border border-slate-200 text-slate-900 shadow-sm hover:border-slate-300 hover:shadow-xl'
           }`}
         >
           {p.featured && (
-            <>
-              {/* Brilho dourado suave atras do card (substitui o gradiente violeta) */}
-              <div
-                className="absolute -inset-px -z-10 rounded-3xl bg-gradient-to-b from-gold-400/50 via-gold-600/20 to-transparent blur-md"
-                aria-hidden
-              />
-              {/* Realce interno no topo, dando profundidade */}
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-40 rounded-t-3xl bg-gradient-to-b from-gold-500/10 to-transparent"
-                aria-hidden
-              />
-            </>
+            /*
+              Realce interno no topo, dando profundidade. O brilho externo vem
+              da sombra dourada no card — nao de uma div com z negativo, que
+              saltaria para cima do fundo quando o hover aplica transform.
+            */
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-40 rounded-t-3xl bg-gradient-to-b from-gold-500/10 to-transparent"
+              aria-hidden
+            />
           )}
 
           <div className="flex items-start justify-between gap-3 mb-1">
@@ -146,12 +153,17 @@ export function PricingTable() {
             </p>
           </div>
 
+          {/*
+            O ::after cobre o card inteiro, entao clicar em qualquer lugar
+            aciona este link. Continua sendo UM link de verdade: navegavel por
+            teclado e lido corretamente por leitor de tela.
+          */}
           <Link
             href={p.ctaHref}
-            className={`flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl mb-8 transition ${
+            className={`flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl mb-8 transition focus:outline-none after:absolute after:inset-0 after:z-10 after:rounded-3xl after:content-[''] ${
               p.featured
-                ? 'bg-gold-500 hover:bg-gold-400 text-slate-950 shadow-lg shadow-gold-600/25'
-                : 'bg-slate-900 hover:bg-slate-800 text-white'
+                ? 'bg-gold-500 group-hover:bg-gold-400 text-slate-950 shadow-lg shadow-gold-600/25'
+                : 'bg-slate-900 group-hover:bg-slate-800 text-white'
             }`}
           >
             {p.cta}
@@ -159,36 +171,64 @@ export function PricingTable() {
           </Link>
 
           <div
-            className={`h-px w-full mb-6 ${p.featured ? 'bg-white/10' : 'bg-slate-100'}`}
+            className={`h-px w-full mb-5 ${p.featured ? 'bg-white/10' : 'bg-slate-100'}`}
             aria-hidden
           />
+
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider mb-4 ${
+              p.featured ? 'text-gold-400' : 'text-primary-600'
+            }`}
+          >
+            {p.featuresTitulo}
+          </p>
 
           <ul className="space-y-3.5">
             {p.features.map((f) => (
               <li
-                key={f}
+                key={f.text}
                 className={`flex items-start gap-2.5 text-sm ${
-                  p.featured ? 'text-slate-200' : 'text-slate-700'
+                  f.destaque
+                    ? p.featured
+                      ? 'font-semibold text-white'
+                      : 'font-semibold text-slate-900'
+                    : p.featured
+                      ? 'text-slate-300'
+                      : 'text-slate-600'
                 }`}
               >
                 <IconCheck
                   className={`flex-shrink-0 mt-0.5 ${p.featured ? 'text-gold-400' : 'text-primary-600'}`}
                 />
-                <span>{f}</span>
-              </li>
-            ))}
-            {p.missing.map((f) => (
-              <li
-                key={f}
-                className={`flex items-start gap-2.5 text-sm line-through ${
-                  p.featured ? 'text-slate-600' : 'text-slate-400'
-                }`}
-              >
-                <IconX className="flex-shrink-0 mt-0.5" />
-                <span>{f}</span>
+                <span>{f.text}</span>
               </li>
             ))}
           </ul>
+
+          {p.missing.length > 0 && (
+            <>
+              <p
+                className={`text-xs font-semibold uppercase tracking-wider mt-6 mb-3 ${
+                  p.featured ? 'text-slate-500' : 'text-slate-400'
+                }`}
+              >
+                Não incluído:
+              </p>
+              <ul className="space-y-3.5">
+                {p.missing.map((f) => (
+                  <li
+                    key={f}
+                    className={`flex items-start gap-2.5 text-sm ${
+                      p.featured ? 'text-slate-500' : 'text-slate-400'
+                    }`}
+                  >
+                    <IconX className="flex-shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       ))}
     </div>
