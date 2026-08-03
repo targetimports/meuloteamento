@@ -20,6 +20,7 @@ import {
   NavMoney,
   NavUsers,
   NavSettings,
+  NavDoc,
   NavLogout,
 } from '@/components/icons';
 
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   // empresa-cliente. Deixá-los junto de Empresas convidaria à confusão
   // justamente entre quem enxerga tudo e quem enxerga uma empresa só.
   { href: '/backoffice/usuarios', label: 'Usuários', Icon: NavUsers, group: 'conta' },
+  { href: '/backoffice/logs', label: 'Logs do sistema', Icon: NavDoc, group: 'conta' },
   { href: '/backoffice/perfil', label: 'Meu perfil', Icon: NavSettings, group: 'conta' },
 ];
 

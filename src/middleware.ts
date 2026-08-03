@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, type NextFetchEvent } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const adminSecret = new TextEncoder().encode(
@@ -23,7 +23,131 @@ function parseCustomDomains(): Record<string, string> {
 const CUSTOM_DOMAINS = parseCustomDomains();
 const RESERVED_SUBDOMAINS = new Set(['www', 'admin', 'api', 'app']);
 
-export async function middleware(req: NextRequest) {
+/**
+ * LOG DE ACESSO — envelope em volta da lógica de roteamento.
+ *
+ * A função `rotear` abaixo é o middleware que já existia, sem uma linha
+ * alterada. Este envelope só a chama e, depois, despacha um registro do que
+ * aconteceu. Fiz assim em vez de espalhar chamadas dentro dela porque este
+ * arquivo decide se o site responde: quanto menos ele for tocado, melhor.
+ *
+ * Três cuidados, nesta ordem de importância:
+ *
+ *  1. O log NUNCA pode derrubar uma requisição. Tudo em try/catch, e a
+ *     resposta é devolvida antes de qualquer tentativa de registro.
+ *  2. Não segura o usuário: `event.waitUntil` deixa o envio acontecer depois
+ *     que a resposta já saiu.
+ *  3. Não gera recursão: o matcher exclui /api, então a chamada para
+ *     /api/log-acesso não passa por aqui.
+ *
+ * O que este ponto NÃO consegue saber é o status final da página — 200, 404
+ * e 500 são decididos depois, e o middleware não vê a resposta pronta. Por
+ * isso registramos o que ele de fato determina: seguiu, redirecionou (307)
+ * ou reescreveu. Inventar "200" seria preencher o campo com ficção.
+ */
+export async function middleware(req: NextRequest, event: NextFetchEvent) {
+  const inicio = Date.now();
+  const res = await rotear(req);
+
+  try {
+    registrarAcesso(req, res, event, Date.now() - inicio);
+  } catch {
+    // Uma falha aqui não pode afetar a navegação de ninguém.
+  }
+
+  return res;
+}
+
+const LOG_TOKEN =
+  process.env.LOG_INGEST_TOKEN ||
+  process.env.JWT_SECRET ||
+  'dev-log-token';
+
+function areaDaRota(pathname: string): string {
+  if (pathname.startsWith('/backoffice')) return 'backoffice';
+  if (pathname.startsWith('/admin')) return 'admin';
+  if (pathname.startsWith('/minha-conta')) return 'cliente';
+  return 'publico';
+}
+
+function registrarAcesso(
+  req: NextRequest,
+  res: NextResponse,
+  event: NextFetchEvent,
+  ms: number
+) {
+  const pathname = req.nextUrl.pathname;
+
+  // Ruído que não diz nada sobre uso: arquivos estáticos e o favicon.
+  if (/\.(ico|png|jpe?g|svg|webp|gif|css|js|map|txt|xml|woff2?)$/i.test(pathname)) {
+    return;
+  }
+
+  const status = res.status;
+  const resultado: 'ok' | 'redirect' | 'rewrite' =
+    status >= 300 && status < 400
+      ? 'redirect'
+      : res.headers.get('x-middleware-rewrite')
+        ? 'rewrite'
+        : 'ok';
+
+  const enviar = async () => {
+    let email: string | null = null;
+    let loteadoraId: string | null = null;
+
+    // Verifica de novo em vez de reaproveitar o resultado do fluxo: assim o
+    // e-mail no log vem sempre de um token válido, nunca de um forjado.
+    try {
+      const token = req.cookies.get(ADMIN_COOKIE)?.value;
+      if (token) {
+        const { payload } = await jwtVerify(token, adminSecret);
+        email = typeof payload.email === 'string' ? payload.email : null;
+        loteadoraId =
+          typeof payload.loteadoraId === 'string' ? payload.loteadoraId : null;
+      } else {
+        const tokenCliente = req.cookies.get(CLIENTE_COOKIE)?.value;
+        if (tokenCliente) {
+          const { payload } = await jwtVerify(tokenCliente, clienteSecret);
+          email = typeof payload.email === 'string' ? payload.email : null;
+        }
+      }
+    } catch {
+      // Token ausente, expirado ou inválido: acesso anônimo do ponto de
+      // vista do log, que é exatamente o que se quer registrar.
+    }
+
+    const base =
+      process.env.LOG_INGEST_URL || req.nextUrl.origin;
+
+    await fetch(new URL('/api/log-acesso', base), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-log-token': LOG_TOKEN,
+      },
+      body: JSON.stringify({
+        ts: new Date().toISOString(),
+        metodo: req.method,
+        rota: pathname + (req.nextUrl.search || ''),
+        resultado,
+        status: resultado === 'ok' ? null : status,
+        ip:
+          req.headers.get('x-real-ip') ||
+          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+          null,
+        email,
+        loteadoraId,
+        area: areaDaRota(pathname),
+        ua: req.headers.get('user-agent'),
+        ms,
+      }),
+    }).catch(() => {});
+  };
+
+  event.waitUntil(enviar());
+}
+
+async function rotear(req: NextRequest) {
   const url = req.nextUrl.clone();
   const pathname = url.pathname;
   const hostHeader = (req.headers.get('host') || '').toLowerCase();
