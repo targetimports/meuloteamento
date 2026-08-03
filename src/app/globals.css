@@ -295,6 +295,40 @@ a {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
+/* =====================================================================
+   Autofill do Chrome
+   ---------------------------------------------------------------------
+   Quando o usuario escolhe um dado salvo, o Chrome pinta o campo com um
+   fundo proprio (cinza no dark mode do sistema, amarelo no claro) que
+   ignora o bg-white das classes. O jeito de sobrescrever e um box-shadow
+   inset gigante — background-color nao vence a regra do UA.
+
+   Como o ring de foco do Tailwind tambem e box-shadow, a regra de :focus
+   precisa repetir o anel dourado (ring-2 ring-gold-500 = #d4af37), senao
+   o campo preenchido pelo autofill perde o destaque ao ser focado.
+
+   Vale para todos os formularios: os campos do sistema sao de fundo claro.
+   ===================================================================== */
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+select:-webkit-autofill,
+select:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: #0f172a; /* slate-900, igual ao text-slate-900 */
+  caret-color: #0f172a;
+}
+
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset, 0 0 0 2px #d4af37;
+  box-shadow: 0 0 0 1000px #fff inset, 0 0 0 2px #d4af37;
+}
+
 /* Scrollbar discreta */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
