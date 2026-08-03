@@ -13,7 +13,6 @@ import { GerenciarUsuarios } from './GerenciarUsuarios';
 import {
   criarUsuarioBackoffice,
   atualizarUsuarioBackoffice,
-  resetarSenhaBackoffice,
   alternarAtivoBackoffice,
   excluirUsuarioBackoffice,
 } from './actions';
@@ -61,20 +60,31 @@ export default async function UsuariosBackofficePage() {
           meuId={sessao.sub}
           criarAction={criarUsuarioBackoffice}
           atualizarAction={atualizarUsuarioBackoffice}
-          resetarSenhaAction={resetarSenhaBackoffice}
           alternarAtivoAction={alternarAtivoBackoffice}
           excluirAction={excluirUsuarioBackoffice}
         />
 
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-          <h2 className="text-sm font-semibold text-amber-900 mb-1">
-            Sobre o último acesso ao backoffice
-          </h2>
-          <p className="text-xs text-amber-800">
-            O sistema impede desativar ou excluir o último super admin ativo.
-            Sem essa trava, seria possível trancar todo mundo para fora — e não
-            existe tela para desfazer isso, só acesso direto ao banco.
-          </p>
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-amber-900 mb-1">
+              O último super admin não pode ser removido
+            </h2>
+            <p className="text-xs text-amber-800">
+              Desativar ou excluir o único ativo trancaria todo mundo para fora
+              — e não existe tela para desfazer isso, só acesso direto ao banco.
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-amber-900 mb-1">Senhas</h2>
+            <p className="text-xs text-amber-800">
+              A senha inicial é gerada na criação e mostrada uma única vez.
+              Depois disso, cada pessoa troca a própria em{' '}
+              <strong className="font-semibold">Meu perfil</strong> — não há
+              reset por aqui. Como o painel não tem recuperação por e-mail, quem
+              esquecer a senha depende de outro super admin excluir e recriar o
+              acesso.
+            </p>
+          </div>
         </section>
       </div>
     </div>

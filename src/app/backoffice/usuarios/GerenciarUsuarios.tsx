@@ -33,7 +33,6 @@ interface Props {
   meuId: string;
   criarAction: (prev: EstadoForm, formData: FormData) => Promise<EstadoForm>;
   atualizarAction: (prev: EstadoForm, formData: FormData) => Promise<EstadoForm>;
-  resetarSenhaAction: (id: string) => Promise<{ ok: boolean; senha?: string; error?: string }>;
   alternarAtivoAction: (id: string) => Promise<void>;
   excluirAction: (id: string) => Promise<void>;
 }
@@ -61,7 +60,6 @@ export function GerenciarUsuarios({
   meuId,
   criarAction,
   atualizarAction,
-  resetarSenhaAction,
   alternarAtivoAction,
   excluirAction,
 }: Props) {
@@ -125,16 +123,6 @@ export function GerenciarUsuarios({
     });
   }
 
-  function resetar(u: UsuarioUI) {
-    if (!confirm(`Gerar nova senha para ${u.email}?\n\nA senha atual deixa de funcionar.`)) return;
-    setErro(null);
-    startTransition(async () => {
-      const r = await resetarSenhaAction(u.id);
-      if (r.ok && r.senha) setCredenciais({ email: u.email, senha: r.senha });
-      else setErro(r.error ?? 'Não foi possível gerar a senha.');
-    });
-  }
-
   function copiar() {
     if (!credenciais) return;
     const texto = `URL: https://meuloteamento.com/admin/login\nE-mail: ${credenciais.email}\nSenha: ${credenciais.senha}`;
@@ -170,6 +158,8 @@ export function GerenciarUsuarios({
         </button>
       </div>
 
+      {/* Só aparece na criação: cada um troca a própria senha em Meu perfil,
+          então não há reset por aqui. */}
       {credenciais && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-sm font-semibold text-emerald-900">
@@ -252,13 +242,6 @@ export function GerenciarUsuarios({
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
                         >
                           Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => resetar(u)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                        >
-                          Resetar senha
                         </button>
                         <button
                           type="button"

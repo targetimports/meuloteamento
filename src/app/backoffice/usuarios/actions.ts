@@ -108,28 +108,11 @@ export async function atualizarUsuarioBackoffice(
   return { ok: true };
 }
 
-export async function resetarSenhaBackoffice(
-  id: string
-): Promise<{ ok: boolean; senha?: string; error?: string }> {
-  await requireBackoffice();
-
-  const alvo = await prisma.adminUser.findUnique({
-    where: { id },
-    select: { loteadoraId: true },
-  });
-  if (!alvo || alvo.loteadoraId !== null) {
-    return { ok: false, error: 'Usuário não é do backoffice.' };
-  }
-
-  const senha = gerarSenha();
-  await prisma.adminUser.update({
-    where: { id },
-    data: { passwordHash: await hashPassword(senha) },
-  });
-
-  revalidar();
-  return { ok: true, senha };
-}
+/*
+ * Não existe reset de senha de terceiro aqui: cada um troca a própria em
+ * /backoffice/perfil, informando a senha atual. A senha gerada na criação
+ * segue existindo, e é a única que este arquivo produz.
+ */
 
 export async function alternarAtivoBackoffice(id: string): Promise<void> {
   const sessao = await requireBackoffice();
