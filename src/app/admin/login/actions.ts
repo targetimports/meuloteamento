@@ -58,5 +58,10 @@ export async function loginAction(formData: FormData) {
     data: { ultimoLogin: new Date() },
   });
 
-  redirect('/admin');
+  // Cada perfil entra na SUA casa. Quem opera a plataforma vai para o
+  // backoffice; quem opera loteamento continua indo para /admin, exatamente
+  // como antes — a condição só é verdadeira para super admin, então para as
+  // loteadoras-cliente nada muda.
+  const ehSuperAdmin = user.loteadoraId === null && user.role === 'SUPER_ADMIN';
+  redirect(ehSuperAdmin ? '/backoffice' : '/admin');
 }

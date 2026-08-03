@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { formatBRL, formatDate } from '@/lib/format';
-import { tenantId } from '@/lib/tenant';
+import { tenantId, requireAdmin } from '@/lib/tenant';
 import {
   GaugeVendidos,
   ReceitaMensalChart,
@@ -11,6 +12,18 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  // Este dashboard é de quem opera UM loteamento: velocímetro de lotes,
+  // corretores, funil de leads. Para quem opera a plataforma ele nunca fez
+  // sentido — mostrava a soma de todos os clientes num painel desenhado para
+  // um só. O super admin vai para o backoffice, que é a casa dele.
+  //
+  // Só redireciona super admin: para as loteadoras-cliente esta página segue
+  // idêntica ao que sempre foi.
+  const sessao = await requireAdmin();
+  if (sessao.loteadoraId === null && sessao.role === 'SUPER_ADMIN') {
+    redirect('/backoffice');
+  }
+
   const tid = await tenantId();
   const wLoteamento = tid ? { loteadoraId: tid } : {};
   const wLote = tid ? { loteamento: { loteadoraId: tid } } : {};

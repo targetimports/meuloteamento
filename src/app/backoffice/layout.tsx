@@ -19,6 +19,7 @@ import {
   NavBuilding,
   NavMoney,
   NavUsers,
+  NavSettings,
   NavLogout,
 } from '@/components/icons';
 
@@ -34,10 +35,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/backoffice/empresas', label: 'Empresas-cliente', Icon: NavBuilding, group: 'plataforma' },
   { href: '/backoffice/cobrancas', label: 'Cobranças', Icon: NavMoney, group: 'plataforma' },
   { href: '/backoffice/planos', label: 'Planos', Icon: NavMoney, group: 'comercial' },
-  // Interessados continua em /admin/interessados por enquanto. Migrar para cá
-  // é fácil, mas move uma tela que já funciona — fica para depois que o resto
-  // do backoffice estiver em uso.
+  // Estas duas ainda moram em /admin porque já existem e funcionam. São telas
+  // exclusivas da plataforma (superAdminOnly), não do painel do cliente —
+  // migrá-las para cá é mexer no que funciona, então fica para depois.
   { href: '/admin/interessados', label: 'Interessados', Icon: NavUsers, group: 'comercial' },
+  { href: '/admin/configuracoes', label: 'Config. da plataforma', Icon: NavSettings, group: 'comercial' },
 ];
 
 const GROUP_LABEL: Record<NavItem['group'], string> = {
@@ -107,18 +109,6 @@ export default async function BackofficeLayout({
             );
           })}
         </nav>
-
-        {/* Porta de volta para o painel operacional. Sem isto o super admin
-            entra no backoffice e não tem como voltar sem editar a URL. */}
-        <div className="px-3 pb-2">
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition"
-          >
-            <NavBuilding className="flex-shrink-0" />
-            <span>Ir para o painel operacional</span>
-          </Link>
-        </div>
 
         <div className="border-t border-slate-800 p-3">
           <div className="flex items-center gap-3 px-2 py-2">
