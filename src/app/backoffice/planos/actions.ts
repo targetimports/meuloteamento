@@ -28,17 +28,42 @@ function paraInteiroOuNulo(v: FormDataEntryValue | null): number | null {
   return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
-export async function salvarPlano(formData: FormData): Promise<void> {
+export type EstadoPlano = { error?: string; ok?: boolean };
+
+/**
+ * Devolve o erro em vez de lançar: o formulário vive num modal, e uma
+ * exceção derrubaria a tela inteira em cima de quem só digitou um valor
+ * errado. Com estado, o modal mostra a mensagem e mantém o que foi digitado.
+ */
+export async function salvarPlano(
+  _prev: EstadoPlano,
+  formData: FormData
+): Promise<EstadoPlano> {
   await requireBackoffice();
 
   const id = String(formData.get('id') ?? '').trim();
   const nome = String(formData.get('nome') ?? '').trim();
-  if (!nome) throw new Error('Nome do plano é obrigatório.');
+  if (!nome) return { error: 'Informe o nome do plano.' };
+
+  const valorMensal = paraNumero(formData.get('valorMensal'));
+  if (valorMensal <= 0) return { error: 'Informe uma mensalidade maior que zero.' };
+
+  const slug = paraSlug(nome);
+  if (!slug) return { error: 'O nome precisa ter ao menos uma letra ou número.' };
+
+  // Slug duplicado explodiria na constraint do banco com erro incompreensível.
+  const conflito = await prisma.plano.findFirst({
+    where: { slug, ...(id ? { NOT: { id } } : {}) },
+    select: { nome: true },
+  });
+  if (conflito) {
+    return { error: `Já existe um plano chamado "${conflito.nome}".` };
+  }
 
   const dados = {
     nome,
-    slug: paraSlug(nome),
-    valorMensal: paraNumero(formData.get('valorMensal')),
+    slug,
+    valorMensal,
     descricao: String(formData.get('descricao') ?? '').trim() || null,
     maxLoteamentos: paraInteiroOuNulo(formData.get('maxLoteamentos')),
     maxLotes: paraInteiroOuNulo(formData.get('maxLotes')),
@@ -53,6 +78,8 @@ export async function salvarPlano(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/backoffice/planos');
+  revalidatePath('/backoffice/empresas');
+  return { ok: true };
 }
 
 /**
