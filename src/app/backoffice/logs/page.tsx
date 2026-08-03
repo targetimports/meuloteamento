@@ -21,12 +21,13 @@ const POR_PAGINA = 50;
 export default async function LogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empresa?: string; pagina?: string }>;
+  searchParams: Promise<{ empresa?: string; pagina?: string; integracoes?: string }>;
 }) {
   await requireBackoffice();
   const sp = await searchParams;
 
   const empresaFiltro = sp.empresa ?? '';
+  const semIntegracoes = sp.integracoes === 'nao';
   const pagina = Math.max(1, Number(sp.pagina) || 1);
 
   const [empresas, dados] = await Promise.all([
@@ -37,6 +38,7 @@ export default async function LogsPage({
     Promise.resolve(
       lerLogs({
         loteadoraId: empresaFiltro || null,
+        incluirIntegracoes: !semIntegracoes,
         pagina,
         porPagina: POR_PAGINA,
       })
@@ -48,7 +50,9 @@ export default async function LogsPage({
   const paginaAtual = Math.min(pagina, totalPaginas);
 
   const link = (p: number, empresa = empresaFiltro) =>
-    `/backoffice/logs?empresa=${encodeURIComponent(empresa)}&pagina=${p}`;
+    `/backoffice/logs?empresa=${encodeURIComponent(empresa)}&integracoes=${
+      semIntegracoes ? 'nao' : 'sim'
+    }&pagina=${p}`;
 
   const mb = (dados.tamanhoBytes / 1024 / 1024).toFixed(1);
   const pctUso = Math.min(100, (dados.tamanhoBytes / (20 * 1024 * 1024)) * 100);
@@ -82,6 +86,30 @@ export default async function LogsPage({
               </option>
             ))}
           </select>
+
+          {/* Só faz sentido sem filtro de empresa: o nginx não sabe de qual
+              loteadora é a chamada, então integrações não têm empresa. */}
+          <label
+            className={`flex items-center gap-1.5 text-xs ${
+              empresaFiltro ? 'text-slate-300' : 'text-slate-600'
+            }`}
+            title={
+              empresaFiltro
+                ? 'As integrações não têm empresa associada, então ficam fora ao filtrar por uma'
+                : undefined
+            }
+          >
+            <input
+              type="checkbox"
+              name="integracoes"
+              value="nao"
+              defaultChecked={semIntegracoes}
+              disabled={Boolean(empresaFiltro)}
+              className="rounded border-slate-300"
+            />
+            Ocultar integrações
+          </label>
+
           <button
             type="submit"
             className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition"
@@ -94,7 +122,13 @@ export default async function LogsPage({
       <div className="p-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-xs text-slate-500">
-            Arquivo único em <code className="font-mono">{dados.arquivo}</code>
+            Navegação de <code className="font-mono">{dados.arquivo}</code>
+            {dados.totalIntegracoes > 0 && (
+              <>
+                {' '}· {dados.totalIntegracoes.toLocaleString('pt-BR')} chamada(s) de
+                integração vindas do nginx
+              </>
+            )}
           </p>
           <div className="flex items-center gap-2">
             <div className="w-32 h-1.5 rounded-full bg-slate-200 overflow-hidden">
@@ -223,21 +257,32 @@ export default async function LogsPage({
           </h2>
           <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
             <li>
-              O arquivo é único e nunca gera cópias: ao passar de 20 MB, a
-              metade mais antiga é descartada e o mesmo app.log continua.
+              <strong>Duas fontes, sem sobreposição.</strong> A navegação vem do
+              app.log, que sabe quem estava logado e de qual empresa. As
+              chamadas de <code className="font-mono">/api</code> — webhooks do
+              Asaas, crons e integrações — vêm do log do nginx, que enxerga o
+              que o roteamento não vê e traz o status HTTP real.
             </li>
             <li>
-              A coluna <strong>Resultado</strong> mostra o que o roteamento
-              decidiu — seguiu, redirecionou ou reescreveu. O status final da
-              página (200, 404, 500) é definido depois desse ponto e não chega
-              até aqui.
+              O app.log é único e nunca gera cópias: ao passar de 20 MB, a
+              metade mais antiga é descartada e o mesmo arquivo continua. O log
+              do nginx é apenas lido; a configuração dele não foi alterada.
             </li>
             <li>
-              Chamadas a <code className="font-mono">/api</code> não passam pelo
-              roteamento e por isso não aparecem — inclui webhooks do Asaas e os
-              crons.
+              Nas linhas de navegação, <strong>Resultado</strong> mostra o que o
+              roteamento decidiu (seguiu, redirect, rewrite): o status final da
+              página é definido depois desse ponto. Nas integrações, o status é
+              o real.
             </li>
-            <li>Arquivos estáticos são ignorados de propósito.</li>
+            <li>
+              Integrações não têm empresa associada — o nginx não conhece
+              sessão. Por isso somem ao filtrar por uma empresa específica.
+            </li>
+            <li>
+              Tokens em querystring aparecem mascarados: os crons levam o
+              CRON_TOKEN na URL, e ele fica gravado em texto claro no arquivo do
+              nginx.
+            </li>
           </ul>
         </section>
       </div>
@@ -259,6 +304,7 @@ function Origem({ area, nomeEmpresa }: { area: string; nomeEmpresa?: string }) {
     cliente: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
     publico: 'bg-slate-100 text-slate-500 ring-slate-500/20',
     sistema: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+    integracao: 'bg-orange-50 text-orange-700 ring-orange-600/20',
   };
   const rotulos: Record<string, string> = {
     backoffice: 'Backoffice',
@@ -266,6 +312,7 @@ function Origem({ area, nomeEmpresa }: { area: string; nomeEmpresa?: string }) {
     cliente: 'Área do cliente',
     publico: 'Site público',
     sistema: 'Sistema',
+    integracao: 'Integração',
   };
   return (
     <span
