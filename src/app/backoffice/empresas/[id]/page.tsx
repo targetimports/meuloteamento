@@ -1,0 +1,310 @@
+/**
+ * Ficha da empresa-cliente: dados, uso e a assinatura dela.
+ *
+ * Só leitura dos dados cadastrais — quem edita cadastro de loteadora é
+ * /admin/loteadoras, que já existe e funciona. Aqui se administra o
+ * CONTRATO, que é o assunto do backoffice.
+ */
+
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
+import { requireBackoffice, brl } from '@/lib/backoffice';
+import { salvarAssinatura, alternarBloqueioManual } from './actions';
+
+export const dynamic = 'force-dynamic';
+
+const STATUS = ['TRIAL', 'ATIVA', 'INADIMPLENTE', 'BLOQUEADA', 'CANCELADA'] as const;
+
+export default async function EmpresaPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  await requireBackoffice();
+  const { id } = await params;
+
+  const empresa = await prisma.loteadora.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      nome: true,
+      razaoSocial: true,
+      cnpj: true,
+      email: true,
+      telefone: true,
+      cidade: true,
+      estado: true,
+      ativo: true,
+      createdAt: true,
+      _count: { select: { loteamentos: true, adminUsers: true, corretores: true } },
+      assinatura: {
+        include: {
+          plano: true,
+          faturas: { orderBy: { vencimento: 'desc' }, take: 12 },
+        },
+      },
+    },
+  });
+
+  if (!empresa) notFound();
+
+  const planos = await prisma.plano.findMany({
+    where: { ativo: true },
+    orderBy: { valorMensal: 'asc' },
+    select: { id: true, nome: true, valorMensal: true },
+  });
+
+  const a = empresa.assinatura;
+  const campo =
+    'w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
+  const dataBR = (d: Date) => d.toLocaleDateString('pt-BR');
+  const paraInput = (d: Date | null | undefined) =>
+    d ? d.toISOString().slice(0, 10) : '';
+
+  return (
+    <div>
+      <header className="bg-white border-b border-slate-200 px-8 py-4">
+        <Link href="/backoffice/empresas" className="text-xs text-slate-500 hover:underline">
+          ← Empresas-cliente
+        </Link>
+        <h1 className="text-lg font-semibold text-slate-900 mt-1">{empresa.nome}</h1>
+      </header>
+
+      <div className="p-8 grid gap-6 lg:grid-cols-3">
+        {/* ---------------- Coluna esquerda: dados ---------------- */}
+        <div className="space-y-6">
+          <section className="bg-white border border-slate-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Dados</h2>
+            <dl className="space-y-2.5 text-sm">
+              <Linha rotulo="Razão social" valor={empresa.razaoSocial} />
+              <Linha rotulo="CNPJ" valor={empresa.cnpj} />
+              <Linha rotulo="E-mail" valor={empresa.email} />
+              <Linha rotulo="Telefone" valor={empresa.telefone} />
+              <Linha
+                rotulo="Cidade"
+                valor={[empresa.cidade, empresa.estado].filter(Boolean).join('/') || null}
+              />
+              <Linha rotulo="Cliente desde" valor={dataBR(empresa.createdAt)} />
+            </dl>
+            <Link
+              href={`/admin/loteadoras/${empresa.id}`}
+              className="mt-4 inline-block text-xs text-primary-600 hover:underline"
+            >
+              Editar cadastro no painel operacional →
+            </Link>
+          </section>
+
+          <section className="bg-white border border-slate-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Uso</h2>
+            <dl className="space-y-2.5 text-sm">
+              <Linha rotulo="Loteamentos" valor={String(empresa._count.loteamentos)} />
+              <Linha rotulo="Usuários" valor={String(empresa._count.adminUsers)} />
+              <Linha rotulo="Corretores" valor={String(empresa._count.corretores)} />
+            </dl>
+          </section>
+        </div>
+
+        {/* ---------------- Coluna direita: assinatura ---------------- */}
+        <div className="lg:col-span-2 space-y-6">
+          <section className="bg-white border border-slate-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-900">
+                {a ? 'Assinatura' : 'Cadastrar assinatura'}
+              </h2>
+              {a?.bloqueioManual && (
+                <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
+                  Bloqueada manualmente
+                </span>
+              )}
+            </div>
+
+            {!a && (
+              <p className="mb-4 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                Esta empresa ainda não tem assinatura. Enquanto não tiver, ela
+                opera normalmente e nada é cobrado nem bloqueado.
+              </p>
+            )}
+
+            <form action={salvarAssinatura} className="grid gap-4 sm:grid-cols-2">
+              <input type="hidden" name="loteadoraId" value={empresa.id} />
+
+              <div>
+                <label htmlFor="planoId" className="block text-xs font-medium text-slate-600 mb-1">
+                  Plano
+                </label>
+                <select id="planoId" name="planoId" defaultValue={a?.planoId ?? ''} className={campo}>
+                  <option value="">Sem plano</option>
+                  {planos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} — {brl(p.valorMensal)}/mês
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="valorMensal" className="block text-xs font-medium text-slate-600 mb-1">
+                  Mensalidade (R$)
+                </label>
+                <input
+                  id="valorMensal"
+                  name="valorMensal"
+                  inputMode="decimal"
+                  defaultValue={a ? String(a.valorMensal) : ''}
+                  placeholder="em branco = valor do plano"
+                  className={campo}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="status" className="block text-xs font-medium text-slate-600 mb-1">
+                  Situação
+                </label>
+                <select id="status" name="status" defaultValue={a?.status ?? 'TRIAL'} className={campo}>
+                  {STATUS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="trialAte" className="block text-xs font-medium text-slate-600 mb-1">
+                  Teste até
+                </label>
+                <input
+                  id="trialAte"
+                  name="trialAte"
+                  type="date"
+                  defaultValue={paraInput(a?.trialAte)}
+                  className={campo}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="diaVencimento" className="block text-xs font-medium text-slate-600 mb-1">
+                  Dia do vencimento (1–28)
+                </label>
+                <input
+                  id="diaVencimento"
+                  name="diaVencimento"
+                  inputMode="numeric"
+                  defaultValue={a?.diaVencimento ?? 10}
+                  className={campo}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="diasTolerancia" className="block text-xs font-medium text-slate-600 mb-1">
+                  Dias de tolerância
+                </label>
+                <input
+                  id="diasTolerancia"
+                  name="diasTolerancia"
+                  inputMode="numeric"
+                  defaultValue={a?.diasTolerancia ?? 10}
+                  className={campo}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Atraso tolerado antes de cortar o acesso.
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="observacoes" className="block text-xs font-medium text-slate-600 mb-1">
+                  Observações
+                </label>
+                <textarea
+                  id="observacoes"
+                  name="observacoes"
+                  rows={2}
+                  defaultValue={a?.observacoes ?? ''}
+                  className={campo}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition"
+                >
+                  {a ? 'Salvar assinatura' : 'Criar assinatura'}
+                </button>
+              </div>
+            </form>
+
+            {a && (
+              <form
+                action={async () => {
+                  'use server';
+                  await alternarBloqueioManual(empresa.id, 'Bloqueado pelo provedor.');
+                }}
+                className="mt-5 pt-5 border-t border-slate-200"
+              >
+                <button
+                  type="submit"
+                  className={`text-sm px-4 py-2 rounded-lg transition ${
+                    a.bloqueioManual
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
+                  }`}
+                >
+                  {a.bloqueioManual ? 'Liberar acesso' : 'Bloquear acesso manualmente'}
+                </button>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  O bloqueio ainda não corta o acesso — a interceptação será
+                  ligada numa etapa seguinte. Por ora este botão só registra a
+                  decisão.
+                </p>
+              </form>
+            )}
+          </section>
+
+          {/* ---------------- Faturas ---------------- */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-900 mb-3">Faturas</h2>
+            {!a || a.faturas.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                Nenhuma fatura gerada.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-slate-500">
+                  <tr>
+                    <th className="text-left font-medium py-2">Competência</th>
+                    <th className="text-left font-medium py-2">Vencimento</th>
+                    <th className="text-right font-medium py-2">Valor</th>
+                    <th className="text-right font-medium py-2">Situação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {a.faturas.map((f) => (
+                    <tr key={f.id}>
+                      <td className="py-2 text-slate-900">{f.competencia}</td>
+                      <td className="py-2 text-slate-600">{dataBR(f.vencimento)}</td>
+                      <td className="py-2 text-right tabular-nums">{brl(f.valor)}</td>
+                      <td className="py-2 text-right">
+                        <span className="text-xs text-slate-600">{f.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Linha({ rotulo, valor }: { rotulo: string; valor: string | null }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-slate-500">{rotulo}</dt>
+      <dd className="text-slate-900 text-right">{valor || <span className="text-slate-300">—</span>}</dd>
+    </div>
+  );
+}

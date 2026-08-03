@@ -180,6 +180,10 @@ model Loteadora {
   cobrancasAvulsas CobrancaAvulsa[]
   formularios    Formulario[]
 
+  /// Assinatura da loteadora na plataforma (backoffice). Opcional: loteadora
+  /// sem assinatura opera normalmente, sem cobranca e sem bloqueio.
+  assinatura Assinatura?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1418,4 +1422,141 @@ model CronLock {
   lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
 
   @@map("cron_locks")
+}
+
+// =====================================================================
+// BACKOFFICE DA PLATAFORMA — assinatura das empresas-cliente
+// ---------------------------------------------------------------------
+// Aqui quem paga e a LOTEADORA, e quem recebe e a meuloteamento. Nao
+// confundir com Parcela/CobrancaAvulsa, que sao o cliente final pagando a
+// loteadora — outra ponta, outra chave Asaas (ver asaas-context.ts).
+//
+// Tudo aqui e aditivo: nenhuma tabela existente muda. Loteadora ganha
+// apenas a relacao inversa, que nao cria coluna.
+// =====================================================================
+
+model Plano {
+  id   String @id @default(cuid())
+  nome String @unique
+  slug String @unique
+
+  valorMensal Decimal @db.Decimal(12, 2)
+  descricao   String?
+
+  /// Limites do plano. NULL = ilimitado. Por ora sao informativos: quem
+  /// decide bloquear e o backoffice, nao o contador de recursos.
+  maxLoteamentos Int?
+  maxLotes       Int?
+  maxUsuarios    Int?
+
+  ativo Boolean @default(true)
+  ordem Int     @default(0)
+
+  assinaturas Assinatura[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("planos")
+}
+
+model Assinatura {
+  id String @id @default(cuid())
+
+  /// Uma assinatura por loteadora. Sem assinatura cadastrada, a loteadora
+  /// opera normalmente — e assim que a Germanos fica de fora ate voce
+  /// decidir cadastra-la.
+  loteadoraId String    @unique
+  loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  planoId String?
+  plano   Plano?  @relation(fields: [planoId], references: [id], onDelete: SetNull)
+
+  status AssinaturaStatus @default(TRIAL)
+
+  /// Valor cobrado de fato. Nasce copiado do plano, mas e editavel: um
+  /// desconto negociado com um cliente nao pode mudar o preco dos outros.
+  valorMensal Decimal @db.Decimal(12, 2)
+
+  /// Dia do vencimento. Limitado a 28 para existir em fevereiro.
+  diaVencimento Int @default(10)
+
+  /// Atraso tolerado antes do bloqueio. Da tempo de o boleto compensar e de
+  /// alguem ligar para o cliente antes de derrubar o sistema dele.
+  diasTolerancia Int @default(10)
+
+  trialAte DateTime?
+
+  /// Desligar manual — tem prioridade sobre qualquer calculo de atraso.
+  bloqueioManual Boolean   @default(false)
+  motivoBloqueio String?
+  bloqueadaEm    DateTime?
+
+  /// Cliente no Asaas da PLATAFORMA (nao o da loteadora).
+  asaasCustomerId String?
+
+  observacoes String?
+
+  faturas AssinaturaFatura[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("assinaturas")
+}
+
+model AssinaturaFatura {
+  id String @id @default(cuid())
+
+  assinaturaId String
+  assinatura   Assinatura @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+
+  /// Competencia no formato AAAA-MM.
+  competencia String
+
+  valor      Decimal  @db.Decimal(12, 2)
+  vencimento DateTime
+
+  status FaturaStatus @default(PENDENTE)
+
+  pagoEm    DateTime?
+  valorPago Decimal?  @db.Decimal(12, 2)
+
+  asaasPaymentId String? @unique
+  linkPagamento  String?
+  pixCopiaECola  String?
+
+  /// AUTOMATICA = gerada pelo cron. MANUAL = lancada por alguem no
+  /// backoffice. Numa conferencia, saber o que o sistema lancou sozinho e o
+  /// que alguem lancou a mao evita discussao.
+  origem FaturaOrigem @default(AUTOMATICA)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// O que torna a geracao mensal idempotente: rodar duas vezes na mesma
+  /// competencia esbarra aqui, no banco, e nao numa checagem em memoria.
+  @@unique([assinaturaId, competencia])
+  @@index([status, vencimento])
+  @@map("assinatura_faturas")
+}
+
+enum AssinaturaStatus {
+  TRIAL
+  ATIVA
+  INADIMPLENTE
+  BLOQUEADA
+  CANCELADA
+}
+
+enum FaturaStatus {
+  PENDENTE
+  PAGA
+  CANCELADA
+}
+
+enum FaturaOrigem {
+  AUTOMATICA
+  MANUAL
 }
