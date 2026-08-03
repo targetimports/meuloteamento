@@ -1,17 +1,21 @@
 /**
  * Usuários de acesso de uma empresa-cliente.
  *
- * Mesma capacidade da tela equivalente em /admin/loteadoras, que continua lá
- * para o admin da própria empresa gerir a equipe dele. Esta é a visão do
- * provedor — daí o texto falar em "empresa" e não em "sua loteadora".
+ * A tela equivalente em /admin/loteadoras continua existindo, para o admin
+ * da própria empresa gerir a equipe dele. Esta é a visão do provedor — daí
+ * falar em "empresa" e não em "sua loteadora".
+ *
+ * O formulário e a tabela são componentes próprios desta rota, não os de
+ * /components: aqueles são compartilhados com a tela da Germanos, e as
+ * mudanças de visual pedidas aqui não devem chegar lá.
  */
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice } from '@/lib/backoffice';
-import { NovoUsuarioForm } from '@/components/NovoUsuarioForm';
-import { ListaUsuariosLoteadora } from '@/components/ListaUsuariosLoteadora';
+import { FormNovoUsuario } from './FormNovoUsuario';
+import { TabelaUsuarios } from './TabelaUsuarios';
 import { criarUsuario, resetarSenha, alternarAtivo, excluirUsuario } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +48,7 @@ export default async function UsuariosEmpresaPage({
   });
 
   const criarAction = criarUsuario.bind(null, empresa.id);
+  const ativos = usuarios.filter((u) => u.ativo).length;
 
   return (
     <div>
@@ -54,44 +59,61 @@ export default async function UsuariosEmpresaPage({
         >
           ← {empresa.nome}
         </Link>
-        <h1 className="text-lg font-semibold text-slate-900 mt-1">
-          Usuários — {empresa.nome}
-        </h1>
+        <h1 className="text-lg font-semibold text-slate-900 mt-1">Usuários de acesso</h1>
       </header>
 
-      <div className="p-8 space-y-6 max-w-5xl">
+      {/* Largura total, como as outras telas do backoffice. O max-w-5xl que
+          havia aqui deixava o conteúdo boiando dentro de um cabeçalho que ia
+          de ponta a ponta. */}
+      <div className="p-8 space-y-6">
         <p className="text-sm text-slate-500">
-          Quem pode entrar no sistema por esta empresa. Cada um enxerga apenas
-          os dados dela.
+          Quem entra no sistema por <strong className="font-medium text-slate-700">{empresa.nome}</strong>.
+          Cada um enxerga apenas os dados desta empresa — nunca os de outra, nem
+          o backoffice.
         </p>
 
-        <NovoUsuarioForm action={criarAction} />
+        <FormNovoUsuario action={criarAction} />
 
         <section>
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">
-            Usuários cadastrados ({usuarios.length})
-          </h2>
-          <ListaUsuariosLoteadora
+          <div className="flex items-baseline justify-between gap-4 mb-3">
+            <h2 className="text-sm font-semibold text-slate-900">Usuários cadastrados</h2>
+            <p className="text-xs text-slate-500">
+              {usuarios.length} no total · {ativos} ativo(s)
+            </p>
+          </div>
+
+          <TabelaUsuarios
             loteadoraId={empresa.id}
             usuarios={usuarios}
             meuId={session.sub}
             resetSenhaAction={resetarSenha}
-            toggleAtivoAction={alternarAtivo}
+            alternarAtivoAction={alternarAtivo}
             excluirAction={excluirUsuario}
           />
         </section>
 
-        <section className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900 mb-1">Sobre o acesso</p>
-          <ul className="space-y-1 list-disc list-inside text-slate-600">
-            <li>Estes usuários só enxergam dados desta empresa</li>
-            <li>Não veem outras empresas, o backoffice, nem a configuração da plataforma</li>
-            <li>
-              Papéis: <strong>Admin</strong> (tudo), <strong>Operador</strong>{' '}
-              (operação) e <strong>Financeiro</strong> (vendas e parcelas)
-            </li>
-            <li>A senha gerada aparece uma única vez — copie na hora</li>
-          </ul>
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-900 mb-2">Sobre os papéis</h2>
+          <dl className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <dt className="font-medium text-slate-900">Admin</dt>
+              <dd className="text-xs text-slate-500 mt-0.5">
+                Acesso total aos dados da empresa, incluindo configurações.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-900">Operador</dt>
+              <dd className="text-xs text-slate-500 mt-0.5">
+                Operação do dia a dia: lotes, reservas e atendimento.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-900">Financeiro</dt>
+              <dd className="text-xs text-slate-500 mt-0.5">
+                Vendas, parcelas e cobrança.
+              </dd>
+            </div>
+          </dl>
         </section>
       </div>
     </div>
