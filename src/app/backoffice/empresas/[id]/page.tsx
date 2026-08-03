@@ -11,7 +11,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice, brl } from '@/lib/backoffice';
 import { EmpresaClienteForm } from '@/components/EmpresaClienteForm';
-import { salvarAssinatura, alternarBloqueioManual } from './actions';
+import { salvarAssinatura } from './actions';
 import { atualizarDadosEmpresa, alternarEmpresaAtiva } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -153,11 +153,6 @@ export default async function EmpresaPage({
               <h2 className="text-sm font-semibold text-slate-900">
                 {a ? 'Assinatura' : 'Cadastrar assinatura'}
               </h2>
-              {a?.bloqueioManual && (
-                <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
-                  Bloqueada manualmente
-                </span>
-              )}
             </div>
 
             {!a && (
@@ -288,31 +283,6 @@ export default async function EmpresaPage({
               </div>
             </form>
 
-            {a && (
-              <form
-                action={async () => {
-                  'use server';
-                  await alternarBloqueioManual(empresa.id, 'Bloqueado pelo provedor.');
-                }}
-                className="mt-5 pt-5 border-t border-slate-200"
-              >
-                <button
-                  type="submit"
-                  className={`text-sm px-4 py-2 rounded-lg transition ${
-                    a.bloqueioManual
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
-                  }`}
-                >
-                  {a.bloqueioManual ? 'Liberar acesso' : 'Bloquear acesso manualmente'}
-                </button>
-                <p className="text-[11px] text-slate-400 mt-2">
-                  O bloqueio ainda não corta o acesso — a interceptação será
-                  ligada numa etapa seguinte. Por ora este botão só registra a
-                  decisão.
-                </p>
-              </form>
-            )}
           </section>
 
           {/* ---------------- Faturas ---------------- */}
