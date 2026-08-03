@@ -78,42 +78,6 @@ export default async function LogsPage() {
         )}
 
         <TabelaLogs logs={dados.itens} empresas={empresas} />
-
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-slate-900 mb-2">
-            Sobre o que este registro alcança
-          </h2>
-          <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-            <li>
-              <strong>Duas fontes, sem sobreposição.</strong> A navegação vem do
-              app.log, que sabe quem estava logado e de qual empresa. As
-              chamadas de <code className="font-mono">/api</code> — webhooks do
-              Asaas, crons e integrações — vêm do log do nginx, que enxerga o
-              que o roteamento não vê e traz o status HTTP real.
-            </li>
-            <li>
-              O app.log é único e nunca gera cópias: ao passar de 20 MB, a
-              metade mais antiga é descartada e o mesmo arquivo continua. O log
-              do nginx é apenas lido; a configuração dele não foi alterada.
-            </li>
-            <li>
-              Nas linhas de navegação, <strong>Resultado</strong> mostra o que o
-              roteamento decidiu (seguiu, redirect, rewrite): o status final da
-              página é definido depois desse ponto. Nas integrações, o status é
-              o real.
-            </li>
-            <li>
-              Integrações não têm empresa associada — o nginx não conhece
-              sessão. Por isso ficam fora ao filtrar por uma empresa, e têm
-              filtro próprio.
-            </li>
-            <li>
-              Tokens em querystring aparecem mascarados: os crons levam o
-              CRON_TOKEN na URL, e ele fica gravado em texto claro no arquivo do
-              nginx.
-            </li>
-          </ul>
-        </section>
       </div>
     </div>
   );
