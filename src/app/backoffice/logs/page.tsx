@@ -48,25 +48,17 @@ export default async function LogsPage() {
       </header>
 
       <div className="p-8 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">
-            Navegação de <code className="font-mono">{dados.arquivo}</code>
-            {dados.totalIntegracoes > 0 && (
-              <>
-                {' '}· {dados.totalIntegracoes.toLocaleString('pt-BR')} chamada(s) de
-                integração vindas do nginx
-              </>
-            )}
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="w-32 h-1.5 rounded-full bg-slate-200 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${pctUso > 80 ? 'bg-amber-500' : 'bg-slate-400'}`}
-                style={{ width: `${Math.max(2, pctUso)}%` }}
-              />
-            </div>
-            <span className="text-xs text-slate-500 tabular-nums">{mb} / 20 MB</span>
+        {/* Só a barra de uso: o caminho do arquivo e a contagem por fonte não
+            mudam decisão nenhuma de quem está olhando os logs. O quanto falta
+            para a rotação, sim. */}
+        <div className="flex items-center justify-end gap-2">
+          <div className="w-32 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${pctUso > 80 ? 'bg-amber-500' : 'bg-slate-400'}`}
+              style={{ width: `${Math.max(2, pctUso)}%` }}
+            />
           </div>
+          <span className="text-xs text-slate-500 tabular-nums">{mb} / 20 MB</span>
         </div>
 
         {dados.truncado && (
