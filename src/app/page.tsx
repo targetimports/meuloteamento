@@ -371,7 +371,7 @@ function Hero() {
               href="#pricing"
               className="group relative inline-flex items-center gap-2 px-6 py-3.5 bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/40 hover:shadow-primary-500/60 transition animate-pulse-glow"
             >
-              <span>Começar grátis por 14 dias</span>
+              <span>Começar grátis por 7 dias</span>
               <IconArrowRight className="group-hover:translate-x-1 transition" />
             </Link>
             <Link
@@ -1113,7 +1113,7 @@ function Pricing() {
             Preço justo. Sem letras miúdas.
           </h2>
           <p className="text-slate-600 max-w-xl mx-auto">
-            14 dias grátis em qualquer plano. Sem cartão. Migre, faça upgrade ou cancele quando quiser.
+            7 dias grátis em qualquer plano. Sem cartão. Migre, faça upgrade ou cancele quando quiser.
           </p>
         </div>
 
@@ -1344,7 +1344,7 @@ function Footer() {
               Comece hoje
             </p>
             <p className="text-sm text-slate-400 leading-relaxed mb-4">
-              Cadastre seu primeiro loteamento em minutos. 14 dias grátis.
+              Cadastre seu primeiro loteamento em minutos. 7 dias grátis.
             </p>
             <Link
               href="#pricing"
