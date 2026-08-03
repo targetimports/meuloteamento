@@ -207,12 +207,15 @@ function lerNginxApi(): EventoLog[] {
 }
 
 export interface FiltroLogs {
-  /** null = todas; 'backoffice' = só plataforma; id = uma empresa. */
-  loteadoraId?: string | null;
-  /** false esconde as chamadas de /api vindas do nginx. */
-  incluirIntegracoes?: boolean;
-  pagina: number;
-  porPagina: number;
+  /**
+   * Teto de registros devolvidos, dos mais recentes para trás.
+   *
+   * A tela filtra e pagina no cliente, então recebe o conjunto de uma vez:
+   * trocar de página deixa de ser uma ida ao servidor. O teto existe para
+   * que o arquivo crescendo não vire um payload de megabytes — passando
+   * dele, a tela avisa que há mais histórico no arquivo.
+   */
+  limite: number;
 }
 
 export interface ResultadoLogs {
@@ -220,8 +223,10 @@ export interface ResultadoLogs {
   total: number;
   tamanhoBytes: number;
   arquivo: string;
-  /** Quantos vieram do nginx (integrações) no conjunto filtrado. */
+  /** Quantos vieram do nginx (integrações). */
   totalIntegracoes: number;
+  /** true quando o arquivo tem mais registros do que o teto devolvido. */
+  truncado: boolean;
 }
 
 /**
@@ -255,29 +260,19 @@ export function lerLogs(filtro: FiltroLogs): ResultadoLogs {
     }
   }
 
-  // As integrações vêm do nginx e não carregam empresa — o nginx não conhece
-  // sessão. Por isso só entram quando não há filtro de empresa: exibi-las sob
-  // o nome de uma loteadora afirmaria uma origem que ninguém verificou.
-  const semFiltroDeEmpresa = !filtro.loteadoraId;
-  const integracoes =
-    filtro.incluirIntegracoes !== false && semFiltroDeEmpresa ? lerNginxApi() : [];
+  const integracoes = lerNginxApi();
 
-  const juntos = [...eventos, ...integracoes].filter((e) => {
-    if (filtro.loteadoraId === 'backoffice') return e.loteadoraId === null;
-    if (filtro.loteadoraId) return e.loteadoraId === filtro.loteadoraId;
-    return true;
-  });
+  // As duas fontes chegam ordenadas isoladamente, mas intercaladas no tempo.
+  const juntos = [...eventos, ...integracoes].sort((a, b) =>
+    a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0
+  );
 
-  // Ordena pelo horário, do mais recente para o mais antigo: as duas fontes
-  // chegam ordenadas isoladamente, mas intercaladas no tempo.
-  juntos.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
-
-  const inicio = (filtro.pagina - 1) * filtro.porPagina;
   return {
-    itens: juntos.slice(inicio, inicio + filtro.porPagina),
+    itens: juntos.slice(0, filtro.limite),
     total: juntos.length,
     tamanhoBytes: tamanho,
     arquivo: ARQUIVO,
     totalIntegracoes: integracoes.length,
+    truncado: juntos.length > filtro.limite,
   };
 }
