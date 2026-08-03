@@ -50,7 +50,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const res = await rotear(req);
 
   try {
-    registrarAcesso(req, res, event, Date.now() - inicio);
+    await registrarAcesso(req, res, event, Date.now() - inicio);
   } catch {
     // Uma falha aqui não pode afetar a navegação de ninguém.
   }
@@ -70,12 +70,27 @@ function areaDaRota(pathname: string): string {
   return 'publico';
 }
 
-function registrarAcesso(
+/**
+ * ENVIO SÍNCRONO, E NÃO event.waitUntil — aprendido na prática.
+ *
+ * A primeira versão despachava com waitUntil, para não somar latência. Em
+ * teste local funcionou; em produção, nada da navegação real era registrado.
+ * O motivo: neste servidor a promise do waitUntil é abandonada quando a
+ * resposta sai antes dela terminar. Os testes iam para 127.0.0.1 e concluíam
+ * em ~5 ms, a tempo; a navegação de verdade disparava para o domínio público,
+ * com TLS e nginx no caminho (~43 ms), e morria antes de gravar.
+ *
+ * Agora o envio é aguardado, com duas defesas para o custo não virar problema:
+ * vai direto ao 127.0.0.1 (sem TLS, sem nginx) e tem timeout curto. Se
+ * estourar, a requisição segue sem log — perder uma linha é aceitável, segurar
+ * a página de alguém não é.
+ */
+async function registrarAcesso(
   req: NextRequest,
   res: NextResponse,
-  event: NextFetchEvent,
+  _event: NextFetchEvent,
   ms: number
-) {
+): Promise<void> {
   const pathname = req.nextUrl.pathname;
 
   // Ruído que não diz nada sobre uso: arquivos estáticos e o favicon.
@@ -116,11 +131,15 @@ function registrarAcesso(
       // vista do log, que é exatamente o que se quer registrar.
     }
 
+    // Loopback, não o domínio público: o pedido nem sai da máquina, então
+    // não paga TLS nem passa pelo nginx.
     const base =
-      process.env.LOG_INGEST_URL || req.nextUrl.origin;
+      process.env.LOG_INGEST_URL ||
+      `http://127.0.0.1:${process.env.PORT || 3000}`;
 
     await fetch(new URL('/api/log-acesso', base), {
       method: 'POST',
+      signal: AbortSignal.timeout(500),
       headers: {
         'Content-Type': 'application/json',
         'x-log-token': LOG_TOKEN,
@@ -144,7 +163,7 @@ function registrarAcesso(
     }).catch(() => {});
   };
 
-  event.waitUntil(enviar());
+  await enviar();
 }
 
 async function rotear(req: NextRequest) {
