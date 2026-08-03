@@ -10,7 +10,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice, brl } from '@/lib/backoffice';
+import { EmpresaClienteForm } from '@/components/EmpresaClienteForm';
 import { salvarAssinatura, alternarBloqueioManual } from './actions';
+import { atualizarDadosEmpresa, alternarEmpresaAtiva } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +31,7 @@ export default async function EmpresaPage({
     select: {
       id: true,
       nome: true,
+      slug: true,
       razaoSocial: true,
       cnpj: true,
       email: true,
@@ -72,36 +75,74 @@ export default async function EmpresaPage({
       </header>
 
       <div className="p-8 grid gap-6 lg:grid-cols-3">
-        {/* ---------------- Coluna esquerda: dados ---------------- */}
+        {/* ---------------- Coluna esquerda: cadastro e uso ---------------- */}
         <div className="space-y-6">
           <section className="bg-white border border-slate-200 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Dados</h2>
-            <dl className="space-y-2.5 text-sm">
-              <Linha rotulo="Razão social" valor={empresa.razaoSocial} />
-              <Linha rotulo="CNPJ" valor={empresa.cnpj} />
-              <Linha rotulo="E-mail" valor={empresa.email} />
-              <Linha rotulo="Telefone" valor={empresa.telefone} />
-              <Linha
-                rotulo="Cidade"
-                valor={[empresa.cidade, empresa.estado].filter(Boolean).join('/') || null}
-              />
-              <Linha rotulo="Cliente desde" valor={dataBR(empresa.createdAt)} />
-            </dl>
-            <Link
-              href={`/admin/loteadoras/${empresa.id}`}
-              className="mt-4 inline-block text-xs text-primary-600 hover:underline"
-            >
-              Editar cadastro no painel operacional →
-            </Link>
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Cadastro</h2>
+            <EmpresaClienteForm
+              action={atualizarDadosEmpresa}
+              inicial={{
+                id: empresa.id,
+                nome: empresa.nome,
+                slug: empresa.slug,
+                razaoSocial: empresa.razaoSocial,
+                cnpj: empresa.cnpj,
+                email: empresa.email,
+                telefone: empresa.telefone,
+                cidade: empresa.cidade,
+                estado: empresa.estado,
+              }}
+              rotuloBotao="Salvar dados"
+            />
           </section>
 
           <section className="bg-white border border-slate-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-slate-900 mb-4">Uso</h2>
             <dl className="space-y-2.5 text-sm">
               <Linha rotulo="Loteamentos" valor={String(empresa._count.loteamentos)} />
-              <Linha rotulo="Usuários" valor={String(empresa._count.adminUsers)} />
               <Linha rotulo="Corretores" valor={String(empresa._count.corretores)} />
+              <Linha rotulo="Cliente desde" valor={dataBR(empresa.createdAt)} />
             </dl>
+            <Link
+              href={`/backoffice/empresas/${empresa.id}/usuarios`}
+              className="mt-4 flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition"
+            >
+              <span className="text-sm text-slate-700">Usuários de acesso</span>
+              <span className="text-sm font-semibold text-slate-900">
+                {empresa._count.adminUsers} →
+              </span>
+            </Link>
+          </section>
+
+          {/* Ativar/desativar é corte de acesso de verdade: `ativo=false` já
+              barra o login dos usuários desde antes deste backoffice. Por
+              isso fica separado, com aviso — não é um rótulo. */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-slate-900 mb-1">
+              Situação da empresa
+            </h2>
+            <p className="text-xs text-slate-500 mb-4">
+              {empresa.ativo
+                ? 'Ativa — os usuários conseguem entrar normalmente.'
+                : 'Inativa — nenhum usuário desta empresa consegue fazer login.'}
+            </p>
+            <form
+              action={async () => {
+                'use server';
+                await alternarEmpresaAtiva(empresa.id);
+              }}
+            >
+              <button
+                type="submit"
+                className={`w-full text-sm px-4 py-2.5 rounded-lg transition ${
+                  empresa.ativo
+                    ? 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {empresa.ativo ? 'Desativar empresa' : 'Reativar empresa'}
+              </button>
+            </form>
           </section>
         </div>
 

@@ -55,8 +55,16 @@ export default async function EmpresasPage() {
   return (
     <div>
       <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">Empresas-cliente</h1>
-        <span className="text-sm text-slate-500">{empresas.length} cadastrada(s)</span>
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-lg font-semibold text-slate-900">Empresas-cliente</h1>
+          <span className="text-sm text-slate-500">{empresas.length} cadastrada(s)</span>
+        </div>
+        <Link
+          href="/backoffice/empresas/nova"
+          className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition"
+        >
+          + Nova empresa
+        </Link>
       </header>
 
       <div className="p-8">
