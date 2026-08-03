@@ -18,5 +18,12 @@ CRON_TOKEN=COLE_SEU_CRON_TOKEN_AQUI
 # Drena fila de comunicacoes a cada 10 minutos (caso falha temporaria do provedor)
 */10 * * * * curl -fsS -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/processar-envios > /dev/null
 
-# Backup do banco (3h da manha)
-0 3 * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
+# Backup do banco (3h da manha e meio-dia)
+0 3  * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
+0 12 * * * /var/www/meuloteamento/deploy/backup-postgres.sh >> /var/log/meuloteamento/backup.log 2>&1
+
+# Vigia do backup: avisa por e-mail se passar de 24h sem copia nova (13h, uma
+# hora depois do backup do meio-dia). Chamado com `bash` de proposito: assim o
+# alerta continua funcionando mesmo se o arquivo perder o bit de execucao —
+# que foi exatamente a falha que deixou o backup 3 dias parado em 31/07/2026.
+0 13 * * * bash /var/www/meuloteamento/deploy/checar-backup.sh >> /var/log/meuloteamento/backup.log 2>&1
