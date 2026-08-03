@@ -182,6 +182,18 @@ export default async function EmpresaPage({
                     </option>
                   ))}
                 </select>
+                {/* Select com uma opção só parece defeito. Se não há plano
+                    cadastrado, a tela precisa dizer isso e mostrar a saída —
+                    senão a pessoa fica procurando o bug. */}
+                {planos.length === 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1.5">
+                    Nenhum plano cadastrado ainda.{' '}
+                    <Link href="/backoffice/planos" className="underline font-medium">
+                      Criar planos
+                    </Link>{' '}
+                    — ou deixe sem plano e informe a mensalidade à mão.
+                  </p>
+                )}
               </div>
 
               <div>

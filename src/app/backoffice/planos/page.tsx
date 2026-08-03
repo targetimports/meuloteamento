@@ -11,7 +11,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice, brl } from '@/lib/backoffice';
-import { salvarPlano, alternarPlanoAtivo } from './actions';
+import { salvarPlano, alternarPlanoAtivo, criarPlanosDaLanding } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +36,24 @@ export default async function PlanosPage() {
         {/* ---------------- Lista ---------------- */}
         <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           {planos.length === 0 ? (
-            <p className="py-12 text-center text-sm text-slate-400">
-              Nenhum plano cadastrado. Crie o primeiro no formulário abaixo.
-            </p>
+            <div className="py-12 text-center">
+              <p className="text-sm text-slate-500">Nenhum plano cadastrado ainda.</p>
+              <p className="text-xs text-slate-400 mt-1 mb-5">
+                Sem plano, a assinatura de uma empresa fica sem a que se vincular.
+              </p>
+              <form action={criarPlanosDaLanding}>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition"
+                >
+                  Criar os planos da landing (Profissional e Empresarial)
+                </button>
+              </form>
+              <p className="text-[11px] text-slate-400 mt-3">
+                Cria os dois planos anunciados no site, com os valores de lá.
+                Você pode ajustar depois.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
