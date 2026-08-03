@@ -77,7 +77,7 @@ export default async function EmpresaPage({
       <div className="p-8 grid gap-6 lg:grid-cols-3">
         {/* ---------------- Coluna esquerda: cadastro e uso ---------------- */}
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5">
+          <section id="cadastro" className="bg-white border border-slate-200 rounded-xl p-5 scroll-mt-4">
             <h2 className="text-sm font-semibold text-slate-900 mb-4">Cadastro</h2>
             <EmpresaClienteForm
               action={atualizarDadosEmpresa}
@@ -148,7 +148,7 @@ export default async function EmpresaPage({
 
         {/* ---------------- Coluna direita: assinatura ---------------- */}
         <div className="lg:col-span-2 space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-6">
+          <section id="assinatura" className="bg-white border border-slate-200 rounded-xl p-6 scroll-mt-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 {a ? 'Assinatura' : 'Cadastrar assinatura'}

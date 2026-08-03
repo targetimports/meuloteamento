@@ -9,6 +9,8 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice, brl } from '@/lib/backoffice';
+import { AcoesEmpresa } from '@/components/AcoesEmpresa';
+import { alternarEmpresaAtiva } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +85,7 @@ export default async function EmpresasPage() {
                     <th className="text-right font-medium px-5 py-3">Mensalidade</th>
                     <th className="text-right font-medium px-5 py-3">Uso</th>
                     <th className="text-right font-medium px-5 py-3">Situação</th>
+                    <th className="text-right font-medium px-5 py-3 w-20">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -125,6 +128,15 @@ export default async function EmpresasPage() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <Situacao assinatura={e.assinatura} empresaAtiva={e.ativo} />
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <AcoesEmpresa
+                          empresaId={e.id}
+                          empresaNome={e.nome}
+                          ativa={e.ativo}
+                          temAssinatura={e.assinatura !== null}
+                          alternarAtivaAction={alternarEmpresaAtiva}
+                        />
                       </td>
                     </tr>
                   ))}
