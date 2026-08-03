@@ -27,7 +27,7 @@ interface NavItem {
   href: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
-  group: 'plataforma' | 'comercial';
+  group: 'plataforma' | 'comercial' | 'conta';
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -37,11 +37,17 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/backoffice/planos', label: 'Planos', Icon: NavMoney, group: 'comercial' },
   { href: '/backoffice/interessados', label: 'Interessados', Icon: NavUsers, group: 'comercial' },
   { href: '/backoffice/configuracoes', label: 'Config. da plataforma', Icon: NavSettings, group: 'comercial' },
+  // Grupo próprio: "Usuários" aqui são os do backoffice, não os de uma
+  // empresa-cliente. Deixá-los junto de Empresas convidaria à confusão
+  // justamente entre quem enxerga tudo e quem enxerga uma empresa só.
+  { href: '/backoffice/usuarios', label: 'Usuários', Icon: NavUsers, group: 'conta' },
+  { href: '/backoffice/perfil', label: 'Meu perfil', Icon: NavSettings, group: 'conta' },
 ];
 
 const GROUP_LABEL: Record<NavItem['group'], string> = {
   plataforma: 'Plataforma',
   comercial: 'Comercial',
+  conta: 'Conta',
 };
 
 export default async function BackofficeLayout({
@@ -58,7 +64,7 @@ export default async function BackofficeLayout({
     .join('')
     .toUpperCase();
 
-  const groups: NavItem['group'][] = ['plataforma', 'comercial'];
+  const groups: NavItem['group'][] = ['plataforma', 'comercial', 'conta'];
 
   return (
     <div className="min-h-screen flex bg-slate-100">
