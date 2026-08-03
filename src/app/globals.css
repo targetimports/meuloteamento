@@ -296,6 +296,44 @@ a {
 }
 
 /* =====================================================================
+   Modais
+   ---------------------------------------------------------------------
+   Um painel que aparece instantaneamente é lido como um susto: o olho não
+   acompanha de onde veio. A entrada curta (com o painel subindo alguns
+   pixels e crescendo de 0.96) dá continuidade ao gesto sem custar tempo
+   perceptível.
+
+   A curva é cubic-bezier(0.16, 1, 0.3, 1) — sai rápido e desacelera no fim,
+   que é como objetos físicos param.
+   ===================================================================== */
+
+@keyframes modal-fundo {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-painel {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-fundo {
+  animation: modal-fundo 0.2s ease-out;
+}
+
+.modal-painel {
+  animation: modal-painel 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Quem pediu menos animação no sistema não deve receber nenhuma. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-fundo,
+  .modal-painel {
+    animation: none;
+  }
+}
+
+/* =====================================================================
    Autofill do Chrome
    ---------------------------------------------------------------------
    Quando o usuario escolhe um dado salvo, o Chrome pinta o campo com um
