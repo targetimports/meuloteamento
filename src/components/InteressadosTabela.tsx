@@ -7,7 +7,7 @@ import {
   mudarStatusInteressado,
   responderInteressado,
   salvarObservacoes,
-} from '@/app/admin/(dashboard)/interessados/actions';
+} from '@/app/backoffice/interessados/actions';
 
 export interface InteressadoUI {
   id: string;

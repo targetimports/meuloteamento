@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { requireSuperAdmin } from '@/lib/tenant';
+import { requireBackoffice } from '@/lib/backoffice';
 import { sendEmail } from '@/lib/comunicacao';
 
 type FormState = { error?: string; ok?: boolean };
@@ -20,7 +20,7 @@ export async function mudarStatusInteressado(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireSuperAdmin();
+  await requireBackoffice();
 
   const parsed = mudarStatusSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: 'Dados inválidos' };
@@ -30,7 +30,7 @@ export async function mudarStatusInteressado(
     data: { status: parsed.data.status },
   });
 
-  revalidatePath('/admin/interessados');
+  revalidatePath('/backoffice/interessados');
   return { ok: true };
 }
 
@@ -52,7 +52,7 @@ export async function responderInteressado(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireSuperAdmin();
+  await requireBackoffice();
 
   const parsed = responderSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
@@ -116,7 +116,7 @@ export async function responderInteressado(
     },
   });
 
-  revalidatePath('/admin/interessados');
+  revalidatePath('/backoffice/interessados');
   return { ok: true };
 }
 
@@ -130,7 +130,7 @@ export async function salvarObservacoes(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireSuperAdmin();
+  await requireBackoffice();
 
   const parsed = observacoesSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: 'Dados inválidos' };
@@ -140,6 +140,6 @@ export async function salvarObservacoes(
     data: { observacoes: parsed.data.observacoes || null },
   });
 
-  revalidatePath('/admin/interessados');
+  revalidatePath('/backoffice/interessados');
   return { ok: true };
 }

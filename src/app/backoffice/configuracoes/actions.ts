@@ -60,7 +60,7 @@ export async function salvarConfiguracoes(_prev: FormState, formData: FormData):
     update: mapClean(data, cleanString),
   });
 
-  revalidatePath('/admin/configuracoes');
+  revalidatePath('/backoffice/configuracoes');
   revalidatePath('/');
   revalidatePath('/sobre');
   revalidatePath('/contato');

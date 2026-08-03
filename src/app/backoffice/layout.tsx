@@ -35,11 +35,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/backoffice/empresas', label: 'Empresas-cliente', Icon: NavBuilding, group: 'plataforma' },
   { href: '/backoffice/cobrancas', label: 'Cobranças', Icon: NavMoney, group: 'plataforma' },
   { href: '/backoffice/planos', label: 'Planos', Icon: NavMoney, group: 'comercial' },
-  // Estas duas ainda moram em /admin porque já existem e funcionam. São telas
-  // exclusivas da plataforma (superAdminOnly), não do painel do cliente —
-  // migrá-las para cá é mexer no que funciona, então fica para depois.
-  { href: '/admin/interessados', label: 'Interessados', Icon: NavUsers, group: 'comercial' },
-  { href: '/admin/configuracoes', label: 'Config. da plataforma', Icon: NavSettings, group: 'comercial' },
+  { href: '/backoffice/interessados', label: 'Interessados', Icon: NavUsers, group: 'comercial' },
+  { href: '/backoffice/configuracoes', label: 'Config. da plataforma', Icon: NavSettings, group: 'comercial' },
 ];
 
 const GROUP_LABEL: Record<NavItem['group'], string> = {
