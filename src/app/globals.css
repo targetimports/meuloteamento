@@ -11,6 +11,54 @@
   box-sizing: border-box;
 }
 
+/* =====================================================================
+   Campos de formulário — cor
+   ---------------------------------------------------------------------
+   Os campos apareciam cinza-escuro para quem usa o sistema operacional em
+   modo escuro, mesmo com a página clara. A causa é o `color-scheme`: sem
+   ele declarado, o Chrome renderiza os controles nativos segundo a
+   preferência do SO, ignorando o tema do site.
+
+   O projeto tem tema escuro por classe (darkMode: 'class'), então a
+   declaração acompanha essa classe em vez de fixar 'light' — fixar
+   quebraria o modo escuro de quem o ativou no ThemeToggle.
+
+   Isto é o mesmo mecanismo do autofill tratado mais abaixo, mas para o
+   estado normal do campo.
+   ===================================================================== */
+
+:root {
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  /*
+    Rede de proteção para navegador que ignore color-scheme, e para os poucos
+    campos sem classe de fundo própria.
+
+    Vive em @layer base e usa seletor de elemento: qualquer classe do Tailwind
+    (0,1,0) vence deste seletor (0,0,1), então nenhum campo que já define a
+    própria cor é afetado.
+
+    A lista de exclusões existe porque checkbox, radio, range, color e file
+    têm desenho próprio do navegador — pintar o fundo deles os desfigura.
+  */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='reset']),
+  textarea,
+  select {
+    background-color: #ffffff;
+    color: #0f172a; /* slate-900 */
+  }
+
+  ::placeholder {
+    color: #94a3b8; /* slate-400 */
+    opacity: 1; /* Firefox esmaece por padrão, deixando quase ilegível */
+  }
+}
+
 html, body {
   padding: 0;
   margin: 0;
