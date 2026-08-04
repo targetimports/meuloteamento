@@ -34,9 +34,27 @@ export async function loginAction(formData: FormData) {
     );
   }
 
-  const user = await prisma.adminUser.findUnique({ where: { email } });
+  const user = await prisma.adminUser.findUnique({
+    where: { email },
+    include: { loteadora: { select: { ativo: true, nome: true } } },
+  });
   if (!user || !user.ativo) {
     redirect(`/admin/login?error=${encodeURIComponent('Credenciais inválidas.')}`);
+  }
+
+  // Empresa desativada barra todos os usuários dela de uma vez. Antes disto o
+  // campo `ativo` da loteadora não era consultado em lugar nenhum do login:
+  // desativar a empresa mudava o rótulo na tela e mais nada.
+  //
+  // A mensagem é diferente de "credenciais inválidas" de propósito: a senha
+  // está certa, e mandar o usuário procurar erro de digitação num acesso
+  // suspenso só gera chamado de suporte.
+  if (user.loteadora && !user.loteadora.ativo) {
+    redirect(
+      `/admin/login?error=${encodeURIComponent(
+        'Acesso suspenso. Procure o responsável pela sua empresa.'
+      )}`
+    );
   }
 
   const ok = await verifyPassword(password, user.passwordHash);

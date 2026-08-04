@@ -4,10 +4,43 @@ import { prisma } from './prisma';
 
 /**
  * Garante que existe sessão admin válida. Redireciona pra login se não.
+ *
+ * Também derruba quem pertence a uma empresa desativada. Barrar só no login
+ * não bastaria: o token dura horas, então quem já estivesse dentro seguiria
+ * trabalhando depois da suspensão — e é justamente no momento da suspensão
+ * que o acesso precisa parar.
+ *
+ * FALHA ABERTA de propósito: se a consulta der erro, o acesso é liberado.
+ * Deixar o cliente fora do sistema por um problema nosso de banco seria pior
+ * que atrasar em minutos o corte de um inadimplente.
  */
 export async function requireAdmin(): Promise<AdminSession> {
   const session = await getSession();
   if (!session) redirect('/admin/login');
+
+  if (session.loteadoraId) {
+    let suspensa = false;
+    try {
+      const loteadora = await prisma.loteadora.findUnique({
+        where: { id: session.loteadoraId },
+        select: { ativo: true },
+      });
+      // Loteadora sumida (excluída) também derruba: a sessão aponta para algo
+      // que não existe mais.
+      suspensa = !loteadora || !loteadora.ativo;
+    } catch {
+      suspensa = false;
+    }
+
+    if (suspensa) {
+      redirect(
+        `/admin/login?error=${encodeURIComponent(
+          'Acesso suspenso. Procure o responsável pela sua empresa.'
+        )}`
+      );
+    }
+  }
+
   return session;
 }
 

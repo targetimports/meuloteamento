@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireBackoffice, brl } from '@/lib/backoffice';
 import { EmpresaClienteForm } from '@/components/EmpresaClienteForm';
+import { BotaoSituacaoEmpresa } from '@/components/BotaoSituacaoEmpresa';
 import { salvarAssinatura } from './actions';
 import { atualizarDadosEmpresa, alternarEmpresaAtiva } from '../actions';
 
@@ -114,9 +115,8 @@ export default async function EmpresaPage({
             </Link>
           </section>
 
-          {/* Ativar/desativar é corte de acesso de verdade: `ativo=false` já
-              barra o login dos usuários desde antes deste backoffice. Por
-              isso fica separado, com aviso — não é um rótulo. */}
+          {/* Corte de acesso de verdade: o login recusa usuário de empresa
+              desativada, e o requireAdmin derruba quem já estiver dentro. */}
           <section className="bg-white border border-slate-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-slate-900 mb-1">
               Situação da empresa
@@ -124,25 +124,14 @@ export default async function EmpresaPage({
             <p className="text-xs text-slate-500 mb-4">
               {empresa.ativo
                 ? 'Ativa — os usuários conseguem entrar normalmente.'
-                : 'Inativa — nenhum usuário desta empresa consegue fazer login.'}
+                : 'Inativa — nenhum usuário desta empresa consegue entrar, e as sessões abertas caem na próxima página.'}
             </p>
-            <form
-              action={async () => {
-                'use server';
-                await alternarEmpresaAtiva(empresa.id);
-              }}
-            >
-              <button
-                type="submit"
-                className={`w-full text-sm px-4 py-2.5 rounded-lg transition ${
-                  empresa.ativo
-                    ? 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                }`}
-              >
-                {empresa.ativo ? 'Desativar empresa' : 'Reativar empresa'}
-              </button>
-            </form>
+            <BotaoSituacaoEmpresa
+              empresaId={empresa.id}
+              empresaNome={empresa.nome}
+              ativa={empresa.ativo}
+              alternarAction={alternarEmpresaAtiva}
+            />
           </section>
         </div>
 

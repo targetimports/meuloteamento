@@ -23,6 +23,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { ModalConfirmar } from './ModalConfirmar';
 
 interface Props {
   empresaId: string;
@@ -55,6 +56,7 @@ export function AcoesEmpresa({
   alternarAtivaAction,
 }: Props) {
   const [aberto, setAberto] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   const [montado, setMontado] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -74,11 +76,8 @@ export function AcoesEmpresa({
     };
   }, [aberto]);
 
-  function alternarAtiva() {
-    const pergunta = ativa
-      ? `Desativar ${empresaNome}?\n\nNenhum usuário desta empresa conseguirá fazer login enquanto estiver desativada.`
-      : `Reativar ${empresaNome}?\n\nOs usuários voltam a conseguir entrar.`;
-    if (!confirm(pergunta)) return;
+  function confirmarAlternancia() {
+    setConfirmando(false);
     setAberto(false);
     startTransition(async () => {
       await alternarAtivaAction(empresaId);
@@ -221,7 +220,7 @@ export function AcoesEmpresa({
                   </div>
                   <button
                     type="button"
-                    onClick={alternarAtiva}
+                    onClick={() => setConfirmando(true)}
                     className={`flex-shrink-0 px-3.5 py-2 rounded-lg text-sm font-medium transition ${
                       ativa
                         ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
@@ -236,6 +235,26 @@ export function AcoesEmpresa({
           </div>,
           document.body
         )}
+
+      <ModalConfirmar
+        aberto={confirmando}
+        titulo={ativa ? `Desativar ${empresaNome}?` : `Reativar ${empresaNome}?`}
+        descricao={
+          ativa
+            ? 'A empresa deixa de operar no sistema até ser reativada.'
+            : 'A empresa volta a operar normalmente.'
+        }
+        consequencia={
+          ativa
+            ? 'Nenhum usuário desta empresa conseguirá fazer login, e quem estiver logado é desconectado na próxima página que abrir.'
+            : 'Os usuários voltam a conseguir entrar imediatamente.'
+        }
+        rotuloConfirmar={ativa ? 'Desativar empresa' : 'Reativar empresa'}
+        tom={ativa ? 'destrutivo' : 'neutro'}
+        processando={pending}
+        onConfirmar={confirmarAlternancia}
+        onCancelar={() => setConfirmando(false)}
+      />
     </>
   );
 }
