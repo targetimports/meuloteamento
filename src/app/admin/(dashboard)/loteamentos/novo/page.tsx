@@ -1,14 +1,25 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/tenant';
 import { LoteamentoForm } from '@/components/LoteamentoForm';
 import { criarLoteamento } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NovoLoteamentoPage() {
+  const session = await requireAdmin();
+
+  // O select listava TODAS as loteadoras ativas. Com um cliente só isso não
+  // aparecia; com dois, o admin de uma empresa passou a ver o nome da outra —
+  // e podia escolhê-la. Aqui cada um vê apenas a própria; o super admin, que
+  // não tem loteadoraId, continua vendo todas para poder operar por qualquer
+  // uma.
   const loteadoras = await prisma.loteadora.findMany({
-    where: { ativo: true },
+    where: {
+      ativo: true,
+      ...(session.loteadoraId ? { id: session.loteadoraId } : {}),
+    },
     orderBy: { nome: 'asc' },
     select: { id: true, nome: true },
   });

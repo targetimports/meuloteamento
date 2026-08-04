@@ -1,13 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { canAccessLoteamento } from '@/lib/tenant';
+import { canAccessLoteamento, requireAdmin } from '@/lib/tenant';
 import { LoteamentoForm } from '@/components/LoteamentoForm';
 import { atualizarLoteamento, excluirLoteamento } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditLoteamentoPage({ params }: { params: { id: string } }) {
+  const session = await requireAdmin();
+
   const loteamento = await prisma.loteamento.findUnique({
     where: { id: params.id },
     include: {
@@ -18,8 +20,14 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
   if (!loteamento) notFound();
   if (!(await canAccessLoteamento(loteamento.loteadoraId))) notFound();
 
+  // Mesmo motivo da tela de novo loteamento: o select mostrava todas as
+  // loteadoras do sistema. Aqui o risco era maior — dava para reatribuir o
+  // loteamento a outra empresa pelo próprio formulário.
   const loteadoras = await prisma.loteadora.findMany({
-    where: { ativo: true },
+    where: {
+      ativo: true,
+      ...(session.loteadoraId ? { id: session.loteadoraId } : {}),
+    },
     orderBy: { nome: 'asc' },
     select: { id: true, nome: true },
   });

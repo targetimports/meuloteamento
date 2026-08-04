@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin, canAccessLoteadora } from '@/lib/tenant';
 
 function slugify(s: string): string {
   return s
@@ -162,6 +163,8 @@ function buildData(parsed: z.infer<typeof loteamentoSchema>) {
 }
 
 export async function criarLoteamento(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+
   const raw = Object.fromEntries(formData.entries());
   const parsed = loteamentoSchema.safeParse(raw);
   if (!parsed.success) {
@@ -171,6 +174,13 @@ export async function criarLoteamento(_prev: FormState, formData: FormData): Pro
 
   const loteadora = await prisma.loteadora.findUnique({ where: { id: data.loteadoraId } });
   if (!loteadora) return { error: 'Loteadora inválida.' };
+
+  // O loteadoraId vem do formulário, e formulário é dado do cliente: sem esta
+  // checagem, um POST montado à mão criaria loteamento dentro de outra
+  // empresa. Filtrar o select não basta — a action é um endpoint próprio.
+  if (!(await canAccessLoteadora(data.loteadoraId))) {
+    return { error: 'Sem permissão para cadastrar loteamento nesta loteadora.' };
+  }
 
   const existing = await prisma.loteamento.findUnique({ where: { slug: data.slug } });
   if (existing) return { error: `Já existe um loteamento com slug "${data.slug}".` };
@@ -186,12 +196,29 @@ export async function atualizarLoteamento(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
+
   const raw = Object.fromEntries(formData.entries());
   const parsed = loteamentoSchema.safeParse(raw);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const data = buildData(parsed.data);
+
+  // Duas checagens, porque são dois riscos distintos: editar o loteamento de
+  // outra empresa (o atual) e mover o próprio para outra empresa (o destino).
+  const atual = await prisma.loteamento.findUnique({
+    where: { id },
+    select: { loteadoraId: true },
+  });
+  if (!atual) return { error: 'Loteamento não encontrado.' };
+
+  if (!(await canAccessLoteadora(atual.loteadoraId))) {
+    return { error: 'Sem permissão para editar este loteamento.' };
+  }
+  if (!(await canAccessLoteadora(data.loteadoraId))) {
+    return { error: 'Sem permissão para mover o loteamento para esta loteadora.' };
+  }
 
   const conflict = await prisma.loteamento.findFirst({
     where: { slug: data.slug, NOT: { id } },
@@ -206,6 +233,17 @@ export async function atualizarLoteamento(
 }
 
 export async function excluirLoteamento(id: string): Promise<void> {
+  await requireAdmin();
+
+  const alvo = await prisma.loteamento.findUnique({
+    where: { id },
+    select: { loteadoraId: true },
+  });
+  if (!alvo) throw new Error('Loteamento não encontrado.');
+  if (!(await canAccessLoteadora(alvo.loteadoraId))) {
+    throw new Error('Sem permissão para excluir este loteamento.');
+  }
+
   const vendas = await prisma.venda.count({ where: { lote: { loteamentoId: id } } });
   if (vendas > 0) {
     throw new Error(`Não é possível excluir: loteamento possui ${vendas} venda(s).`);
