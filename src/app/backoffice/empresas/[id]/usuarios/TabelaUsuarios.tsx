@@ -13,6 +13,7 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
+import { ModalConfirmar } from '@/components/ModalConfirmar';
 
 interface UsuarioUI {
   id: string;
@@ -65,26 +66,33 @@ export function TabelaUsuarios({
     [usuarios, paginaAtual]
   );
 
-  function resetar(userId: string, email: string) {
-    if (!confirm(`Gerar uma nova senha para ${email}?\n\nA senha atual deixa de funcionar.`)) return;
+  // Uma peça de estado para as duas confirmações: guarda qual usuário e qual
+  // ação. Dois modais separados exigiriam dois pares de estado para dizer a
+  // mesma coisa.
+  const [confirmacao, setConfirmacao] = useState<
+    { tipo: 'resetar' | 'excluir'; id: string; email: string } | null
+  >(null);
+
+  function confirmar() {
+    const c = confirmacao;
+    if (!c) return;
+    setConfirmacao(null);
     setErro(null);
+
     startTransition(async () => {
-      const r = await resetSenhaAction(loteadoraId, userId);
-      if (r.ok && r.senha) setSenhaNova({ email, senha: r.senha });
-      else setErro(r.error ?? 'Não foi possível gerar a senha.');
+      if (c.tipo === 'resetar') {
+        const r = await resetSenhaAction(loteadoraId, c.id);
+        if (r.ok && r.senha) setSenhaNova({ email: c.email, senha: r.senha });
+        else setErro(r.error ?? 'Não foi possível gerar a senha.');
+      } else {
+        await excluirAction(loteadoraId, c.id);
+      }
     });
   }
 
   function alternar(userId: string) {
     startTransition(async () => {
       await alternarAtivoAction(loteadoraId, userId);
-    });
-  }
-
-  function excluir(userId: string, email: string) {
-    if (!confirm(`Excluir ${email}?\n\nEsta ação não pode ser desfeita.`)) return;
-    startTransition(async () => {
-      await excluirAction(loteadoraId, userId);
     });
   }
 
@@ -178,7 +186,9 @@ export function TabelaUsuarios({
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => resetar(u.id, u.email)}
+                          onClick={() =>
+                            setConfirmacao({ tipo: 'resetar', id: u.id, email: u.email })
+                          }
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
                         >
                           Resetar senha
@@ -194,7 +204,9 @@ export function TabelaUsuarios({
                         </button>
                         <button
                           type="button"
-                          onClick={() => excluir(u.id, u.email)}
+                          onClick={() =>
+                            setConfirmacao({ tipo: 'excluir', id: u.id, email: u.email })
+                          }
                           disabled={souEu}
                           title={souEu ? 'Você não pode excluir a própria conta' : undefined}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -250,6 +262,32 @@ export function TabelaUsuarios({
           </div>
         )}
       </div>
+
+      <ModalConfirmar
+        aberto={confirmacao !== null}
+        titulo={
+          confirmacao?.tipo === 'resetar'
+            ? 'Gerar nova senha?'
+            : 'Excluir usuário?'
+        }
+        descricao={
+          confirmacao?.tipo === 'resetar'
+            ? `Uma nova senha será gerada para ${confirmacao?.email}.`
+            : `${confirmacao?.email} perde o acesso ao sistema.`
+        }
+        consequencia={
+          confirmacao?.tipo === 'resetar'
+            ? 'A senha atual deixa de funcionar imediatamente. A nova aparece uma única vez, logo após confirmar.'
+            : 'Esta ação não pode ser desfeita. Para suspender o acesso temporariamente, use “Inativar”.'
+        }
+        rotuloConfirmar={
+          confirmacao?.tipo === 'resetar' ? 'Gerar nova senha' : 'Excluir usuário'
+        }
+        tom={confirmacao?.tipo === 'resetar' ? 'neutro' : 'destrutivo'}
+        processando={pending}
+        onConfirmar={confirmar}
+        onCancelar={() => setConfirmacao(null)}
+      />
     </div>
   );
 }

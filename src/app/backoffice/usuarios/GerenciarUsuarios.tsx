@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { createPortal } from 'react-dom';
+import { ModalConfirmar } from '@/components/ModalConfirmar';
 
 interface UsuarioUI {
   id: string;
@@ -64,6 +65,7 @@ export function GerenciarUsuarios({
   excluirAction,
 }: Props) {
   const [modal, setModal] = useState<{ editando?: UsuarioUI } | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<UsuarioUI | null>(null);
   const [montado, setMontado] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [pending, startTransition] = useTransition();
@@ -254,10 +256,7 @@ export function GerenciarUsuarios({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!confirm(`Excluir ${u.email}?\n\nEsta ação não pode ser desfeita.`)) return;
-                            executar(() => excluirAction(u.id));
-                          }}
+                          onClick={() => setParaExcluir(u)}
                           disabled={souEu}
                           title={souEu ? 'Você não pode excluir a própria conta' : undefined}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -400,6 +399,21 @@ export function GerenciarUsuarios({
           </div>,
           document.body
         )}
+
+      <ModalConfirmar
+        aberto={paraExcluir !== null}
+        titulo="Excluir usuário do backoffice?"
+        descricao={`${paraExcluir?.email} perde o acesso à administração da plataforma.`}
+        consequencia="Esta ação não pode ser desfeita. Para suspender o acesso temporariamente, use “Inativar”."
+        rotuloConfirmar="Excluir usuário"
+        processando={pending}
+        onConfirmar={() => {
+          const alvo = paraExcluir;
+          setParaExcluir(null);
+          if (alvo) executar(() => excluirAction(alvo.id));
+        }}
+        onCancelar={() => setParaExcluir(null)}
+      />
     </div>
   );
 }
