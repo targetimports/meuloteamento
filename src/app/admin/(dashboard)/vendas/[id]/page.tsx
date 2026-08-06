@@ -15,6 +15,7 @@ import ContratoActions from '@/components/ContratoActions';
 import { PixCard } from '@/components/PixCard';
 import { BoletoCartaoCard } from '@/components/BoletoCartaoCard';
 import { RegerarPixButton } from '@/components/RegerarPixButton';
+import { GerarBoletoButton } from '@/components/GerarBoletoButton';
 import { TrocarFormaPagamento } from '@/components/TrocarFormaPagamento';
 import { MudarCorretorButton } from '@/components/MudarCorretorButton';
 import { VendaArquivosCard } from '@/components/VendaArquivosCard';
@@ -559,14 +560,30 @@ export default async function VendaDetalhePage({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {p.asaasInvoiceUrl ? (
+                    {/* Rótulo honesto: "Boleto" só quando existe o PDF do
+                        boleto. Antes, dizia Boleto e abria a página de
+                        pagamento do Asaas — quem clicava esperando o documento
+                        recebia uma tela de opções e achava que estava
+                        quebrado. */}
+                    {p.asaasBoletoUrl ? (
+                      <a
+                        href={p.asaasBoletoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:underline"
+                        title="PDF do boleto"
+                      >
+                        Boleto
+                      </a>
+                    ) : p.asaasInvoiceUrl ? (
                       <a
                         href={p.asaasInvoiceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary-600 hover:underline"
+                        title="Página de pagamento do Asaas (Pix, cartão e boleto)"
                       >
-                        Boleto
+                        Pagamento
                       </a>
                     ) : (
                       <span className="text-slate-400">—</span>
@@ -596,14 +613,25 @@ export default async function VendaDetalhePage({
                             })}
                           />
                         )}
-                      {(p.status === 'PENDENTE' || p.status === 'ATRASADO') && (
-                        <RegerarPixButton
-                          parcelaId={p.id}
-                          jaTinha={!!p.asaasPaymentId}
-                          clienteTelefone={venda.cliente.telefone}
-                          loteCodigo={venda.lote.codigo}
-                        />
-                      )}
+                      {/* O botão segue a forma efetiva da parcela (a dela, ou
+                          a da venda quando não tem própria). Mostrar "Gerar
+                          PIX" numa parcela de boleto recriaria a cobrança como
+                          Pix e desfaria a escolha. */}
+                      {(p.status === 'PENDENTE' || p.status === 'ATRASADO') &&
+                        ((p.formaPagamento ?? venda.formaPagamento) === 'PARCELADO_BOLETO' ? (
+                          <GerarBoletoButton
+                            parcelaId={p.id}
+                            boletoUrl={p.asaasBoletoUrl}
+                            invoiceUrl={p.asaasInvoiceUrl}
+                          />
+                        ) : (
+                          <RegerarPixButton
+                            parcelaId={p.id}
+                            jaTinha={!!p.asaasPaymentId}
+                            clienteTelefone={venda.cliente.telefone}
+                            loteCodigo={venda.lote.codigo}
+                          />
+                        ))}
                       {(p.status === 'PENDENTE' || p.status === 'ATRASADO') && (
                         <ParcelaActionButton
                           parcelaId={p.id}

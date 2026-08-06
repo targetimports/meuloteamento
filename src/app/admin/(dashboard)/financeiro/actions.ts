@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteadora, canAccessLoteamento, requireAdmin, tenantId } from '@/lib/tenant';
 import { mudarStatusLote } from '@/lib/lote-status';
+import { garantirCobrancaAsaasParaParcela } from '@/lib/garantir-cobranca-asaas';
 import { getLoteadoraAsaasContext } from '@/lib/asaas-context';
 import { ensureAsaasCustomerForCliente } from '@/lib/asaas-cliente';
 import { createPayment, createPaymentForParcela, getPixQrCode, deletePayment, AsaasError } from '@/lib/asaas';
@@ -618,3 +619,62 @@ export async function sincronizarPagamentosManual(
   }
 }
 
+
+// =====================================================================
+// EMITIR COBRANÇA RESPEITANDO A FORMA DE PAGAMENTO
+// ---------------------------------------------------------------------
+// regerarPixParcela (acima) força billingType 'PIX'. Isso fazia sentido
+// quando Pix era o único caminho com emissão sob demanda, mas passou a
+// atrapalhar: depois de trocar a parcela para boleto, o único botão da tela
+// recriava a cobrança como Pix e desfazia a escolha.
+//
+// Esta action não decide o tipo: delega para garantirCobrancaAsaasParaParcela,
+// que já lê a formaPagamento da parcela. Parcela boleto gera boleto (com PDF),
+// parcela Pix gera Pix. Um lugar só decidindo o tipo evita que os dois
+// caminhos discordem.
+// =====================================================================
+
+export interface EmitirCobrancaResult {
+  ok?: boolean;
+  error?: string;
+  invoiceUrl?: string | null;
+  boletoUrl?: string | null;
+}
+
+export async function emitirCobrancaParcela(
+  parcelaId: string
+): Promise<EmitirCobrancaResult> {
+  await requireAdmin();
+
+  const parcela = await prisma.parcela.findUnique({
+    where: { id: parcelaId },
+    select: {
+      status: true,
+      venda: {
+        select: { lote: { select: { loteamento: { select: { loteadoraId: true } } } } },
+      },
+    },
+  });
+  if (!parcela) return { error: 'Parcela não encontrada.' };
+  if (!(await canAccessLoteamento(parcela.venda.lote.loteamento.loteadoraId))) {
+    return { error: 'Sem permissão para esta parcela.' };
+  }
+  if (parcela.status === 'PAGO') {
+    return { error: 'Parcela já está paga.' };
+  }
+  if (parcela.status === 'CANCELADO' || parcela.status === 'ESTORNADO') {
+    return { error: 'Parcela cancelada ou estornada — reabra antes de emitir.' };
+  }
+
+  const r = await garantirCobrancaAsaasParaParcela(parcelaId);
+
+  if (!r.invoiceUrl && !r.boletoUrl) {
+    return {
+      error:
+        'Não foi possível emitir a cobrança. Verifique a chave Asaas da loteadora e os dados do cliente (CPF/CNPJ e endereço).',
+    };
+  }
+
+  revalidatePath('/admin/financeiro');
+  return { ok: true, invoiceUrl: r.invoiceUrl, boletoUrl: r.boletoUrl };
+}
