@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento, tenantId, whereLoteadora } from '@/lib/tenant';
 import { formatBRL, formatDate, formatDateTime } from '@/lib/format';
 import { DistratoForm } from '@/components/DistratoForm';
-import { distratarVenda, reajustarParcelas } from './actions';
+import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas } from './actions';
 import { ParcelaActionButton } from '@/components/ParcelaActionButton';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { msgCobrancaParcela, msgGenerico } from '@/lib/whatsappMessages';
@@ -15,6 +15,7 @@ import ContratoActions from '@/components/ContratoActions';
 import { PixCard } from '@/components/PixCard';
 import { BoletoCartaoCard } from '@/components/BoletoCartaoCard';
 import { RegerarPixButton } from '@/components/RegerarPixButton';
+import { TrocarFormaPagamento } from '@/components/TrocarFormaPagamento';
 import { MudarCorretorButton } from '@/components/MudarCorretorButton';
 import { VendaArquivosCard } from '@/components/VendaArquivosCard';
 
@@ -40,7 +41,7 @@ export default async function VendaDetalhePage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { msg?: string; n?: string; pix?: string; cobranca?: string };
+  searchParams: { msg?: string; n?: string; pix?: string; cobranca?: string; mantidas?: string };
 }) {
   const venda = await prisma.venda.findUnique({
     where: { id: params.id },
@@ -178,6 +179,13 @@ export default async function VendaDetalhePage({
     }
   }
 
+  // As únicas que a troca de forma de pagamento alcança. Pagas e canceladas
+  // ficam como estão — mudar a forma do que já aconteceu reescreveria o
+  // histórico.
+  const parcelasEmAberto = venda.parcelas.filter(
+    (p) => p.status === 'PENDENTE' || p.status === 'ATRASADO'
+  );
+
   const pagas = venda.parcelas.filter((p) => p.status === 'PAGO');
   const totalPago = pagas.reduce((s, p) => s + Number(p.valorPago || p.valor), 0);
   const totalDevido = venda.parcelas.reduce(
@@ -280,6 +288,24 @@ export default async function VendaDetalhePage({
             Reajuste aplicado em {searchParams.n ?? '?'} parcela(s). Confira os valores atualizados
             abaixo.
           </span>
+        </div>
+      )}
+      {searchParams.msg === 'forma-alterada' && (
+        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+          <p>
+            Forma de pagamento alterada em {searchParams.n ?? '?'} parcela(s) em
+            aberto. As cobranças são reemitidas no novo formato pela régua de
+            cobrança, conforme cada vencimento se aproxima.
+          </p>
+          {/* Silenciar a parte que não deu certo faria a pessoa acreditar que
+              tudo foi trocado. */}
+          {searchParams.mantidas && (
+            <p className="mt-1 text-amber-800">
+              {searchParams.mantidas} parcela(s) permaneceram na forma anterior:
+              a cobrança já emitida no Asaas não pôde ser excluída (paga ou em
+              processamento).
+            </p>
+          )}
         </div>
       )}
       <div>
@@ -463,9 +489,20 @@ export default async function VendaDetalhePage({
 
       {/* Parcelas */}
       <section className="bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="font-semibold text-slate-900 mb-3">
-          Parcelas ({venda.parcelas.length})
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="font-semibold text-slate-900">
+            Parcelas ({venda.parcelas.length})
+          </h2>
+          {/* A troca fica aqui, junto das parcelas que ela afeta — e não no
+              cabeçalho da venda, onde pareceria alterar a venda inteira. */}
+          <TrocarFormaPagamento
+            vendaId={venda.id}
+            formaAtual={venda.formaPagamento}
+            emAberto={parcelasEmAberto.length}
+            comCobranca={parcelasEmAberto.filter((p) => p.asaasPaymentId).length}
+            action={mudarFormaPagamentoParcelas}
+          />
+        </div>
         {venda.parcelas.length === 0 ? (
           <p className="text-sm text-slate-500">Nenhuma parcela gerada.</p>
         ) : (

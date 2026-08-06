@@ -324,3 +324,136 @@ export async function mudarCorretorVenda(
   revalidatePath('/admin/vendas');
   revalidatePath('/admin/comissoes');
 }
+
+/**
+ * Troca a forma de pagamento das parcelas ainda em aberto entre Pix e boleto.
+ *
+ * POR QUE ISTO EXISTE: a forma escolhida no fechamento da venda define o que o
+ * Asaas emite. Venda em PARCELADO_PIX nunca gera PDF de boleto — quem pedia o
+ * boleto depois recebia a página de pagamento do Asaas, que não é a mesma
+ * coisa. Antes disso, a única saída era refazer a venda.
+ *
+ * O QUE É PRESERVADO, e por quê:
+ *
+ *  - Parcelas PAGAS e CANCELADAS não são tocadas. Mudar a forma do que já foi
+ *    pago reescreveria o histórico do que de fato aconteceu.
+ *  - A forma da VENDA também muda, para que parcelas geradas depois sigam a
+ *    nova escolha. Sem isso, a venda diria uma coisa e as parcelas outra.
+ *
+ * O EFEITO EXTERNO, que é o cuidado central: parcela que já tem cobrança no
+ * Asaas precisa ter a cobrança REFEITA — o tipo não é editável lá. A cobrança
+ * antiga é excluída e os campos do Asaas são limpos; a régua emite a nova no
+ * formato certo. Consequência inevitável: qualquer link ou Pix copia-e-cola já
+ * enviado ao cliente daquela parcela deixa de funcionar. Por isso a tela avisa
+ * quantas cobranças serão refeitas antes de confirmar.
+ *
+ * Se a exclusão no Asaas falhar (cobrança já paga ou em processamento), a
+ * parcela é deixada como está e segue para a próxima: derrubar a operação
+ * inteira por causa de uma parcela seria pior que trocar as demais.
+ */
+export async function mudarFormaPagamentoParcelas(
+  vendaId: string,
+  formData: FormData
+): Promise<void> {
+  const session = await requireAdmin();
+
+  const nova = String(formData.get('forma') || '').trim();
+  if (nova !== 'PARCELADO_PIX' && nova !== 'PARCELADO_BOLETO') {
+    throw new Error('Forma de pagamento inválida. Use Pix ou boleto.');
+  }
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: {
+      lote: { include: { loteamento: { select: { loteadoraId: true } } } },
+    },
+  });
+  if (!venda) throw new Error('Venda não encontrada.');
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    throw new Error('Sem permissão.');
+  }
+  if (venda.status === 'CANCELADA' || venda.status === 'DISTRATADA') {
+    throw new Error('Venda finalizada não pode ter a forma de pagamento alterada.');
+  }
+
+  const emAberto = await prisma.parcela.findMany({
+    where: { vendaId, status: { in: ['PENDENTE', 'ATRASADO'] } },
+    select: { id: true, numero: true, asaasPaymentId: true, asaasInvoiceUrl: true },
+  });
+
+  if (emAberto.length === 0) {
+    throw new Error('Não há parcelas em aberto para alterar.');
+  }
+
+  // Primeiro o Asaas, depois o banco: se a exclusão lá falhar, o banco ainda
+  // não foi alterado e o estado dos dois lados continua coerente.
+  const ctx = await getLoteadoraAsaasContext(venda.lote.loteamento.loteadoraId);
+  const refeitas: string[] = [];
+  const naoRefeitas: number[] = [];
+
+  for (const p of emAberto) {
+    if (!p.asaasPaymentId) continue;
+
+    if (ctx) {
+      try {
+        await deletePayment(ctx, p.asaasPaymentId);
+        refeitas.push(p.id);
+      } catch (e) {
+        // Cobrança paga ou em processamento não pode ser excluída no Asaas.
+        // Deixa a parcela intacta em vez de criar divergência entre os dois.
+        if (e instanceof AsaasError || e instanceof Error) {
+          naoRefeitas.push(p.numero);
+          continue;
+        }
+        throw e;
+      }
+    } else {
+      // Sem chave configurada não há o que excluir; limpa os campos locais
+      // para a régua reemitir quando a integração voltar.
+      refeitas.push(p.id);
+    }
+  }
+
+  const idsParaTrocar = emAberto
+    .filter((p) => !naoRefeitas.includes(p.numero))
+    .map((p) => p.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.parcela.updateMany({
+      where: { id: { in: idsParaTrocar } },
+      data: {
+        formaPagamento: nova,
+        // Zera o vínculo com a cobrança antiga: a régua reemite no formato
+        // novo porque garantirCobranca só reaproveita quando há invoiceUrl.
+        asaasPaymentId: null,
+        asaasInvoiceUrl: null,
+        asaasBoletoUrl: null,
+        asaasPixCode: null,
+        asaasPixQrCode: null,
+      },
+    });
+
+    await tx.venda.update({
+      where: { id: vendaId },
+      data: {
+        formaPagamento: nova,
+        observacoes:
+          (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+          `[${new Date().toLocaleDateString('pt-BR')}] Forma de pagamento alterada para ` +
+          `${nova === 'PARCELADO_PIX' ? 'Pix' : 'Boleto'} em ${idsParaTrocar.length} parcela(s) ` +
+          `em aberto por ${session.email}.` +
+          (naoRefeitas.length
+            ? ` Parcela(s) ${naoRefeitas.join(', ')} mantida(s): a cobrança no Asaas não pôde ser refeita.`
+            : ''),
+      },
+    });
+  });
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/financeiro');
+
+  redirect(
+    `/admin/vendas/${vendaId}?msg=forma-alterada&n=${idsParaTrocar.length}` +
+      (naoRefeitas.length ? `&mantidas=${naoRefeitas.length}` : '')
+  );
+}
