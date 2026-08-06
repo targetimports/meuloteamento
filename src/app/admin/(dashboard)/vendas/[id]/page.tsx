@@ -291,24 +291,6 @@ export default async function VendaDetalhePage({
           </span>
         </div>
       )}
-      {searchParams.msg === 'forma-alterada' && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
-          <p>
-            Forma de pagamento alterada em {searchParams.n ?? '?'} parcela(s) em
-            aberto. As cobranças são reemitidas no novo formato pela régua de
-            cobrança, conforme cada vencimento se aproxima.
-          </p>
-          {/* Silenciar a parte que não deu certo faria a pessoa acreditar que
-              tudo foi trocado. */}
-          {searchParams.mantidas && (
-            <p className="mt-1 text-amber-800">
-              {searchParams.mantidas} parcela(s) permaneceram na forma anterior:
-              a cobrança já emitida no Asaas não pôde ser excluída (paga ou em
-              processamento).
-            </p>
-          )}
-        </div>
-      )}
       <div>
         <Link href="/admin/vendas" className="text-sm text-slate-500 hover:text-slate-700">
           ← Vendas

@@ -351,15 +351,21 @@ export async function mudarCorretorVenda(
  * parcela é deixada como está e segue para a próxima: derrubar a operação
  * inteira por causa de uma parcela seria pior que trocar as demais.
  */
+export interface TrocaFormaResult {
+  ok?: boolean;
+  error?: string;
+  alteradas?: number;
+  mantidas?: number;
+}
+
 export async function mudarFormaPagamentoParcelas(
   vendaId: string,
-  formData: FormData
-): Promise<void> {
+  nova: string
+): Promise<TrocaFormaResult> {
   const session = await requireAdmin();
 
-  const nova = String(formData.get('forma') || '').trim();
   if (nova !== 'PARCELADO_PIX' && nova !== 'PARCELADO_BOLETO') {
-    throw new Error('Forma de pagamento inválida. Use Pix ou boleto.');
+    return { error: 'Forma de pagamento inválida. Use Pix ou boleto.' };
   }
 
   const venda = await prisma.venda.findUnique({
@@ -368,12 +374,12 @@ export async function mudarFormaPagamentoParcelas(
       lote: { include: { loteamento: { select: { loteadoraId: true } } } },
     },
   });
-  if (!venda) throw new Error('Venda não encontrada.');
+  if (!venda) return { error: 'Venda não encontrada.' };
   if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
-    throw new Error('Sem permissão.');
+    return { error: 'Sem permissão.' };
   }
   if (venda.status === 'CANCELADA' || venda.status === 'DISTRATADA') {
-    throw new Error('Venda finalizada não pode ter a forma de pagamento alterada.');
+    return { error: 'Venda finalizada não pode ter a forma de pagamento alterada.' };
   }
 
   const emAberto = await prisma.parcela.findMany({
@@ -382,7 +388,7 @@ export async function mudarFormaPagamentoParcelas(
   });
 
   if (emAberto.length === 0) {
-    throw new Error('Não há parcelas em aberto para alterar.');
+    return { error: 'Não há parcelas em aberto para alterar.' };
   }
 
   // Primeiro o Asaas, depois o banco: se a exclusão lá falhar, o banco ainda
@@ -452,8 +458,5 @@ export async function mudarFormaPagamentoParcelas(
   revalidatePath(`/admin/vendas/${vendaId}`);
   revalidatePath('/admin/financeiro');
 
-  redirect(
-    `/admin/vendas/${vendaId}?msg=forma-alterada&n=${idsParaTrocar.length}` +
-      (naoRefeitas.length ? `&mantidas=${naoRefeitas.length}` : '')
-  );
+  return { ok: true, alteradas: idsParaTrocar.length, mantidas: naoRefeitas.length };
 }
