@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 import { enfileirar, buildIdempotencyKey } from './comunicacao';
 import { formatBRL, formatDate } from './format';
 import { garantirCobrancaAsaasParaParcela } from './garantir-cobranca-asaas';
+import { dentroDaJanelaCobranca } from './horario-cobranca';
 
 interface RodarReguaResult {
   loteadora: string;
@@ -20,6 +21,9 @@ function diasEntre(a: Date, b: Date): number {
 }
 
 export async function rodarReguaCobranca(): Promise<RodarReguaResult[]> {
+  // Janela de disparo: só gera/envia cobrança entre 08h e 12h (BRT).
+  if (!dentroDaJanelaCobranca()) return [];
+
   const loteadoras = await prisma.loteadora.findMany({
     where: { ativo: true, reguaCobrancaId: { not: null } },
     include: {

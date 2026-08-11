@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
   try {
     const atrasadas = await marcarParcelasAtrasadas();
     const resultados = await rodarReguaCobranca();
+    // Gotejamento anti-ban (GOTEJAMENTO_PADRAO em lib/comunicacao): poucos
+    // WhatsApp por rodada, espaçados entre si. O resto fica pra próxima rodada.
     const fila = await processarFila(100);
 
     return NextResponse.json({

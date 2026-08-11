@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { renderTemplate } from './template';
+import { dentroDaJanelaCobranca } from './horario-cobranca';
 
 export type Canal = 'WHATSAPP' | 'EMAIL' | 'SMS';
 
@@ -213,17 +214,65 @@ export async function enfileirar(input: SendInput): Promise<{ id: string; jaExis
   }
 }
 
-export async function processarFila(limite = 50): Promise<{ enviados: number; falhou: number }> {
+/** Gotejamento padrão do WhatsApp. Vale para qualquer caller que não passe opts. */
+export const GOTEJAMENTO_PADRAO = {
+  maxWhatsapp: 6,
+  delayMinMs: 6000,
+  delayMaxMs: 14000,
+} as const;
+
+export interface ProcessarFilaOpts {
+  /** Máx. de WhatsApp por rodada (gotejamento anti-ban). */
+  maxWhatsapp?: number;
+  /** Atraso mínimo entre um WhatsApp e o próximo (ms). */
+  delayMinMs?: number;
+  /** Atraso máximo entre um WhatsApp e o próximo (ms). */
+  delayMaxMs?: number;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+export async function processarFila(
+  limite = 50,
+  opts: ProcessarFilaOpts = {}
+): Promise<{ enviados: number; falhou: number; adiados: number }> {
+  // Fora da janela 08h-12h (BRT), NÃO processa cobrança (envios ligados a uma
+  // parcela). Recuperação de senha / leads (parcelaId null) saem a qualquer hora.
+  const foraDaJanela = !dentroDaJanelaCobranca();
+
   const pendentes = await prisma.envioComunicacao.findMany({
-    where: { status: 'PENDENTE', tentativas: { lt: 5 } },
+    where: {
+      status: 'PENDENTE',
+      tentativas: { lt: 5 },
+      ...(foraDaJanela ? { parcelaId: null } : {}),
+    },
     take: limite,
     orderBy: { createdAt: 'asc' },
   });
 
   let enviados = 0;
   let falhou = 0;
+  let adiados = 0;
+  let whatsappEnviados = 0;
+  const maxWpp = opts.maxWhatsapp ?? GOTEJAMENTO_PADRAO.maxWhatsapp;
+  const dMin = opts.delayMinMs ?? GOTEJAMENTO_PADRAO.delayMinMs;
+  const dMax = opts.delayMaxMs ?? GOTEJAMENTO_PADRAO.delayMaxMs;
 
   for (const envio of pendentes) {
+    // Gotejamento do WhatsApp: limita por rodada e espaça entre um e outro.
+    // (e-mail/SMS não entram no limite nem no atraso — saem imediato.)
+    if (envio.canal === 'WHATSAPP') {
+      if (whatsappEnviados >= maxWpp) {
+        adiados++; // fica PENDENTE p/ próxima rodada (não gasta tentativa)
+        continue;
+      }
+      if (whatsappEnviados > 0 && dMax > 0) {
+        await sleep(dMin + Math.random() * Math.max(0, dMax - dMin));
+      }
+    }
+
     let result: ProviderResult;
     if (envio.canal === 'WHATSAPP') {
       result = await sendWhatsApp({
@@ -231,6 +280,7 @@ export async function processarFila(limite = 50): Promise<{ enviados: number; fa
         destinatario: envio.destinatario,
         corpo: envio.corpo,
       });
+      whatsappEnviados++;
     } else if (envio.canal === 'EMAIL') {
       result = await sendEmail({
         loteadoraId: envio.loteadoraId,
@@ -257,7 +307,7 @@ export async function processarFila(limite = 50): Promise<{ enviados: number; fa
     else falhou++;
   }
 
-  return { enviados, falhou };
+  return { enviados, falhou, adiados };
 }
 
 export function buildIdempotencyKey(parts: (string | number)[]): string {
