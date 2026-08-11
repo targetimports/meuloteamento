@@ -121,6 +121,44 @@ const SOFTWARE_JSONLD = {
     'Plataforma completa para loteadoras venderem lotes online: site, CRM, cobrança, contrato digital.',
 };
 
+// WebSite com SearchAction — permite que o Google exiba a caixa "Sitelinks
+// searchbox" pro seu domínio na SERP, dando mais destaque orgânico.
+const WEBSITE_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'meuloteamento',
+  url: APP_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${APP_URL}/?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+// LocalBusiness — reforça sinal geo pro Google Business / Maps.
+// Tipo "RealEstateAgent" já é modelado nas landings de loteamento; aqui na
+// home usamos o mais amplo pra englobar toda a plataforma.
+const LOCAL_BUSINESS_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'ProfessionalService',
+  name: 'meuloteamento',
+  url: APP_URL,
+  logo: `${APP_URL}/logo.png`,
+  image: `${APP_URL}/og-default.png`,
+  priceRange: 'R$$',
+  areaServed: { '@type': 'Country', name: 'Brasil' },
+  serviceType: [
+    'Plataforma SaaS para loteadoras',
+    'Venda online de lotes',
+    'CRM imobiliário',
+    'Cobrança automática de parcelas',
+    'Contratos digitais',
+  ],
+};
+
 // Renderiza dinamicamente (estatísticas vêm do banco) — não pré-renderiza no build.
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // cache de 5min
@@ -167,6 +205,14 @@ export default async function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_JSONLD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_JSONLD) }}
       />
 
       <Navbar />
@@ -242,7 +288,7 @@ function Navbar() {
             FAQ
           </a>
           <Link
-            href="/parque-tucano"
+            href="/parquetucano"
             className="text-slate-300 hover:text-white transition"
           >
             Ver exemplo →
@@ -371,7 +417,7 @@ function Hero() {
               href="#pricing"
               className="group relative inline-flex items-center gap-2 px-6 py-3.5 bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/40 hover:shadow-primary-500/60 transition animate-pulse-glow"
             >
-              <span>Começar grátis por 7 dias</span>
+              <span>Começar grátis por 14 dias</span>
               <IconArrowRight className="group-hover:translate-x-1 transition" />
             </Link>
             <Link
@@ -1113,7 +1159,7 @@ function Pricing() {
             Preço justo. Sem letras miúdas.
           </h2>
           <p className="text-slate-600 max-w-xl mx-auto">
-            7 dias grátis em qualquer plano. Sem cartão. Migre, faça upgrade ou cancele quando quiser.
+            14 dias grátis em qualquer plano. Sem cartão. Migre, faça upgrade ou cancele quando quiser.
           </p>
         </div>
 
@@ -1159,7 +1205,7 @@ function Faq() {
     },
     {
       q: 'Posso ter mais de um loteamento?',
-      a: 'Sim. No plano Profissional são até 5 e no Empresarial ilimitado. Cada um com sua identidade visual, seus lotes e suas condições.',
+      a: 'Sim. No plano Iniciante é um, no Profissional até 5 e no Empresarial ilimitado. Cada um com sua identidade visual, seus lotes e suas condições.',
     },
     {
       q: 'Os dados são meus?',
@@ -1344,7 +1390,7 @@ function Footer() {
               Comece hoje
             </p>
             <p className="text-sm text-slate-400 leading-relaxed mb-4">
-              Cadastre seu primeiro loteamento em minutos. 7 dias grátis.
+              Cadastre seu primeiro loteamento em minutos. 14 dias grátis.
             </p>
             <Link
               href="#pricing"

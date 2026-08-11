@@ -24,11 +24,31 @@ export default function robots(): MetadataRoute.Robots {
           '/_next/',
         ],
       },
-      // Crawlers de IA: bloquear por padrão
-      // (descomente se quiser permitir treinamento de modelos com o conteúdo)
+      // Crawlers de IA: PERMITIDOS.
+      // Assistentes como ChatGPT, Perplexity, Google SGE, Claude respondem
+      // perguntas como "onde comprar lote em Tucano BA" citando o site.
+      // Permitir indexação equivale a virar fonte primária desses agentes.
+      // Se um dia quiser bloquear, mude allow → disallow.
       {
-        userAgent: ['GPTBot', 'Google-Extended', 'CCBot', 'anthropic-ai', 'ClaudeBot'],
-        disallow: '/',
+        userAgent: [
+          'GPTBot',
+          'ChatGPT-User',
+          'OAI-SearchBot',
+          'Google-Extended',
+          'CCBot',
+          'anthropic-ai',
+          'ClaudeBot',
+          'PerplexityBot',
+          'Perplexity-User',
+          'Applebot-Extended',
+        ],
+        allow: '/',
+        disallow: [
+          '/admin/',
+          '/api/',
+          '/minha-conta/',
+          '/checkout/',
+        ],
       },
     ],
     sitemap: `${BASE_URL}/sitemap.xml`,

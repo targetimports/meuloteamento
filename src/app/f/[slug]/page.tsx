@@ -13,6 +13,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   return {
     title: f?.nome ?? 'Formulário',
     description: f?.descricao ?? undefined,
+    // Formulários são coleta privada — não devem entrar no índice
+    robots: { index: false, follow: false, nocache: true },
   };
 }
 

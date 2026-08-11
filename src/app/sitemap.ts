@@ -8,10 +8,10 @@
  *   - páginas institucionais (home, sobre, contato)
  *   - landing pages de cada loteamento publicado
  *   - simuladores
- *   - formulários públicos
  *
  * NÃO inclui (intencional):
  *   - /admin/*, /minha-conta/*, /api/*, /checkout/* — privadas
+ *   - /f/* — formulários privados de coleta (marcados noindex)
  *   - loteamentos com publicado=false ou ativo=false
  *   - subdomínios customizados (cada um se gerencia)
  */
@@ -50,7 +50,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // === Loteamentos publicados ===
   let loteamentos: { slug: string; updatedAt: Date }[] = [];
-  let formularios: { slug: string; updatedAt: Date }[] = [];
   try {
     loteamentos = await prisma.loteamento.findMany({
       where: { publicado: true, ativo: true },
@@ -60,14 +59,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.warn('[sitemap] falha ao buscar loteamentos', err);
   }
 
-  try {
-    formularios = await prisma.formulario.findMany({
-      where: { ativo: true },
-      select: { slug: true, updatedAt: true },
-    });
-  } catch {
-    // Tabela pode não existir em ambiente sem schema atualizado
-  }
+  // Formulários /f/* são páginas privadas de coleta — não devem indexar,
+  // então não entram no sitemap (deixamos noindex nas próprias páginas).
 
   const loteamentoRoutes: MetadataRoute.Sitemap = loteamentos.flatMap((l) => [
     {
@@ -84,12 +77,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]);
 
-  const formularioRoutes: MetadataRoute.Sitemap = formularios.map((f) => ({
-    url: `${BASE_URL}/f/${f.slug}`,
-    lastModified: f.updatedAt,
-    changeFrequency: 'monthly',
-    priority: 0.4,
-  }));
-
-  return [...staticRoutes, ...loteamentoRoutes, ...formularioRoutes];
+  return [...staticRoutes, ...loteamentoRoutes];
 }

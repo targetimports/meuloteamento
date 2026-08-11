@@ -51,6 +51,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: 'Compra confirmada — meuloteamento',
     description: 'Sua compra foi registrada com sucesso.',
+    // Página transacional — não deve entrar no índice do Google
+    robots: { index: false, follow: false, nocache: true },
   };
 }
 
