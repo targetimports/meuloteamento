@@ -218,6 +218,31 @@ export function getPayment(ctx: AsaasContext, id: string) {
   return request<AsaasPayment>(`/payments/${id}`, ctx);
 }
 
+/**
+ * Atualiza uma cobrança já existente (POST /payments/{id} na API v3).
+ *
+ * Serve para mudar vencimento ou valor sem excluir e recriar: a cobrança
+ * mantém o mesmo id, e o link, o boleto e o Pix que o cliente já recebeu
+ * continuam válidos — só passam a valer para a nova data.
+ *
+ * Recriar seria mais simples de escrever, mas invalidaria o que já está na
+ * mão do cliente. Só cobrança ainda não paga aceita alteração.
+ */
+export function updatePayment(
+  ctx: AsaasContext,
+  id: string,
+  input: {
+    dueDate?: string;
+    value?: number;
+    description?: string;
+  }
+) {
+  return request<AsaasPayment>(`/payments/${id}`, ctx, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function deletePayment(ctx: AsaasContext, id: string) {
   return request<{ deleted: boolean; id: string }>(`/payments/${id}`, ctx, {
     method: 'DELETE',

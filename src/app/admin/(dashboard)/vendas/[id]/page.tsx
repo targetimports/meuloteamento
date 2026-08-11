@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento, tenantId, whereLoteadora } from '@/lib/tenant';
 import { formatBRL, formatDate, formatDateTime } from '@/lib/format';
 import { DistratoForm } from '@/components/DistratoForm';
-import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas } from './actions';
+import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas, mudarDiaVencimento } from './actions';
 import { ParcelaActionButton } from '@/components/ParcelaActionButton';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { msgCobrancaParcela, msgGenerico } from '@/lib/whatsappMessages';
@@ -17,6 +17,7 @@ import { BoletoCartaoCard } from '@/components/BoletoCartaoCard';
 import { RegerarPixButton } from '@/components/RegerarPixButton';
 import { GerarBoletoButton } from '@/components/GerarBoletoButton';
 import { TrocarFormaPagamento } from '@/components/TrocarFormaPagamento';
+import { MudarVencimentoButton } from '@/components/MudarVencimentoButton';
 import { MudarCorretorButton } from '@/components/MudarCorretorButton';
 import { VendaArquivosCard } from '@/components/VendaArquivosCard';
 
@@ -186,6 +187,26 @@ export default async function VendaDetalhePage({
   const parcelasEmAberto = venda.parcelas.filter(
     (p) => p.status === 'PENDENTE' || p.status === 'ATRASADO'
   );
+
+  // Dia que mais se repete nas parcelas em aberto — só para pré-preencher o
+  // campo. Uma venda pode ter dias diferentes (entrada num dia, mensais em
+  // outro), então usar a primeira parcela daria o número errado com frequência.
+  const diaVencimentoPredominante = (() => {
+    const contagem = new Map<number, number>();
+    for (const p of parcelasEmAberto) {
+      const d = p.vencimento.getDate();
+      contagem.set(d, (contagem.get(d) ?? 0) + 1);
+    }
+    let dia = 10;
+    let max = 0;
+    for (const [d, n] of contagem) {
+      if (n > max) {
+        max = n;
+        dia = d;
+      }
+    }
+    return Math.min(28, dia);
+  })();
 
   const pagas = venda.parcelas.filter((p) => p.status === 'PAGO');
   const totalPago = pagas.reduce((s, p) => s + Number(p.valorPago || p.valor), 0);
@@ -478,13 +499,22 @@ export default async function VendaDetalhePage({
           </h2>
           {/* A troca fica aqui, junto das parcelas que ela afeta — e não no
               cabeçalho da venda, onde pareceria alterar a venda inteira. */}
-          <TrocarFormaPagamento
-            vendaId={venda.id}
-            formaAtual={venda.formaPagamento}
-            emAberto={parcelasEmAberto.length}
-            comCobranca={parcelasEmAberto.filter((p) => p.asaasPaymentId).length}
-            action={mudarFormaPagamentoParcelas}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <MudarVencimentoButton
+              vendaId={venda.id}
+              diaAtual={diaVencimentoPredominante}
+              emAberto={parcelasEmAberto.length}
+              comCobranca={parcelasEmAberto.filter((p) => p.asaasPaymentId).length}
+              action={mudarDiaVencimento}
+            />
+            <TrocarFormaPagamento
+              vendaId={venda.id}
+              formaAtual={venda.formaPagamento}
+              emAberto={parcelasEmAberto.length}
+              comCobranca={parcelasEmAberto.filter((p) => p.asaasPaymentId).length}
+              action={mudarFormaPagamentoParcelas}
+            />
+          </div>
         </div>
         {venda.parcelas.length === 0 ? (
           <p className="text-sm text-slate-500">Nenhuma parcela gerada.</p>

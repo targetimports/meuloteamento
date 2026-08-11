@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento, requireAdmin } from '@/lib/tenant';
 import { mudarStatusLote } from '@/lib/lote-status';
-import { deletePayment, AsaasError } from '@/lib/asaas';
+import { deletePayment, updatePayment, AsaasError } from '@/lib/asaas';
 import { getLoteadoraAsaasContext } from '@/lib/asaas-context';
 import { cancelarComissoesDaVenda } from '@/lib/comissao';
 
@@ -459,4 +459,113 @@ export async function mudarFormaPagamentoParcelas(
   revalidatePath('/admin/financeiro');
 
   return { ok: true, alteradas: idsParaTrocar.length, mantidas: naoRefeitas.length };
+}
+
+export interface MudarVencimentoResult {
+  ok?: boolean;
+  error?: string;
+  alteradas?: number;
+  falharam?: number;
+}
+
+/**
+ * Move o dia de vencimento das parcelas em aberto (ex.: do 21 para o 20).
+ *
+ * Mantém mês e ano de cada parcela e troca apenas o dia — o cronograma
+ * continua o mesmo, só desloca dentro do mês. Renumerar ou empurrar meses
+ * mudaria o contrato, não a conveniência de data que se pediu.
+ *
+ * O LIMITE DE 28 é deliberado: dia 29, 30 e 31 não existem em todo mês, e uma
+ * parcela de fevereiro cairia em março sozinha. Quem precisa de "último dia do
+ * mês" precisa de outra regra, não deste campo.
+ *
+ * NO ASAAS, atualiza em vez de recriar. A cobrança mantém o mesmo id, então o
+ * boleto e o Pix que o cliente já recebeu continuam valendo — só passam a
+ * vencer na data nova. Recriar seria mais simples de escrever e invalidaria o
+ * que está na mão dele.
+ *
+ * Parcela cuja atualização no Asaas falhar (paga, em processamento, excluída)
+ * fica com a data antiga: melhor uma parcela fora do padrão do que a data no
+ * sistema divergindo da cobrança que o cliente tem.
+ */
+export async function mudarDiaVencimento(
+  vendaId: string,
+  dia: number
+): Promise<MudarVencimentoResult> {
+  const session = await requireAdmin();
+
+  if (!Number.isInteger(dia) || dia < 1 || dia > 28) {
+    return { error: 'Escolha um dia entre 1 e 28. Dias 29 a 31 não existem em todos os meses.' };
+  }
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: { lote: { include: { loteamento: { select: { loteadoraId: true } } } } },
+  });
+  if (!venda) return { error: 'Venda não encontrada.' };
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    return { error: 'Sem permissão.' };
+  }
+  if (venda.status === 'CANCELADA' || venda.status === 'DISTRATADA') {
+    return { error: 'Venda finalizada não pode ter vencimentos alterados.' };
+  }
+
+  const emAberto = await prisma.parcela.findMany({
+    where: { vendaId, status: { in: ['PENDENTE', 'ATRASADO'] } },
+    select: { id: true, numero: true, vencimento: true, asaasPaymentId: true },
+    orderBy: { numero: 'asc' },
+  });
+  if (emAberto.length === 0) {
+    return { error: 'Não há parcelas em aberto para alterar.' };
+  }
+
+  const ctx = await getLoteadoraAsaasContext(venda.lote.loteamento.loteadoraId);
+  let alteradas = 0;
+  let falharam = 0;
+
+  for (const p of emAberto) {
+    const atual = p.vencimento;
+    if (atual.getDate() === dia) continue; // já está no dia pedido
+
+    // Meio-dia: evita que o fuso empurre a data para o dia anterior ao gravar.
+    const nova = new Date(atual.getFullYear(), atual.getMonth(), dia, 12, 0, 0);
+    const novaISO = nova.toISOString().slice(0, 10);
+
+    // Asaas primeiro: se falhar, a parcela não é tocada e o sistema continua
+    // dizendo a mesma data que a cobrança na mão do cliente.
+    if (p.asaasPaymentId && ctx) {
+      try {
+        await updatePayment(ctx, p.asaasPaymentId, { dueDate: novaISO });
+      } catch {
+        falharam++;
+        continue;
+      }
+    }
+
+    await prisma.parcela.update({
+      where: { id: p.id },
+      data: { vencimento: nova },
+    });
+    alteradas++;
+  }
+
+  if (alteradas > 0) {
+    await prisma.venda.update({
+      where: { id: vendaId },
+      data: {
+        observacoes:
+          (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+          `[${new Date().toLocaleDateString('pt-BR')}] Vencimento alterado para o dia ${dia} ` +
+          `em ${alteradas} parcela(s) em aberto por ${session.email}.` +
+          (falharam
+            ? ` ${falharam} parcela(s) mantiveram a data: a cobrança no Asaas não pôde ser atualizada.`
+            : ''),
+      },
+    });
+  }
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/financeiro');
+
+  return { ok: true, alteradas, falharam };
 }
