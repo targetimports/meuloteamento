@@ -354,3 +354,33 @@ export function listarContatos(token: string) {
     { apikey: token }
   );
 }
+
+// ── Ações sobre o chat, refletidas no aparelho ──────────────────────────────
+
+/**
+ * Fixar, silenciar e arquivar existem no celular do cliente também.
+ *
+ * Fazer só do nosso lado criaria duas verdades: conversa fixada aqui e solta no
+ * aparelho. Quem atende usa os dois, e a divergência vira desconfiança na
+ * ferramenta.
+ */
+export function fixarNoWhatsapp(token: string, jid: string, fixar: boolean) {
+  return chamar('POST', fixar ? '/chat/pin' : '/chat/unpin', {
+    apikey: token,
+    body: { chatJid: jid },
+  });
+}
+
+export function silenciarNoWhatsapp(token: string, jid: string, silenciar: boolean) {
+  return chamar('POST', silenciar ? '/chat/mute' : '/chat/unmute', {
+    apikey: token,
+    body: { chatJid: jid },
+  });
+}
+
+export function arquivarNoWhatsapp(token: string, jid: string, arquivar: boolean) {
+  return chamar('POST', arquivar ? '/chat/archive' : '/chat/unarchive', {
+    apikey: token,
+    body: { chatJid: jid },
+  });
+}

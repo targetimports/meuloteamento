@@ -40,6 +40,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AudioMensagem } from './AudioMensagem';
 import { reagirMensagem } from '@/app/admin/(dashboard)/whatsapp/chat-actions';
+import { transcreverSobDemanda } from '@/app/admin/(dashboard)/whatsapp/modelo-actions';
 import type { MensagemUI } from '@/app/admin/(dashboard)/whatsapp/chat-actions';
 
 /**
@@ -302,6 +303,18 @@ export function Bolha({
                     }}
                   >
                     <Copy /> {copiado ? 'Copiado' : m.texto ? 'Copiar texto' : 'Copiar transcrição'}
+                  </DropdownMenuItem>
+                )}
+                {m.tipo === 'AUDIO' && m.temMidia && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      iniciarReacao(async () => {
+                        await transcreverSobDemanda(m.id);
+                        onReagiu?.();
+                      })
+                    }
+                  >
+                    <FileText /> {m.transcricao ? 'Transcrever de novo' : 'Transcrever áudio'}
                   </DropdownMenuItem>
                 )}
                 {m.temMidia && (

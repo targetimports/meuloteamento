@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation';
 import {
   Archive,
+  ArrowDown,
   Contact,
   Forward,
   History,
@@ -15,6 +16,8 @@ import {
   Plus,
   Search,
   Send,
+  Maximize2,
+  Minimize2,
   Smile,
   StickyNote,
   Users,
@@ -38,6 +41,7 @@ import { Bolha } from './Bolha';
 import { PainelCrm } from './PainelCrm';
 import { AvatarContato } from './AvatarContato';
 import { VisorMidia, type ItemMidia } from './VisorMidia';
+import { Modelos } from './Modelos';
 import {
   apagarParaTodos,
   enviarMensagem,
@@ -73,6 +77,8 @@ export interface ConversaUI {
   situacao: string;
   etiquetas: string[];
   arquivada: boolean;
+  fixada: boolean;
+  silenciada: boolean;
   lead: { id: string; nome: string } | null;
 }
 
@@ -168,10 +174,15 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [abrindoNova, setAbrindoNova] = useState(false);
 
   const [visorEm, setVisorEm] = useState<number | null>(null);
+  const [telaCheia, setTelaCheia] = useState(false);
+  const [longeDoFim, setLongeDoFim] = useState(false);
+  const [filtroSituacao, setFiltroSituacao] = useState('');
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
   const [buscaMsg, setBuscaMsg] = useState('');
   const [achados, setAchados] = useState<AchadoBusca[] | null>(null);
 
   const fimDaLista = useRef<HTMLDivElement>(null);
+  const areaMensagens = useRef<HTMLDivElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
 
   const visiveis = useMemo(() => {
@@ -180,14 +191,26 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     else if (visao === 'nao_lidas') lista = lista.filter((c) => !c.arquivada && c.naoLidas > 0);
     else lista = lista.filter((c) => !c.arquivada);
 
+    if (filtroSituacao) lista = lista.filter((c) => c.situacao === filtroSituacao);
+    if (filtroEtiqueta) lista = lista.filter((c) => c.etiquetas.includes(filtroEtiqueta));
+
     const q = busca.trim().toLowerCase();
-    if (!q) return lista;
-    return lista.filter((c) =>
-      `${c.nome ?? ''} ${c.telefone ?? ''} ${c.previa ?? ''} ${c.etiquetas.join(' ')}`
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [conversas, busca, visao]);
+    if (q) {
+      lista = lista.filter((c) =>
+        `${c.nome ?? ''} ${c.telefone ?? ''} ${c.previa ?? ''} ${c.etiquetas.join(' ')}`
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+    // Fixadas sobem: é o que "fixar" significa.
+    return [...lista].sort((a, b) => Number(b.fixada) - Number(a.fixada));
+  }, [conversas, busca, visao, filtroSituacao, filtroEtiqueta]);
+
+  /** Etiquetas que existem de fato, para o filtro não oferecer o que não há. */
+  const etiquetasExistentes = useMemo(
+    () => Array.from(new Set(conversas.flatMap((c) => c.etiquetas))).sort(),
+    [conversas]
+  );
 
   // A seleção acompanha a lista: se a conversa aberta sai do filtro, abre a
   // primeira disponível em vez de deixar o painel vazio sem explicação.
@@ -238,9 +261,21 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     return () => clearInterval(t);
   }, [selecionada, carregarMensagens, router]);
 
+  /**
+   * Rola para o fim só se a pessoa JÁ estava no fim.
+   *
+   * Puxar a tela de volta enquanto alguém lê uma mensagem antiga é a forma mais
+   * rápida de fazer perder o que estava lendo — e acontece justo quando a
+   * conversa está movimentada.
+   */
   useEffect(() => {
-    fimDaLista.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensagens.length]);
+    if (!longeDoFim) fimDaLista.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mensagens.length, longeDoFim]);
+
+  function aoRolar(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    setLongeDoFim(el.scrollHeight - el.scrollTop - el.clientHeight > 250);
+  }
 
   // Busca nas mensagens, com respiro para não consultar a cada tecla.
   useEffect(() => {
@@ -359,7 +394,14 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-13rem)] gap-3">
+    <div
+      className={cn(
+        'flex gap-3',
+        telaCheia
+          ? 'fixed inset-0 z-50 bg-background p-3'
+          : 'h-[calc(100vh-13rem)]'
+      )}
+    >
       {/* Fila */}
       <div className="flex w-[320px] shrink-0 flex-col rounded-lg border border-border bg-card">
         <div className="space-y-2 border-b border-border p-2">
@@ -453,6 +495,36 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </Button>
           </div>
 
+          <div className="flex gap-1.5">
+            <select
+              value={filtroSituacao}
+              onChange={(e) => setFiltroSituacao(e.target.value)}
+              className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
+              aria-label="Filtrar por situação"
+            >
+              <option value="">Toda situação</option>
+              <option value="novo">Novo</option>
+              <option value="em_atendimento">Em atendimento</option>
+              <option value="aguardando">Aguardando cliente</option>
+              <option value="encerrado">Encerrado</option>
+            </select>
+            {etiquetasExistentes.length > 0 && (
+              <select
+                value={filtroEtiqueta}
+                onChange={(e) => setFiltroEtiqueta(e.target.value)}
+                className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
+                aria-label="Filtrar por etiqueta"
+              >
+                <option value="">Toda etiqueta</option>
+                {etiquetasExistentes.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {aviso && <p className="px-1 text-caption text-muted-foreground">{aviso}</p>}
         </div>
 
@@ -515,7 +587,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
       </div>
 
       {/* Conversa */}
-      <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-soft">
+      <div className="relative flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-soft">
         {conversa ? (
           <>
             <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
@@ -549,6 +621,15 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                 <Badge variant="neutralSoft">Sem lead</Badge>
               )}
 
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setTelaCheia((v) => !v)}
+                aria-label={telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}
+                title={telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}
+              >
+                {telaCheia ? <Minimize2 /> : <Maximize2 />}
+              </Button>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -602,7 +683,9 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               </div>
             ) : (
               <div
-                className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
+                ref={areaMensagens}
+                onScroll={aoRolar}
+                className="relative min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -649,6 +732,17 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                 )}
                 <div ref={fimDaLista} />
               </div>
+            )}
+
+            {longeDoFim && !achados && (
+              <button
+                onClick={() => fimDaLista.current?.scrollIntoView({ behavior: 'smooth' })}
+                className="absolute bottom-24 right-8 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card shadow-md transition-colors hover:bg-accent"
+                aria-label="Ir para a última mensagem"
+                title="Ir para a última mensagem"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
             )}
 
             <div className="border-t border-border bg-card p-2">
@@ -720,6 +814,13 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                 >
                   <Smile />
                 </Button>
+                {selecionada && (
+                  <Modelos
+                    conversaId={selecionada}
+                    onEscolher={(t) => setRascunho((r) => (r ? `${r}
+${t}` : t))}
+                  />
+                )}
                 <Button
                   variant={modoNota ? 'default' : 'ghost'}
                   size="icon"

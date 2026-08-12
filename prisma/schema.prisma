@@ -188,6 +188,7 @@ model Loteadora {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   whatsappInstancias WhatsappInstancia[]
+  WhatsappModelo     WhatsappModelo[]
 
   @@index([reguaCobrancaId])
   @@map("loteadoras")
@@ -1616,6 +1617,32 @@ model WhatsappInstancia {
   @@map("whatsapp_instancias")
 }
 
+/// Modelo de mensagem pronta, com tokens {{nome}}.
+///
+/// Quem atende repete as mesmas cinco frases o dia inteiro — dados do lote,
+/// formas de pagamento, horário de visita. Digitar de novo a cada conversa é
+/// onde o atendimento perde tempo e ganha erro de digitação.
+model WhatsappModelo {
+  id String @id @default(cuid())
+
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  titulo String
+  texto  String
+  /// Atalho digitado no campo para inserir o modelo (ex: "/precos").
+  atalho String?
+
+  /// Quantas vezes foi usado — os mais usados sobem na lista.
+  usos Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId])
+  @@map("whatsapp_modelos")
+}
+
 enum WhatsappStatus {
   DESCONECTADA
   PAREANDO
@@ -1658,6 +1685,11 @@ model WhatsappConversa {
 
   /// Etiquetas livres da conversa, para filtrar a fila.
   etiquetas Json?
+
+  /// Fixada no topo da fila. Espelha o "fixar" do WhatsApp.
+  fixada     Boolean @default(false)
+  /// Silenciada: continua chegando, para de contar como não lida.
+  silenciada Boolean @default(false)
 
   /// Quando pedimos o histórico deste chat ao WhatsApp. A marca fica aqui, e
   /// não numa consulta por JID: o mesmo contato chega ora como

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import {
   Archive,
   BellOff,
+  BellRing,
+  Pin,
   Link2,
   Loader2,
   Pencil,
@@ -21,7 +23,11 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { renomearConversa, vincularAoLead } from '@/app/admin/(dashboard)/whatsapp/chat-actions';
 import {
-  alternarArquivada,
+  arquivarConversa,
+  fixarConversa,
+  silenciarConversa,
+} from '@/app/admin/(dashboard)/whatsapp/modelo-actions';
+import {
   alternarEtiqueta,
   criarLeadDaConversa,
   leadsParaVincular,
@@ -307,10 +313,32 @@ export function PainelCrm({
           size="sm"
           className="w-full justify-start"
           disabled={pendente}
-          onClick={() => acao(() => alternarArquivada(conversa.id))}
+          onClick={() => acao(() => fixarConversa(conversa.id))}
+        >
+          <Pin /> {conversa.fixada ? 'Desafixar' : 'Fixar no topo'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start"
+          disabled={pendente}
+          onClick={() => acao(() => silenciarConversa(conversa.id))}
+        >
+          {conversa.silenciada ? <BellRing /> : <BellOff />}{' '}
+          {conversa.silenciada ? 'Reativar avisos' : 'Silenciar'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start"
+          disabled={pendente}
+          onClick={() => acao(() => arquivarConversa(conversa.id))}
         >
           <Archive /> {conversa.arquivada ? 'Desarquivar' : 'Arquivar'}
         </Button>
+        <p className="px-1 text-caption text-muted-foreground">
+          Fixar, silenciar e arquivar valem também no seu celular.
+        </p>
       </div>
 
       {erro && <p className="text-body-sm text-destructive">{erro}</p>}

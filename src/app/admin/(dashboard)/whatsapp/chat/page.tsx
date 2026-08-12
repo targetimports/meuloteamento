@@ -53,6 +53,8 @@ export default async function ChatPage() {
     situacao: c.situacao,
     etiquetas: (c.etiquetas as string[] | null) ?? [],
     arquivada: c.arquivada,
+    fixada: c.fixada,
+    silenciada: c.silenciada,
     lead: c.lead,
   }));
 
