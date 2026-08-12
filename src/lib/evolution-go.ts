@@ -384,3 +384,22 @@ export function arquivarNoWhatsapp(token: string, jid: string, arquivar: boolean
     body: { chatJid: jid },
   });
 }
+
+/**
+ * Nome e dados de um grupo.
+ *
+ * É a única forma de saber como um grupo se chama antes de receber histórico
+ * dele. Sem isto, o grupo aparece na fila como o JID cru
+ * (`120363143104495367`), que não diz nada a ninguém.
+ */
+export function infoDoGrupo(token: string, jid: string) {
+  return chamar<{ Name?: string; name?: string; Subject?: string }>('POST', '/group/info', {
+    apikey: token,
+    body: { groupJid: jid },
+  });
+}
+
+/** Grupos de que o número participa. */
+export function listarGrupos(token: string) {
+  return chamar<Array<{ JID?: string; Name?: string }>>('GET', '/group/myall', { apikey: token });
+}

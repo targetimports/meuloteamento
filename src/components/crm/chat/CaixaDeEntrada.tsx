@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Archive,
   ArrowDown,
+  Columns3,
   Contact,
   Forward,
   History,
@@ -16,6 +17,7 @@ import {
   Plus,
   Search,
   Send,
+  BarChart3,
   Maximize2,
   Minimize2,
   Smile,
@@ -42,6 +44,8 @@ import { PainelCrm } from './PainelCrm';
 import { AvatarContato } from './AvatarContato';
 import { VisorMidia, type ItemMidia } from './VisorMidia';
 import { Modelos } from './Modelos';
+import { QuadroConversas } from './QuadroConversas';
+import { Duplicadas } from './Duplicadas';
 import {
   apagarParaTodos,
   enviarMensagem,
@@ -175,6 +179,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
 
   const [visorEm, setVisorEm] = useState<number | null>(null);
   const [telaCheia, setTelaCheia] = useState(false);
+  const [emQuadro, setEmQuadro] = useState(false);
   const [longeDoFim, setLongeDoFim] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
@@ -496,6 +501,24 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
           </div>
 
           <div className="flex gap-1.5">
+            <Button
+              variant={emQuadro ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setEmQuadro((v) => !v)}
+              title="Ver a fila por tempo de espera"
+            >
+              <Columns3 /> Espera
+            </Button>
+            <Duplicadas />
+            <Button variant="outline" size="icon-sm" asChild title="Desempenho do atendimento">
+              <a href="/admin/whatsapp/desempenho">
+                <BarChart3 />
+              </a>
+            </Button>
+          </div>
+
+          <div className="flex gap-1.5">
             <select
               value={filtroSituacao}
               onChange={(e) => setFiltroSituacao(e.target.value)}
@@ -586,7 +609,19 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
         </div>
       </div>
 
-      {/* Conversa */}
+      {/* Conversa (ou o quadro por espera) */}
+      {emQuadro ? (
+        <div className="min-w-0 flex-1 overflow-y-auto rounded-lg border border-border bg-card p-3">
+          <QuadroConversas
+            conversas={conversas}
+            selecionada={selecionada}
+            onAbrir={(id) => {
+              setSelecionada(id);
+              setEmQuadro(false);
+            }}
+          />
+        </div>
+      ) : (
       <div className="relative flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-soft">
         {conversa ? (
           <>
@@ -871,7 +906,9 @@ ${t}` : t))}
         )}
       </div>
 
-      {conversa && painelAberto && (
+      )}
+
+      {conversa && painelAberto && !emQuadro && (
         <PainelCrm conversa={conversa} onFechar={() => setPainelAberto(false)} />
       )}
 

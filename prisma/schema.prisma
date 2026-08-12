@@ -167,6 +167,11 @@ model Loteadora {
 
   sobreTexto String?
 
+  /// Situações de atendimento que contam como ENCERRADAS no WhatsApp: mensagem
+  /// nova do cliente reabre a conversa. Configurável porque cada operação
+  /// chama as coisas de um jeito. Vazio = usa o padrão do código.
+  whatsappSituacoesEncerradas Json?
+
   ativo Boolean @default(true)
 
   loteamentos      Loteamento[]

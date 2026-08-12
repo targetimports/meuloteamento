@@ -1,7 +1,7 @@
 import type { Prisma, WhatsappTipoMensagem } from '@prisma/client';
 import { prisma } from './prisma';
 import { gravarDocumento } from './storage-seguro';
-import { baixarMidia, solicitarHistorico, obterFotoPerfil } from './evolution-go';
+import { baixarMidia, solicitarHistorico, obterFotoPerfil, infoDoGrupo } from './evolution-go';
 import { paraData, telefoneDoJid, ehGrupo, type EventoNormalizado } from './whatsapp-evento';
 import { transcricaoConfigurada, transcreverMensagem } from './whatsapp-transcricao';
 
@@ -275,8 +275,77 @@ async function acharOuCriarConversa(input: {
   });
 }
 
-/** Situações que contam como atendimento encerrado — mensagem do cliente reabre. */
-const ENCERRADAS = new Set(['encerrado', 'ganho', 'perdido']);
+/** Padrão de situações encerradas, quando a empresa não configurou as suas. */
+const ENCERRADAS_PADRAO = ['encerrado', 'ganho', 'perdido'];
+
+/**
+ * Situações que contam como atendimento encerrado — mensagem do cliente reabre.
+ *
+ * Configurável por empresa porque cada operação chama as coisas de um jeito:
+ * "finalizado", "resolvido", "vendido". Com a lista errada, ou toda mensagem
+ * reabre um atendimento que não estava encerrado, ou nenhuma reabre o que
+ * estava — e a fila deixa de refletir o que precisa de resposta.
+ */
+async function situacoesEncerradas(instanciaId: string): Promise<Set<string>> {
+  const inst = await prisma.whatsappInstancia.findUnique({
+    where: { id: instanciaId },
+    select: { loteadora: { select: { whatsappSituacoesEncerradas: true } } },
+  });
+  const config = inst?.loteadora?.whatsappSituacoesEncerradas as string[] | null | undefined;
+  const lista = Array.isArray(config) && config.length > 0 ? config : ENCERRADAS_PADRAO;
+  return new Set(lista.map((s) => String(s).toLowerCase()));
+}
+
+/**
+ * Nome do grupo, perguntado ao WhatsApp.
+ *
+ * O `pushName` de uma mensagem de grupo é de QUEM FALOU, não do grupo. Sem
+ * perguntar, o grupo fica na fila como o JID cru — `120363143104495367` — que
+ * não diz nada a ninguém.
+ */
+async function nomeDoGrupo(token: string, jid: string): Promise<string | null> {
+  try {
+    const r = await infoDoGrupo(token, jid);
+    if (!r.ok) return null;
+    return r.data?.Name || r.data?.name || r.data?.Subject || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Acha o lead da empresa cujo telefone bate com o da conversa.
+ *
+ * 🔴 Casa pelos ÚLTIMOS 8 DÍGITOS. O mesmo celular aparece como 5575984904920,
+ * 557598490492 e 75984904920 — DDI e nono dígito entram e saem conforme a
+ * origem do cadastro. Comparar a string inteira não casaria quase nada.
+ *
+ * Dois leads com o mesmo final não vinculam nenhum: vincular o errado põe a
+ * conversa de um cliente no histórico de outro, que é pior que não vincular.
+ */
+async function acharLeadPorTelefone(
+  instanciaId: string,
+  telefone: string
+): Promise<string | null> {
+  const sufixo = telefone.replace(/\D/g, '').slice(-8);
+  if (sufixo.length < 8) return null;
+
+  const inst = await prisma.whatsappInstancia.findUnique({
+    where: { id: instanciaId },
+    select: { loteadoraId: true },
+  });
+
+  const candidatos = await prisma.lead.findMany({
+    where: {
+      ...(inst?.loteadoraId ? { loteamento: { loteadoraId: inst.loteadoraId } } : {}),
+      telefone: { endsWith: sufixo },
+    },
+    select: { id: true },
+    take: 2,
+  });
+
+  return candidatos.length === 1 ? candidatos[0].id : null;
+}
 
 // ── Tratadores ──────────────────────────────────────────────────────────────
 
@@ -315,10 +384,19 @@ export async function tratarMensagem(
   const conversa = await acharOuCriarConversa({
     instanciaId: instancia.id,
     remoteJid,
-    // Em grupo o `pushName` é de quem falou, não do grupo.
-    nome: grupo ? null : pushName || null,
+    // Em grupo o `pushName` é de quem falou, não do grupo — o nome vem do
+    // servidor, e só quando a conversa é nova (é uma chamada externa).
+    nome: grupo ? await nomeDoGrupo(instancia.token, remoteJid) : pushName || null,
     telefone,
   });
+
+  // Liga ao funil na primeira mensagem, sem esperar alguém clicar. Quem chega
+  // pelo WhatsApp e já é lead precisa aparecer com o contexto na hora — depois
+  // que a resposta foi dada, o vínculo não muda mais o que foi respondido.
+  if (!conversa.leadId && telefone) {
+    const leadId = await acharLeadPorTelefone(instancia.id, telefone);
+    if (leadId) await prisma.whatsappConversa.update({ where: { id: conversa.id }, data: { leadId } });
+  }
 
   if (messageId) {
     const jaTem = await prisma.whatsappMensagem.findUnique({
@@ -392,7 +470,11 @@ export async function tratarMensagem(
       ultimaMensagemMinha: daMim,
       naoLidas: daMim ? 0 : { increment: 1 },
       // Mensagem do cliente reabre atendimento já encerrado.
-      ...(daMim ? {} : ENCERRADAS.has(conversa.situacao) ? { situacao: 'novo' } : {}),
+      ...(daMim
+        ? {}
+        : (await situacoesEncerradas(instancia.id)).has(conversa.situacao)
+          ? { situacao: 'novo' }
+          : {}),
       ...(nomeNovo ? { nome: nomeNovo, nomeOrigem: 'push' } : {}),
       // Conversa LID criada antes de sabermos o número: assim que um evento
       // traz o JID alternativo, o telefone entra sem recriar a conversa.
