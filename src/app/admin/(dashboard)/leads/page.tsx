@@ -1,18 +1,23 @@
 import { prisma } from '@/lib/prisma';
-import { tenantId, isSuperAdmin, whereLoteadora } from '@/lib/tenant';
-import { LeadsKanban, type LeadUI } from '@/components/LeadsKanban';
+import { tenantId, isSuperAdmin } from '@/lib/tenant';
+import { garantirEtapas, whereLeadsDoTenant, etapaEfetivaId } from '@/lib/pipeline';
+import { FunilKanban, type LeadUI, type EtapaKanban } from '@/components/crm/FunilKanban';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LeadsPage() {
   const tid = await tenantId();
   const isSuper = await isSuperAdmin();
-  const tenantWhere = tid ? { loteamento: { loteadoraId: tid } } : {};
+  const tenantWhere = whereLeadsDoTenant(tid);
 
-  const [leads, corretores, origensRaw, stats] = await Promise.all([
+  // As etapas primeiro: o funil padrão nasce aqui na primeira visita, e os
+  // leads que já existiam são adotados pelas etapas equivalentes.
+  const etapas = await garantirEtapas(tid);
+
+  const [leads, corretores, origensRaw] = await Promise.all([
     prisma.lead.findMany({
       where: tenantWhere,
-      orderBy: [{ status: 'asc' }, { ordem: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'desc' }],
       take: 500,
       include: {
         corretor: { select: { id: true, nome: true } },
@@ -21,7 +26,7 @@ export default async function LeadsPage() {
       },
     }),
     prisma.corretor.findMany({
-      where: { ...(await whereLoteadora()), ativo: true },
+      where: { ...(tid ? { loteadoraId: tid } : {}), ativo: true },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true },
     }),
@@ -29,11 +34,6 @@ export default async function LeadsPage() {
       where: { ...tenantWhere, origem: { not: null } },
       distinct: ['origem'],
       select: { origem: true },
-    }),
-    prisma.lead.groupBy({
-      where: tenantWhere,
-      by: ['status'],
-      _count: { _all: true },
     }),
   ]);
 
@@ -43,10 +43,11 @@ export default async function LeadsPage() {
     email: l.email,
     telefone: l.telefone,
     mensagem: l.mensagem,
-    status: l.status,
+    etapaId: etapaEfetivaId(l, etapas),
     temperatura: l.temperatura,
     origem: l.origem,
     ordem: l.ordem,
+    statusDesde: l.statusDesde.toISOString(),
     proximaAcao: l.proximaAcao,
     proximaAcaoData: l.proximaAcaoData?.toISOString() ?? null,
     tags: (l.tags as string[] | null) ?? [],
@@ -58,62 +59,56 @@ export default async function LeadsPage() {
     updatedAt: l.updatedAt.toISOString(),
   }));
 
-  const origens = origensRaw
-    .map((o) => o.origem)
-    .filter((o): o is string => !!o);
+  const etapasUI: EtapaKanban[] = etapas.map((e) => ({
+    id: e.id,
+    nome: e.nome,
+    cor: e.cor,
+    slaHoras: e.slaHoras,
+    ehFinal: e.ehFinal,
+    ehGanho: e.ehGanho,
+  }));
 
-  const total = stats.reduce((a, s) => a + s._count._all, 0);
-  const conv = stats.find((s) => s.status === 'CONVERTIDO')?._count._all ?? 0;
-  const taxa = total > 0 ? ((conv / total) * 100).toFixed(1) : '0';
+  // A conversão sai das etapas marcadas como ganho, não de um status fixo:
+  // quem renomear ou trocar a etapa de ganho continua com o número certo.
+  const idsGanho = new Set(etapas.filter((e) => e.ehGanho).map((e) => e.id));
+  const total = leadsUI.length;
+  const ganhos = leadsUI.filter((l) => l.etapaId && idsGanho.has(l.etapaId)).length;
+  const taxa = total > 0 ? ((ganhos / total) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-baseline justify-between gap-4 flex-wrap">
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">CRM de Leads</h1>
-          <p className="text-sm text-slate-500">
-            Arraste os cards entre as colunas para mover. Clique para ver detalhes.
+          <h1 className="text-2xl font-bold text-foreground">Funil de vendas</h1>
+          <p className="text-body-sm text-muted-foreground">
+            Arraste os cards entre as colunas para mover. Clique para ver os detalhes.
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <KpiHeader label="Total" valor={String(total)} />
-          <KpiHeader label="Convertidos" valor={String(conv)} cor="text-emerald-600" />
-          <KpiHeader label="Taxa" valor={`${taxa}%`} cor="text-primary-600" />
-          <a
-            href="/admin/leads/em-massa"
-            className="ml-2 inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-3 py-2 rounded"
-          >
-            🎯 Ações em massa
-          </a>
+        <div className="flex items-center gap-5">
+          <Kpi label="Leads" valor={String(total)} />
+          <Kpi label="Convertidos" valor={String(ganhos)} cor="text-success-strong" />
+          <Kpi label="Taxa" valor={`${taxa}%`} cor="text-primary-strong" />
         </div>
       </div>
 
-      <LeadsKanban
+      <FunilKanban
         leads={leadsUI}
+        etapas={etapasUI}
         corretores={corretores}
-        origens={origens}
+        origens={origensRaw.map((o) => o.origem).filter((o): o is string => !!o)}
         isSuperAdmin={isSuper}
       />
     </div>
   );
 }
 
-function KpiHeader({
-  label,
-  valor,
-  cor,
-}: {
-  label: string;
-  valor: string;
-  cor?: string;
-}) {
+function Kpi({ label, valor, cor }: { label: string; valor: string; cor?: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+      <p className="text-caption font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </p>
-      <p className={`text-xl font-bold ${cor ?? 'text-slate-900'}`}>{valor}</p>
+      <p className={`text-xl font-bold ${cor ?? 'text-foreground'}`}>{valor}</p>
     </div>
   );
 }

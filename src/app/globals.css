@@ -2,9 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =====================================================================
+   Tokens semânticos (CRM)
+   ---------------------------------------------------------------------
+   Formato HSL sem vírgula, para compor opacidade no Tailwind:
+   `hsl(var(--card) / 0.5)`. O conjunto vem do Target Import Manager, com
+   uma troca deliberada: a marca aqui é o dourado #eab308 que o resto do
+   sistema já usa (primary-500 no tailwind.config), não o tom de lá.
+
+   O escuro é projetado à parte, não invertido — a profundidade é
+   explícita (canvas → surface → raised → popover), porque no escuro a
+   sombra quase não aparece e a separação passa a vir da superfície.
+
+   Só as telas do CRM consomem estes tokens por ora; as telas antigas
+   seguem com as classes utilitárias diretas (slate-*, primary-500).
+   ===================================================================== */
+
 :root {
+  /* Canvas e tinta */
   --background: 0 0% 100%;
   --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Superfícies semânticas */
+  --surface-soft: 220 14% 96%;
+  --surface-raised: 0 0% 100%;
+  --surface-strong: 220 13% 91%;
+
+  /* Marca — dourado do meuloteamento */
+  --primary: 45 93% 47%; /* #eab308 */
+  --primary-foreground: 0 0% 8%; /* texto ESCURO sobre dourado */
+  --primary-strong: 43 74% 32%; /* #a16207 — texto/link de marca sobre fundo claro */
+
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 220 14% 96%;
+  --accent-foreground: 222 47% 11%;
+
+  /* Semânticas — significado, não decoração */
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 71% 30%;
+  --success-strong: 142 72% 27%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-strong: 32 100% 29%;
+  --warning-foreground: 0 0% 8%;
+  --info: 221 83% 53%;
+  --info-strong: 221 83% 45%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 45 93% 47%;
+
+  /* Gráficos: dourado como série primária, semânticas depois */
+  --chart-1: 45 93% 47%;
+  --chart-2: 221 83% 53%;
+  --chart-3: 142 71% 35%;
+  --chart-4: 38 92% 50%;
+  --chart-5: 0 72% 51%;
+
+  /* Raio: preciso, não arredondado demais. */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* Sombra = elevação temporária. Preto neutro, sem tinta de marca. */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.12);
+}
+
+:root.dark {
+  --background: 220 12% 5%;
+  --foreground: 240 5% 96%;
+
+  --card: 225 10% 8%;
+  --card-foreground: 240 5% 96%;
+  --popover: 220 12% 10%;
+  --popover-foreground: 240 5% 96%;
+
+  --surface-soft: 220 12% 10%;
+  --surface-raised: 223 10% 13%;
+  --surface-strong: 225 10% 16%;
+
+  --primary: 45 93% 47%;
+  --primary-foreground: 0 0% 8%;
+  --primary-strong: 45 93% 58%; /* clareia: #a16207 some no fundo escuro */
+
+  --secondary: 223 10% 13%;
+  --secondary-foreground: 240 5% 96%;
+  --muted: 220 12% 10%;
+  --muted-foreground: 225 6% 62%;
+  --accent: 225 10% 16%;
+  --accent-foreground: 240 5% 96%;
+
+  --destructive: 0 85% 68%;
+  --destructive-foreground: 0 0% 8%;
+  --success: 142 60% 45%;
+  --success-strong: 142 60% 58%;
+  --success-foreground: 0 0% 8%;
+  --warning: 38 92% 58%;
+  --warning-strong: 38 92% 67%;
+  --warning-foreground: 0 0% 8%;
+  --info: 217 91% 65%;
+  --info-strong: 217 91% 72%;
+  --info-foreground: 0 0% 8%;
+
+  /* Equivalente sólido a branco 8% sobre o canvas: precisa ser visível
+     sobre o card e discreta sobre o canvas. */
+  --border: 225 8% 18%;
+  --input: 225 8% 22%;
+  --ring: 45 93% 47%;
+
+  --chart-1: 45 93% 58%;
+  --chart-2: 217 91% 65%;
+  --chart-3: 142 60% 50%;
+  --chart-4: 38 92% 58%;
+  --chart-5: 0 72% 62%;
+
+  /* No escuro a sombra quase não se vê — a separação vem da superfície. */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.22);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.28);
+  --shadow-lg: 0 16px 48px rgb(0 0 0 / 0.38);
 }
 
 * {

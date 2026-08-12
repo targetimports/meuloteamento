@@ -973,6 +973,13 @@ model PipelineStage {
   ehFinal    Boolean      @default(false) // CONVERTIDO / PERDIDO
   ehGanho    Boolean      @default(false)
 
+  // Status equivalente no enum antigo. O funil passou a ser configurável, mas
+  // dashboard, ações em massa e as integrações que criam lead (checkout,
+  // reservas) continuam falando LeadStatus. Mover o lead de etapa carimba este
+  // valor em Lead.status, então as duas leituras nunca divergem.
+  // Nulo = etapa criada pelo usuário sem equivalente antigo.
+  statusLegado LeadStatus?
+
   leads Lead[]
 
   @@index([pipelineId, ordem])

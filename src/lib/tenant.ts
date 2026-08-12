@@ -127,6 +127,26 @@ export async function assertAcessoLoteamento(loteamentoId: string): Promise<void
   }
 }
 
+/**
+ * Mesma checagem, partindo de um lead.
+ *
+ * O lead pende do loteamento, não da loteadora, então o caminho é via FK.
+ * Lead sem loteamento (`loteamentoId` nulo) não pertence a empresa nenhuma e
+ * só o super admin alcança — é o mesmo recorte que a listagem do kanban usa.
+ */
+export async function assertAcessoLead(leadId: string): Promise<void> {
+  const session = await requireAdmin();
+  if (!session.loteadoraId) return; // super admin passa
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    select: { loteamento: { select: { loteadoraId: true } } },
+  });
+  if (!lead || lead.loteamento?.loteadoraId !== session.loteadoraId) {
+    throw new Error('Acesso negado: este lead é de outra empresa.');
+  }
+}
+
 /** Mesma checagem, partindo de um lote. */
 export async function assertAcessoLote(loteId: string): Promise<void> {
   const session = await requireAdmin();

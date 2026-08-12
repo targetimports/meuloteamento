@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, tenantId } from '@/lib/tenant';
 import { enfileirar, buildIdempotencyKey } from '@/lib/comunicacao';
+import { garantirEtapas } from '@/lib/pipeline';
 
 const bulkSchema = z.object({
   leadIds: z.array(z.string()).min(1).max(200),
@@ -36,9 +37,18 @@ export async function bulkMudarStatus(input: z.infer<typeof bulkStatusSchema>) {
   const parsed = bulkStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: 'inválido' };
 
+  // Mover em massa também precisa carimbar a etapa: mudar só o status deixaria
+  // o card na coluna antiga do kanban, que lê `stageId` primeiro.
+  const etapas = await garantirEtapas(tid);
+  const etapaDestino = etapas.find((e) => e.statusLegado === parsed.data.novoStatus);
+
   const r = await prisma.lead.updateMany({
     where: { id: { in: parsed.data.leadIds }, ...whereTenant(tid) },
-    data: { status: parsed.data.novoStatus, statusDesde: new Date() },
+    data: {
+      status: parsed.data.novoStatus,
+      statusDesde: new Date(),
+      ...(etapaDestino ? { stageId: etapaDestino.id } : {}),
+    },
   });
 
   await prisma.leadInteracao.createMany({

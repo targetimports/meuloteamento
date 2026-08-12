@@ -3,7 +3,8 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/tenant';
+import { requireAdmin, assertAcessoLead } from '@/lib/tenant';
+import { dadosDeMovimentacao } from '@/lib/pipeline';
 
 type FormState = { error?: string; ok?: boolean };
 
@@ -54,8 +55,85 @@ type LeadStatus = 'NOVO' | 'EM_ATENDIMENTO' | 'AGENDADO' | 'CONVERTIDO' | 'PERDI
 type Temperatura = 'FRIO' | 'MORNO' | 'QUENTE';
 
 /**
- * Move o lead para outra coluna (status) e/ou nova posição na coluna.
+ * Move o lead para outra ETAPA do funil e/ou nova posição na coluna.
  * O drag-drop chama isso quando o card é solto.
+ *
+ * Grava `stageId` e `status` na mesma escrita (ver `lib/pipeline`): enquanto
+ * houver código lendo o enum antigo, deixar os dois divergirem faria o mesmo
+ * lead aparecer numa coluna do kanban e noutra contagem do dashboard.
+ */
+export async function moverLeadParaEtapa(input: {
+  leadId: string;
+  etapaId: string;
+  ordem: number; // nova posição (cálculo entre vizinhos no front)
+  motivo?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireAdmin();
+
+  try {
+    await assertAcessoLead(input.leadId);
+
+    const [lead, etapa] = await Promise.all([
+      prisma.lead.findUnique({
+        where: { id: input.leadId },
+        select: { id: true, stage: { select: { id: true, nome: true } } },
+      }),
+      prisma.pipelineStage.findUnique({
+        where: { id: input.etapaId },
+        select: {
+          id: true,
+          nome: true,
+          statusLegado: true,
+          pipeline: { select: { loteadoraId: true } },
+        },
+      }),
+    ]);
+    if (!lead) return { ok: false, error: 'Lead não encontrado' };
+    if (!etapa) return { ok: false, error: 'Etapa não encontrada' };
+
+    // A etapa precisa ser do funil da própria empresa — senão daria para
+    // jogar o lead num funil alheio informando o id da etapa.
+    if (session.loteadoraId && etapa.pipeline.loteadoraId !== session.loteadoraId) {
+      return { ok: false, error: 'Etapa de outra empresa.' };
+    }
+
+    if (lead.stage?.id === etapa.id) {
+      // Só reordenou dentro da mesma coluna: não reinicia o relógio do SLA.
+      await prisma.lead.update({ where: { id: input.leadId }, data: { ordem: input.ordem } });
+      revalidatePath('/admin/leads');
+      return { ok: true };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.lead.update({
+        where: { id: input.leadId },
+        data: { ...dadosDeMovimentacao(etapa), ordem: input.ordem },
+      });
+
+      await tx.leadInteracao.create({
+        data: {
+          leadId: input.leadId,
+          tipo: 'NOTA',
+          conteudo: `Movido de ${lead.stage?.nome ?? 'sem etapa'} → ${etapa.nome}${
+            input.motivo ? ` (${input.motivo})` : ''
+          }`,
+          userId: session.sub,
+        },
+      });
+    });
+
+    revalidatePath('/admin/leads');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Move o lead por STATUS do enum antigo.
+ *
+ * @deprecated Use `moverLeadParaEtapa`. Continua aqui porque as ações em massa
+ * ainda falam em status; some quando elas migrarem para etapas.
  */
 export async function moverLead(input: {
   leadId: string;
@@ -66,6 +144,8 @@ export async function moverLead(input: {
   const session = await requireAdmin();
 
   try {
+    await assertAcessoLead(input.leadId);
+
     const lead = await prisma.lead.findUnique({
       where: { id: input.leadId },
       select: { id: true, status: true },
