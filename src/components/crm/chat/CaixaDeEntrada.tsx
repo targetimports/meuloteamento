@@ -17,8 +17,10 @@ import {
   Plus,
   Search,
   Send,
+  Smartphone,
   BarChart3,
   Maximize2,
+  MoreHorizontal,
   Minimize2,
   Smile,
   StickyNote,
@@ -38,13 +40,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Segmented } from '@/components/ui/segmented';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Bolha } from './Bolha';
 import { PainelCrm } from './PainelCrm';
 import { AvatarContato } from './AvatarContato';
 import { VisorMidia, type ItemMidia } from './VisorMidia';
 import { Modelos } from './Modelos';
-import { QuadroConversas } from './QuadroConversas';
+import { QuadroConversas, type Agrupamento } from './QuadroConversas';
 import { Duplicadas } from './Duplicadas';
 import {
   apagarParaTodos,
@@ -63,6 +73,7 @@ import {
 } from '@/app/admin/(dashboard)/whatsapp/midia-actions';
 import {
   buscarNasMensagens,
+  mudarSituacao,
   novaConversa,
   sincronizarContatos,
   type AchadoBusca,
@@ -154,11 +165,12 @@ function formatarTelefone(v: string | null): string {
   return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${meio}-${resto.slice(meio.length)}`;
 }
 
-type Visao = 'ativas' | 'nao_lidas' | 'arquivadas';
+/** Recortes da fila — o mesmo vocabulario do ERP. */
+type Recorte = 'ativas' | 'nao_lidas' | 'arquivadas';
 
 export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const router = useRouter();
-  const [visao, setVisao] = useState<Visao>('ativas');
+  const [recorte, setRecorte] = useState<Recorte>('ativas');
   const [busca, setBusca] = useState('');
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<MensagemUI[]>([]);
@@ -179,7 +191,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
 
   const [visorEm, setVisorEm] = useState<number | null>(null);
   const [telaCheia, setTelaCheia] = useState(false);
-  const [emQuadro, setEmQuadro] = useState(false);
+  const [visao, setVisaoTela] = useState<'lista' | 'quadro'>('lista');
+  const [agrupamento, setAgrupamento] = useState<Agrupamento>('espera');
   const [longeDoFim, setLongeDoFim] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
@@ -192,8 +205,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
 
   const visiveis = useMemo(() => {
     let lista = conversas;
-    if (visao === 'arquivadas') lista = lista.filter((c) => c.arquivada);
-    else if (visao === 'nao_lidas') lista = lista.filter((c) => !c.arquivada && c.naoLidas > 0);
+    if (recorte === 'arquivadas') lista = lista.filter((c) => c.arquivada);
+    else if (recorte === 'nao_lidas') lista = lista.filter((c) => !c.arquivada && c.naoLidas > 0);
     else lista = lista.filter((c) => !c.arquivada);
 
     if (filtroSituacao) lista = lista.filter((c) => c.situacao === filtroSituacao);
@@ -209,7 +222,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     }
     // Fixadas sobem: é o que "fixar" significa.
     return [...lista].sort((a, b) => Number(b.fixada) - Number(a.fixada));
-  }, [conversas, busca, visao, filtroSituacao, filtroEtiqueta]);
+  }, [conversas, busca, recorte, filtroSituacao, filtroEtiqueta]);
 
   /** Etiquetas que existem de fato, para o filtro não oferecer o que não há. */
   const etiquetasExistentes = useMemo(
@@ -225,6 +238,16 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   }, [visiveis, selecionada]);
 
   const conversa = conversas.find((c) => c.id === selecionada) ?? null;
+
+  const naoLidasTotal = useMemo(
+    () => conversas.filter((c) => !c.arquivada).reduce((a, c) => a + c.naoLidas, 0),
+    [conversas]
+  );
+  /** Quem falou por ultimo foi o cliente: esta esperando resposta. */
+  const esperando = useMemo(
+    () => conversas.filter((c) => !c.arquivada && c.ultimaMinha === false).length,
+    [conversas]
+  );
 
   // Só imagem e vídeo entram no visor: documento baixa, áudio toca na bolha.
   const midias: ItemMidia[] = useMemo(
@@ -401,12 +424,108 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   return (
     <div
       className={cn(
-        'flex gap-3',
-        telaCheia
-          ? 'fixed inset-0 z-50 bg-background p-3'
-          : 'h-[calc(100vh-13rem)]'
+        'flex flex-col gap-2',
+        telaCheia ? 'fixed inset-0 z-50 bg-background p-3' : 'h-[calc(100vh-12rem)]'
       )}
     >
+      {/* Barra de comando: contadores a esquerda, troca de visao a direita.
+          O agrupamento so aparece no quadro — na lista ele nao teria o que
+          agrupar, e controle que nao faz nada ensina a duvidar dos outros. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        {naoLidasTotal > 0 && <Badge variant="errorSoft">{naoLidasTotal} nao lidas</Badge>}
+        {esperando > 0 && <Badge variant="warningSoft">{esperando} esperando resposta</Badge>}
+        {naoLidasTotal === 0 && esperando === 0 && (
+          <Badge variant="successSoft">Tudo respondido</Badge>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {visao === 'quadro' && (
+            <Segmented
+              size="sm"
+              value={agrupamento}
+              onChange={setAgrupamento}
+              options={[
+                { value: 'espera', label: 'Por espera' },
+                { value: 'status', label: 'Por status' },
+              ]}
+            />
+          )}
+          <Segmented
+            size="sm"
+            value={visao}
+            onChange={setVisaoTela}
+            options={[
+              { value: 'lista', label: 'Lista' },
+              { value: 'quadro', label: 'Quadro' },
+            ]}
+          />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Acoes">
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  startSync(async () => {
+                    const r = await sincronizarHistorico();
+                    setAviso(r.ok ? 'Historico pedido.' : (r.erro ?? ''));
+                    router.refresh();
+                  })
+                }
+              >
+                <History /> Puxar historico
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  startSync(async () => {
+                    const r = await sincronizarContatos();
+                    setAviso(r.ok ? (r.atualizados ?? 0) + ' nome(s) atualizado(s).' : (r.erro ?? ''));
+                    router.refresh();
+                  })
+                }
+              >
+                <Contact /> Atualizar contatos
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  startSync(async () => {
+                    const r = await vincularConversasAosLeads();
+                    setAviso(r.ok ? (r.vinculadas ?? 0) + ' conversa(s) ligada(s) a leads.' : (r.erro ?? ''));
+                    router.refresh();
+                  })
+                }
+              >
+                <Link2 /> Ligar conversas aos leads
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setAbrindoNova(true)}>
+                <Plus /> Nova conversa
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href="/admin/whatsapp/desempenho">
+                  <BarChart3 /> Desempenho
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href="/admin/whatsapp">
+                  <Smartphone /> Meu numero
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {aviso && (
+        <p className="rounded-md bg-surface-soft px-3 py-1.5 text-body-sm text-muted-foreground">
+          {aviso}
+        </p>
+      )}
+
+      <div className="flex min-h-0 flex-1 gap-3">
       {/* Fila */}
       <div className="flex w-[320px] shrink-0 flex-col rounded-lg border border-border bg-card">
         <div className="space-y-2 border-b border-border p-2">
@@ -432,7 +551,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </Button>
           </div>
 
-          <Tabs value={visao} onValueChange={(v) => setVisao(v as Visao)}>
+          <Tabs value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
             <TabsList className="w-full">
               <TabsTrigger value="ativas" className="flex-1">
                 Ativas
@@ -500,22 +619,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </Button>
           </div>
 
-          <div className="flex gap-1.5">
-            <Button
-              variant={emQuadro ? 'default' : 'outline'}
-              size="sm"
-              className="flex-1"
-              onClick={() => setEmQuadro((v) => !v)}
-              title="Ver a fila por tempo de espera"
-            >
-              <Columns3 /> Espera
-            </Button>
+          <div className="flex justify-end">
             <Duplicadas />
-            <Button variant="outline" size="icon-sm" asChild title="Desempenho do atendimento">
-              <a href="/admin/whatsapp/desempenho">
-                <BarChart3 />
-              </a>
-            </Button>
           </div>
 
           <div className="flex gap-1.5">
@@ -610,15 +715,25 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
       </div>
 
       {/* Conversa (ou o quadro por espera) */}
-      {emQuadro ? (
-        <div className="min-w-0 flex-1 overflow-y-auto rounded-lg border border-border bg-card p-3">
+      {visao === 'quadro' ? (
+        /* O quadro usa a MESMA lista ja filtrada pela busca e pelos recortes:
+           alternar a visao nao pode alternar tambem o conjunto, senao os
+           numeros deixam de bater entre uma e outra. */
+        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-card">
           <QuadroConversas
-            conversas={conversas}
+            conversas={visiveis}
+            agrupamento={agrupamento}
             selecionada={selecionada}
             onAbrir={(id) => {
               setSelecionada(id);
-              setEmQuadro(false);
+              setVisaoTela('lista');
             }}
+            onResolver={(id) =>
+              startSync(async () => {
+                await mudarSituacao(id, 'encerrado');
+                router.refresh();
+              })
+            }
           />
         </div>
       ) : (
@@ -908,7 +1023,7 @@ ${t}` : t))}
 
       )}
 
-      {conversa && painelAberto && !emQuadro && (
+      {conversa && painelAberto && visao === 'lista' && (
         <PainelCrm conversa={conversa} onFechar={() => setPainelAberto(false)} />
       )}
 
@@ -963,6 +1078,7 @@ ${t}` : t))}
           router.refresh();
         }}
       />
+      </div>
     </div>
   );
 }
