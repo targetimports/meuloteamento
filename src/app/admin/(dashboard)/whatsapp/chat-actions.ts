@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/tenant';
-import { apagarMensagem, enviarTexto, marcarLida, reagir } from '@/lib/evolution-go';
+import { apagarMensagem, conectar, enviarTexto, marcarLida, reagir } from '@/lib/evolution-go';
+import { pedirHistoricoDasConversas } from '@/lib/whatsapp-ingestao';
 
 type Resultado = { ok: boolean; erro?: string };
 
@@ -236,6 +237,82 @@ export async function vincularAoLead(conversaId: string, leadId: string | null):
   });
   revalidatePath('/admin/whatsapp/chat');
   return { ok: true };
+}
+
+/**
+ * Puxa o histórico das conversas conhecidas.
+ *
+ * O resultado não chega aqui: o WhatsApp responde depois, pelo webhook, como
+ * HISTORY_SYNC. Por isso a tela diz "pedido enviado" e não "N mensagens
+ * importadas" — prometer o número que ainda não existe seria mentir.
+ */
+export async function sincronizarHistorico(): Promise<
+  Resultado & { conversas?: number; pedidos?: number }
+> {
+  const { instancia } = await minhaInstancia();
+  if (!instancia) return { ok: false, erro: 'Sem instância.' };
+  if (instancia.status !== 'CONECTADA') {
+    return { ok: false, erro: 'Conecte seu número antes de sincronizar.' };
+  }
+
+  // Reconectar reassina os eventos: sem HISTORY_SYNC assinado, o pedido sai e
+  // a resposta é descartada pelo próprio gateway.
+  const conexao = await conectar(instancia.token);
+  if (conexao.ok && conexao.data?.eventString === '') {
+    return { ok: false, erro: 'O gateway não aceitou os eventos — o histórico não chegaria.' };
+  }
+
+  const r = await pedirHistoricoDasConversas(instancia);
+  revalidatePath('/admin/whatsapp/chat');
+  return { ok: true, ...r };
+}
+
+/**
+ * Liga conversas soltas aos leads do funil pelo telefone.
+ *
+ * 🔴 Casa pelos ÚLTIMOS 8 DÍGITOS, não pelo número inteiro. O mesmo celular
+ * aparece como 5575984904920, 557598490492, (75) 98490-4920 e 75984904920 —
+ * DDI que entra e sai, nono dígito que existe no cadastro e não no WhatsApp.
+ * Comparar a string inteira não casaria quase nada, e casar por igualdade de
+ * sufixo curto demais (4 ou 6) traria gente errada.
+ */
+export async function vincularConversasAosLeads(): Promise<Resultado & { vinculadas?: number }> {
+  const { sessao, instancia } = await minhaInstancia();
+  if (!instancia) return { ok: false, erro: 'Sem instância.' };
+
+  const conversas = await prisma.whatsappConversa.findMany({
+    where: { instanciaId: instancia.id, leadId: null, ehGrupo: false, telefone: { not: null } },
+    select: { id: true, telefone: true },
+  });
+  if (conversas.length === 0) return { ok: true, vinculadas: 0 };
+
+  const leads = await prisma.lead.findMany({
+    where: {
+      ...(sessao.loteadoraId ? { loteamento: { loteadoraId: sessao.loteadoraId } } : {}),
+      telefone: { not: '' },
+    },
+    select: { id: true, telefone: true },
+  });
+
+  const sufixo = (v: string) => v.replace(/\D/g, '').slice(-8);
+  const porSufixo = new Map<string, string>();
+  for (const l of leads) {
+    const s = sufixo(l.telefone);
+    // Dois leads com o mesmo final: não dá para escolher, então nenhum é
+    // vinculado automaticamente. Vincular o errado é pior que não vincular.
+    if (s.length === 8) porSufixo.set(s, porSufixo.has(s) ? '' : l.id);
+  }
+
+  let vinculadas = 0;
+  for (const c of conversas) {
+    const leadId = porSufixo.get(sufixo(c.telefone ?? ''));
+    if (!leadId) continue;
+    await prisma.whatsappConversa.update({ where: { id: c.id }, data: { leadId } });
+    vinculadas++;
+  }
+
+  revalidatePath('/admin/whatsapp/chat');
+  return { ok: true, vinculadas };
 }
 
 /** Renomeia o contato. Marca como manual: nenhuma sincronização desfaz. */

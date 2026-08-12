@@ -61,7 +61,7 @@ async function processar(token: string, corpo: Record<string, any> | null): Prom
 
   // Histórico tem formato próprio — trata antes do normalizador de mensagem.
   if (tipoTopo.includes('HISTORY')) {
-    await tratarHistorico(instancia, corpo?.data, normalizarEvento);
+    await tratarHistorico(instancia, corpo?.data);
     return;
   }
 

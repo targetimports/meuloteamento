@@ -427,35 +427,185 @@ export async function tratarRecibo(instanciaId: string, data: Record<string, any
 }
 
 /**
- * Sincronia de histórico: o WhatsApp devolve mensagens antigas em lote.
+ * Acha a lista de conversas dentro do payload de histórico.
  *
- * Reaproveita `tratarMensagem` por mensagem, então a deduplicação e todas as
- * regras de nome, mídia e prévia valem igual — histórico não é um caminho
- * paralelo com regras próprias, que foi como o defeito das duplicatas nasceu.
+ * O envelope muda de forma entre versões do servidor, então procuramos a chave
+ * `conversations` em profundidade em vez de apostar num caminho fixo — um
+ * caminho fixo que erra devolve "sem conversas" e o histórico simplesmente não
+ * entra, sem erro nenhum.
+ */
+function acharConversas(raiz: any, profundidade = 0): any[] | null {
+  if (!raiz || typeof raiz !== 'object' || profundidade > 3) return null;
+  for (const [chave, valor] of Object.entries(raiz)) {
+    if (chave.toLowerCase() === 'conversations' && Array.isArray(valor)) return valor;
+  }
+  for (const valor of Object.values(raiz)) {
+    if (valor && typeof valor === 'object' && !Array.isArray(valor)) {
+      const achado = acharConversas(valor, profundidade + 1);
+      if (achado) return achado;
+    }
+  }
+  return null;
+}
+
+/**
+ * Sincronia de histórico: o WhatsApp devolve as conversas antigas em lote.
+ *
+ * O formato é aninhado — uma lista de conversas, cada uma com suas mensagens em
+ * `WebMessageInfo` — e não uma lista plana de eventos. Tratar como plana faz o
+ * histórico inteiro ser descartado em silêncio.
+ *
+ * O histórico NÃO traz mídia: só o texto e os metadados. A bolha de uma foto
+ * antiga aparece como "Imagem não baixada", que é a verdade — melhor do que
+ * bolha vazia.
  */
 export async function tratarHistorico(
   instancia: { id: string; token: string },
-  data: Record<string, any>,
-  normalizar: (corpo: Record<string, any>) => EventoNormalizado | null
+  data: Record<string, any>
 ): Promise<void> {
   if (!data) return;
-  const lista: any[] =
-    data.Messages || data.messages || data.Conversations || data.conversations || [];
-  if (!Array.isArray(lista)) return;
 
-  let processadas = 0;
-  for (const item of lista) {
-    const evento = normalizar({ event: 'Message', data: item });
-    if (!evento?.remoteJid) continue;
-    try {
-      await tratarMensagem(instancia, evento);
-      processadas++;
-    } catch (e) {
-      // Uma mensagem ruim no meio do histórico não pode abortar o lote.
-      console.warn('[whatsapp] item de histórico ignorado:', (e as Error).message);
+  const conversas = acharConversas(data);
+  if (!Array.isArray(conversas) || conversas.length === 0) {
+    console.warn('[whatsapp] history-sync sem conversas:', JSON.stringify(data).slice(0, 600));
+    return;
+  }
+
+  let gravadas = 0;
+
+  for (const conv of conversas) {
+    const jid: string = conv.ID || conv.Id || conv.id || conv.JID || conv.jid || '';
+    if (!jid || jid === 'status@broadcast') continue;
+
+    const mensagens: any[] = conv.Messages || conv.messages || [];
+    // O nome do grupo vem aqui — é a única forma de saber o nome de um grupo do
+    // qual ainda não recebemos mensagem ao vivo.
+    const nomeDaConversa: string = conv.Name || conv.name || '';
+
+    const conversa = await acharOuCriarConversa({
+      instanciaId: instancia.id,
+      remoteJid: jid,
+      nome: nomeDaConversa || null,
+      telefone: telefoneDe(jid),
+    });
+
+    let ultima: { quando: Date; previa: string; daMim: boolean } | null = null;
+
+    for (const item of mensagens.slice(0, 200)) {
+      const wmi = item.Message || item.message || item; // WebMessageInfo
+      const key = wmi.Key || wmi.key || {};
+      const messageId: string = key.ID || key.Id || key.id || '';
+      if (!messageId) continue;
+
+      // O histórico se sobrepõe ao que o webhook já entregou ao vivo.
+      const existe = await prisma.whatsappMensagem.findUnique({
+        where: { conversaId_messageId: { conversaId: conversa.id, messageId } },
+        select: { id: true },
+      });
+      if (existe) continue;
+
+      const conteudo = wmi.Message || wmi.message || {};
+      const lido = lerConteudo(conteudo);
+      if (lido.tipo === 'PROTOCOLO') continue;
+
+      const daMim = Boolean(key.FromMe ?? key.fromMe);
+      const quando = paraData(wmi.MessageTimestamp || wmi.messageTimestamp || 0);
+
+      await prisma.whatsappMensagem.create({
+        data: {
+          conversaId: conversa.id,
+          messageId,
+          daMim,
+          tipo: lido.tipo as WhatsappTipoMensagem,
+          texto: lido.texto || null,
+          // Histórico vem sem a mídia; a bolha dirá "não baixado".
+          midiaMime: lido.mime ?? null,
+          nomeArquivo: lido.nomeArquivo ?? null,
+          enviadaEm: quando,
+          status: daMim ? 'ENVIADA' : 'ENTREGUE',
+          // Quem falou, quando o histórico é de grupo. Sem isto, um histórico
+          // de grupo é um monólogo de dez vozes diferentes.
+          ...(ehGrupo(jid) && !daMim
+            ? {
+                participante: telefoneDoJid(
+                  wmi.participant || wmi.Participant || key.participant || ''
+                ),
+              }
+            : {}),
+        },
+      });
+      gravadas++;
+
+      if (!ultima || quando > ultima.quando) {
+        ultima = {
+          quando,
+          previa: lido.texto || ROTULO_MIDIA[lido.tipo] || 'Mensagem',
+          daMim,
+        };
+      }
+    }
+
+    // Atualiza a prévia só se o histórico for MAIS NOVO que o que já está lá —
+    // senão uma sincronização jogaria a fila para trás no tempo.
+    if (ultima && (!conversa.ultimaMensagemEm || ultima.quando > conversa.ultimaMensagemEm)) {
+      await prisma.whatsappConversa.update({
+        where: { id: conversa.id },
+        data: {
+          ultimaMensagemEm: ultima.quando,
+          ultimaMensagemPreview: ultima.previa.slice(0, 120),
+          ultimaMensagemMinha: ultima.daMim,
+        },
+      });
     }
   }
-  if (processadas > 0) console.log(`[whatsapp] histórico: ${processadas} mensagem(ns) ingeridas`);
+
+  if (gravadas > 0) {
+    console.log(`[whatsapp] history-sync: ${gravadas} mensagem(ns) do histórico gravadas`);
+  }
+}
+
+/**
+ * Pede ao WhatsApp o histórico das conversas que já conhecemos.
+ *
+ * Cada pedido precisa de uma mensagem de referência — o WhatsApp devolve o que
+ * veio ANTES dela. Por isso usamos a mensagem mais ANTIGA de cada conversa:
+ * pedir a partir da mais recente traria o que já temos.
+ *
+ * O retorno não é síncrono: chega depois, pelo webhook, como HISTORY_SYNC.
+ */
+export async function pedirHistoricoDasConversas(
+  instancia: { id: string; token: string },
+  limite = 20
+): Promise<{ conversas: number; pedidos: number }> {
+  const conversas = await prisma.whatsappConversa.findMany({
+    where: { instanciaId: instancia.id },
+    orderBy: { ultimaMensagemEm: 'desc' },
+    take: limite,
+    select: { id: true, remoteJid: true },
+  });
+
+  let pedidos = 0;
+  for (const c of conversas) {
+    const referencia = await prisma.whatsappMensagem.findFirst({
+      where: { conversaId: c.id },
+      orderBy: { enviadaEm: 'asc' },
+      select: { messageId: true, daMim: true },
+    });
+    if (!referencia?.messageId) continue;
+
+    const r = await solicitarHistorico(instancia.token, {
+      count: 50,
+      messageInfo: {
+        Chat: c.remoteJid,
+        ID: referencia.messageId,
+        IsFromMe: referencia.daMim,
+        Sender: c.remoteJid,
+      },
+    });
+    if (r.ok) pedidos++;
+  }
+
+  return { conversas: conversas.length, pedidos };
 }
 
 /** Editar e apagar: agem sobre uma mensagem que já existe. */

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, MessageSquare, Search, Send, Users } from 'lucide-react';
+import { History, Link2, Loader2, MessageSquare, Search, Send, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import {
   enviarMensagem,
   marcarConversaLida,
   mensagensDaConversa,
+  sincronizarHistorico,
+  vincularConversasAosLeads,
   type MensagemUI,
 } from '@/app/admin/(dashboard)/whatsapp/chat-actions';
 
@@ -75,6 +77,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [rascunho, setRascunho] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
+  const [sincronizando, startSync] = useTransition();
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const fimDaLista = useRef<HTMLDivElement>(null);
 
@@ -153,7 +157,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     <div className="grid h-[calc(100vh-13rem)] grid-cols-1 gap-3 md:grid-cols-[320px_1fr]">
       {/* Fila */}
       <div className="flex min-h-0 flex-col rounded-lg border border-border bg-card">
-        <div className="border-b border-border p-2">
+        <div className="space-y-2 border-b border-border p-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -163,6 +167,50 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               className="h-9 pl-9 text-body-sm"
             />
           </div>
+          <div className="flex gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              disabled={sincronizando}
+              onClick={() =>
+                startSync(async () => {
+                  setAviso(null);
+                  const r = await sincronizarHistorico();
+                  setAviso(
+                    r.ok
+                      ? `Histórico pedido para ${r.pedidos ?? 0} conversa(s). As mensagens antigas chegam em instantes.`
+                      : (r.erro ?? 'Falha ao sincronizar.')
+                  );
+                  router.refresh();
+                })
+              }
+            >
+              {sincronizando ? <Loader2 className="animate-spin" /> : <History />}
+              Puxar histórico
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={sincronizando}
+              title="Ligar conversas aos leads do funil pelo telefone"
+              onClick={() =>
+                startSync(async () => {
+                  setAviso(null);
+                  const r = await vincularConversasAosLeads();
+                  setAviso(
+                    r.ok
+                      ? `${r.vinculadas ?? 0} conversa(s) ligada(s) a leads.`
+                      : (r.erro ?? 'Falha ao vincular.')
+                  );
+                  router.refresh();
+                })
+              }
+            >
+              <Link2 />
+            </Button>
+          </div>
+          {aviso && <p className="px-1 text-caption text-muted-foreground">{aviso}</p>}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
