@@ -149,6 +149,12 @@ export default async function DashboardPage() {
   const totalLotes = lotesPorStatus.reduce((a, s) => a + s._count._all, 0);
   const vendidos = statusMap.VENDIDO ?? 0;
   const reservados = (statusMap.RESERVADO ?? 0) + (statusMap.EM_PAGAMENTO ?? 0);
+  // Contados, não derivados: o velocímetro mede o estoque comprometido pela
+  // diferença para os disponíveis, então um status novo no enum precisa contar
+  // como comprometido por padrão — errar para "ainda tenho o que vender" é o
+  // lado caro do engano.
+  const disponiveis = statusMap.DISPONIVEL ?? 0;
+  const bloqueados = statusMap.BLOQUEADO ?? 0;
 
   const parcStatusMap = Object.fromEntries(
     parcelasPorStatus.map((s) => [
@@ -292,6 +298,8 @@ export default async function DashboardPage() {
           totalLotes={totalLotes}
           vendidos={vendidos}
           reservados={reservados}
+          disponiveis={disponiveis}
+          bloqueados={bloqueados}
           corPrimaria={corPrimaria}
         />
         <ReceitaMensalChart meses={meses} corPrimaria={corPrimaria} />

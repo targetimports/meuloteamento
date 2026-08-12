@@ -8,28 +8,46 @@ import { formatBRL } from '@/lib/format';
 // GAUGE — % vendido do loteamento (donut chart)
 // =====================================================================
 
+/**
+ * Quanto do loteamento já saiu da prateleira.
+ *
+ * A conta é `total − disponíveis`, não `vendidos`. Um lote reservado ou em
+ * pagamento não está mais à venda, e medir só o que já virou escritura mostrava
+ * 2,7% num loteamento com 59% do estoque comprometido — número que subestima o
+ * andamento a ponto de sugerir a decisão errada (baixar preço, reforçar
+ * campanha) para um estoque que na verdade está acabando.
+ *
+ * `disponiveis` chega contado, não derivado por subtração: lote BLOQUEADO não é
+ * vendido nem reservado, e a subtração o classificava como disponível — um lote
+ * que ninguém pode comprar aparecendo como oferta.
+ */
 export function GaugeVendidos({
   totalLotes,
   vendidos,
   reservados,
+  disponiveis,
+  bloqueados = 0,
   corPrimaria = '#0ea5e9',
 }: {
   totalLotes: number;
   vendidos: number;
   reservados: number;
+  disponiveis: number;
+  bloqueados?: number;
   corPrimaria?: string;
 }) {
-  const disponiveis = Math.max(0, totalLotes - vendidos - reservados);
-  const pct = totalLotes > 0 ? (vendidos / totalLotes) * 100 : 0;
+  const indisponiveis = Math.max(0, totalLotes - disponiveis);
+  const pct = totalLotes > 0 ? (indisponiveis / totalLotes) * 100 : 0;
 
   const r = 70;
   const cx = 90;
   const cy = 90;
   const circ = 2 * Math.PI * r;
 
-  // Segmentos (em ordem: vendidos, reservados, disponíveis)
+  // Segmentos (em ordem: vendidos, reservados, bloqueados, disponíveis)
   const fracVendidos = vendidos / Math.max(1, totalLotes);
   const fracReservados = reservados / Math.max(1, totalLotes);
+  const fracBloqueados = bloqueados / Math.max(1, totalLotes);
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
@@ -76,15 +94,34 @@ export function GaugeVendidos({
               strokeLinecap="round"
             />
           )}
+          {/* bloqueados */}
+          {bloqueados > 0 && (
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke="#94a3b8"
+              strokeWidth="18"
+              strokeDasharray={`${fracBloqueados * circ} ${circ}`}
+              strokeDashoffset={-(fracVendidos + fracReservados) * circ}
+              strokeLinecap="round"
+            />
+          )}
         </svg>
         <div className="flex-1">
           <p className="text-4xl font-bold" style={{ color: corPrimaria }}>
             {pct.toFixed(1)}%
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">vendidos</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+            do estoque comprometido
+          </p>
           <div className="space-y-1.5 text-xs">
             <Legend dot={corPrimaria} label="Vendidos" value={vendidos} total={totalLotes} />
             <Legend dot="#f59e0b" label="Reservados" value={reservados} total={totalLotes} />
+            {bloqueados > 0 && (
+              <Legend dot="#94a3b8" label="Bloqueados" value={bloqueados} total={totalLotes} />
+            )}
             <Legend dot="#cbd5e1" label="Disponíveis" value={disponiveis} total={totalLotes} />
           </div>
         </div>
