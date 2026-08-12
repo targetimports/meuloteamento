@@ -20,6 +20,14 @@ const config: Config = {
           700: '#a16207',
           800: '#854d0e',
           900: '#713f12',
+          // Tokens semânticos do CRM convivendo com a escala acima:
+          // `bg-primary-500` continua fixo, `bg-primary` acompanha o tema.
+          // Sem estas três linhas o Tailwind não gera `text-primary-foreground`,
+          // `text-primary-strong` nem `bg-primary/85` — e o botão primário sai
+          // sem cor de texto e sem hover.
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+          strong: 'hsl(var(--primary-strong))',
         },
         // Dourado metálico — para destaques nobres (logo, headlines, CTA)
         gold: {
