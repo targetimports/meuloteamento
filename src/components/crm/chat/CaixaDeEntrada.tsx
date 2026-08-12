@@ -36,6 +36,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Bolha } from './Bolha';
 import { PainelCrm } from './PainelCrm';
+import { AvatarContato } from './AvatarContato';
+import { VisorMidia, type ItemMidia } from './VisorMidia';
 import {
   apagarParaTodos,
   enviarMensagem,
@@ -101,6 +103,37 @@ function quando(iso: string | null): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+/**
+ * Agrupa as mensagens por dia — o separador de data que todo chat tem.
+ *
+ * Sem ele, uma conversa de semanas vira um bloco contínuo e a pessoa perde a
+ * noção de quando cada coisa foi dita, que é metade do contexto ao retomar um
+ * atendimento parado.
+ */
+function agruparPorDia(mensagens: MensagemUI[]): Array<{ dia: string; itens: MensagemUI[] }> {
+  const grupos: Array<{ dia: string; itens: MensagemUI[] }> = [];
+  let atual: { dia: string; itens: MensagemUI[] } | null = null;
+  for (const m of mensagens) {
+    const dia = m.enviadaEm.slice(0, 10);
+    if (!atual || atual.dia !== dia) {
+      atual = { dia, itens: [] };
+      grupos.push(atual);
+    }
+    atual.itens.push(m);
+  }
+  return grupos;
+}
+
+function rotuloDia(dia: string): string {
+  const d = new Date(`${dia}T12:00:00`);
+  const hoje = new Date();
+  if (d.toDateString() === hoje.toDateString()) return 'Hoje';
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+  if (d.toDateString() === ontem.toDateString()) return 'Ontem';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 /** 5575984904920 → +55 75 98490-4920 */
 function formatarTelefone(v: string | null): string {
   if (!v) return '';
@@ -134,6 +167,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [novoNumero, setNovoNumero] = useState('');
   const [abrindoNova, setAbrindoNova] = useState(false);
 
+  const [visorEm, setVisorEm] = useState<number | null>(null);
   const [buscaMsg, setBuscaMsg] = useState('');
   const [achados, setAchados] = useState<AchadoBusca[] | null>(null);
 
@@ -163,6 +197,21 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   }, [visiveis, selecionada]);
 
   const conversa = conversas.find((c) => c.id === selecionada) ?? null;
+
+  // Só imagem e vídeo entram no visor: documento baixa, áudio toca na bolha.
+  const midias: ItemMidia[] = useMemo(
+    () =>
+      mensagens
+        .filter((m) => m.temMidia && (m.tipo === 'IMAGEM' || m.tipo === 'VIDEO' || m.tipo === 'STICKER'))
+        .map((m) => ({
+          id: m.id,
+          tipo: m.tipo,
+          nomeArquivo: m.nomeArquivo,
+          legenda: m.texto,
+          quando: new Date(m.enviadaEm).toLocaleString('pt-BR'),
+        })),
+    [mensagens]
+  );
 
   const carregarMensagens = useCallback(async (id: string, comSpinner = true) => {
     if (comSpinner) setCarregando(true);
@@ -420,9 +469,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                   ativa ? 'bg-accent' : 'hover:bg-accent/40'
                 )}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-bold text-primary-foreground">
-                  {c.ehGrupo ? <Users className="h-4 w-4" /> : iniciais(nome)}
-                </span>
+                <AvatarContato nome={nome} fotoUrl={c.fotoUrl} ehGrupo={c.ehGrupo} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
                     <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-foreground">
@@ -472,13 +519,11 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
         {conversa ? (
           <>
             <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-bold text-primary-foreground">
-                {conversa.ehGrupo ? (
-                  <Users className="h-4 w-4" />
-                ) : (
-                  iniciais(conversa.nome || formatarTelefone(conversa.telefone) || '?')
-                )}
-              </span>
+              <AvatarContato
+                nome={conversa.nome || formatarTelefone(conversa.telefone) || '?'}
+                fotoUrl={conversa.fotoUrl}
+                ehGrupo={conversa.ehGrupo}
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body-lg font-medium text-foreground">
                   {conversa.nome || formatarTelefone(conversa.telefone) || 'Sem nome'}
@@ -574,18 +619,32 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                     Nenhuma mensagem. Use “Histórico” para puxar as antigas.
                   </p>
                 ) : (
-                  mensagens.map((m) => (
-                    <Bolha
-                      key={m.id}
-                      mensagem={m}
-                      onResponder={() => setCitando(m)}
-                      onEncaminhar={() => setEncaminhando(m)}
-                      onApagar={async (id) => {
-                        const r = await apagarParaTodos(id);
-                        if (!r.ok) setErro(r.erro ?? 'Não foi possível apagar.');
-                        if (selecionada) await carregarMensagens(selecionada, false);
-                      }}
-                    />
+                  agruparPorDia(mensagens).map((grupo) => (
+                    <div key={grupo.dia} className="space-y-2">
+                      <div className="sticky top-0 z-10 flex justify-center py-1">
+                        <span className="rounded-full bg-surface-strong px-3 py-0.5 text-caption font-medium text-muted-foreground shadow-xs">
+                          {rotuloDia(grupo.dia)}
+                        </span>
+                      </div>
+                      {grupo.itens.map((m) => (
+                        <Bolha
+                          key={m.id}
+                          mensagem={m}
+                          onResponder={() => setCitando(m)}
+                          onEncaminhar={() => setEncaminhando(m)}
+                          onReagiu={() => selecionada && carregarMensagens(selecionada, false)}
+                          onAbrirMidia={() => {
+                            const i = midias.findIndex((x) => x.id === m.id);
+                            if (i >= 0) setVisorEm(i);
+                          }}
+                          onApagar={async (id) => {
+                            const r = await apagarParaTodos(id);
+                            if (!r.ok) setErro(r.erro ?? 'Não foi possível apagar.');
+                            if (selecionada) await carregarMensagens(selecionada, false);
+                          }}
+                        />
+                      ))}
+                    </div>
                   ))
                 )}
                 <div ref={fimDaLista} />
@@ -750,6 +809,10 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {visorEm !== null && midias.length > 0 && (
+        <VisorMidia itens={midias} indiceInicial={visorEm} onFechar={() => setVisorEm(null)} />
+      )}
 
       <DialogNovaConversa
         aberto={abrindoNova}
