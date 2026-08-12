@@ -162,10 +162,20 @@ export function paraData(valor: number | string | null): Date {
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
-/** Telefone legível a partir do JID, quando não for grupo. */
+/**
+ * Telefone legível a partir do JID, quando não for grupo.
+ *
+ * O JID pode trazer o identificador do aparelho depois de dois-pontos —
+ * `557598490492:31@s.whatsapp.net` é o celular 55 75 98490492 no device 31.
+ * Remover só os não-dígitos colaria o `31` no fim e produziria
+ * `55759849049231`: um número que não existe, gravado como o telefone do
+ * contato e usado depois para abrir conversa e disparar cobrança.
+ */
 export function telefoneDoJid(jid: string): string | null {
   if (!jid || jid.includes('@g.us')) return null;
-  const num = jid.split('@')[0]?.replace(/\D/g, '');
+  const semSufixo = jid.split('@')[0] ?? '';
+  const semDispositivo = semSufixo.split(':')[0] ?? '';
+  const num = semDispositivo.replace(/\D/g, '');
   return num || null;
 }
 

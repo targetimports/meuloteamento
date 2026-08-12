@@ -2,16 +2,29 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/tenant';
 import { gatewayConfigurado } from '@/lib/evolution-go';
 import { ConectarWhatsapp, type InstanciaUI } from '@/components/crm/ConectarWhatsapp';
+import { statusDaMinhaInstancia } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WhatsappPage() {
   const sessao = await requireAdmin();
 
-  const instancia = await prisma.whatsappInstancia.findUnique({
+  let instancia = await prisma.whatsappInstancia.findUnique({
     where: { userId: sessao.sub },
     include: { _count: { select: { conversas: true } } },
   });
+
+  // O número e o nome do perfil só ficam disponíveis no gateway alguns segundos
+  // depois do pareamento — depois que a tela de QR já fechou. Sem esta consulta
+  // de recuperação, quem pareou continuaria vendo "—" no lugar do próprio
+  // número para sempre. Só acontece enquanto o dado falta.
+  if (instancia?.status === 'CONECTADA' && (!instancia.telefone || !instancia.perfilNome)) {
+    await statusDaMinhaInstancia();
+    instancia = await prisma.whatsappInstancia.findUnique({
+      where: { userId: sessao.sub },
+      include: { _count: { select: { conversas: true } } },
+    });
+  }
 
   const ui: InstanciaUI = {
     existe: Boolean(instancia),

@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/tenant';
 import {
   conectar,
   criarInstancia,
+  detalhesDaInstancia,
   excluirInstancia,
   gatewayConfigurado,
   gerarToken,
@@ -14,6 +15,7 @@ import {
   sairDaConta,
   urlDoWebhook,
 } from '@/lib/evolution-go';
+import { telefoneDoJid } from '@/lib/whatsapp-evento';
 
 type Resultado = { ok: boolean; erro?: string };
 
@@ -155,18 +157,43 @@ export async function statusDaMinhaInstancia(): Promise<{
   const pareada = Boolean(r.data?.Connected && r.data?.LoggedIn);
   const nome = r.data?.Name || null;
 
-  if (pareada && instancia.status !== 'CONECTADA') {
-    await prisma.whatsappInstancia.update({
-      where: { id: instancia.id },
-      data: {
-        status: 'CONECTADA',
-        conectadaEm: new Date(),
-        perfilNome: nome,
-        ultimoErro: null,
-      },
-    });
-    revalidatePath('/admin/whatsapp');
-  } else if (!pareada && instancia.status === 'CONECTADA') {
+  if (pareada) {
+    // O número não vem no status — só na listagem, e só depois que o celular
+    // termina de parear. Por isso a busca acontece aqui, a cada consulta em que
+    // ainda falta o dado, e não uma única vez no momento da conexão: o `Name`
+    // costuma chegar vazio nos primeiros segundos, e uma tentativa só deixava
+    // a tela para sempre sem número e sem perfil.
+    const faltaDado = !instancia.telefone || !instancia.perfilNome;
+    let telefone = instancia.telefone;
+
+    if (faltaDado) {
+      const detalhes = await detalhesDaInstancia(instancia.nome);
+      telefone = telefoneDoJid(detalhes?.jid ?? '') ?? instancia.telefone;
+    }
+
+    const virouConectada = instancia.status !== 'CONECTADA';
+    if (virouConectada || (faltaDado && (telefone || nome))) {
+      await prisma.whatsappInstancia.update({
+        where: { id: instancia.id },
+        data: {
+          status: 'CONECTADA',
+          ...(virouConectada ? { conectadaEm: new Date(), ultimoErro: null } : {}),
+          ...(telefone ? { telefone } : {}),
+          ...(nome ? { perfilNome: nome } : {}),
+        },
+      });
+      revalidatePath('/admin/whatsapp');
+    }
+
+    return {
+      status: 'CONECTADA',
+      telefone: telefone ?? null,
+      perfilNome: nome ?? instancia.perfilNome,
+      conectada: true,
+    };
+  }
+
+  if (!pareada && instancia.status === 'CONECTADA') {
     await prisma.whatsappInstancia.update({
       where: { id: instancia.id },
       data: { status: 'DESCONECTADA' },

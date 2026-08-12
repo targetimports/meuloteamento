@@ -129,8 +129,32 @@ export function excluirInstancia(instanciaGateway: string) {
   return chamar('DELETE', `/instance/delete/${encodeURIComponent(instanciaGateway)}`);
 }
 
+export interface InstanciaNoGateway {
+  id?: string;
+  name?: string;
+  token?: string;
+  /** `557598490492:31@s.whatsapp.net` — número, aparelho e domínio. */
+  jid?: string;
+  connected?: boolean;
+  events?: string;
+  webhook?: string;
+}
+
 export function listarInstancias() {
-  return chamar('GET', '/instance/all');
+  return chamar<InstanciaNoGateway[]>('GET', '/instance/all');
+}
+
+/**
+ * Dados da instância no gateway, incluindo o `jid`.
+ *
+ * Existe porque `/instance/status` responde apenas `{Connected, LoggedIn,
+ * Name}` — não diz QUAL número pareou. O número só aparece na listagem, que
+ * exige a chave global.
+ */
+export async function detalhesDaInstancia(nome: string): Promise<InstanciaNoGateway | null> {
+  const r = await listarInstancias();
+  if (!r.ok || !Array.isArray(r.data)) return null;
+  return r.data.find((i) => i.name === nome) ?? null;
 }
 
 // ── Instância (token da INSTÂNCIA) ──────────────────────────────────────────
