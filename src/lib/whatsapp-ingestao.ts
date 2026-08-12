@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 import { gravarDocumento } from './storage-seguro';
 import { baixarMidia, solicitarHistorico, obterFotoPerfil } from './evolution-go';
 import { paraData, telefoneDoJid, ehGrupo, type EventoNormalizado } from './whatsapp-evento';
+import { transcricaoConfigurada, transcreverMensagem } from './whatsapp-transcricao';
 
 /**
  * Ingestão de eventos do WhatsApp — o que o webhook faz depois de responder.
@@ -351,7 +352,13 @@ export async function tratarMensagem(
   const quando = paraData(timestamp);
   const previa = (lido.texto || ROTULO_MIDIA[lido.tipo] || 'Mensagem').slice(0, 120);
 
-  await prisma.whatsappMensagem.create({
+  // Áudio recebido com arquivo salvo nasce como "transcrevendo…": a tela diz
+  // isso desde a primeira vez que a mensagem aparece, em vez de um player mudo
+  // que ganha texto do nada oito segundos depois.
+  const vaiTranscrever =
+    lido.tipo === 'AUDIO' && !daMim && Boolean(midia) && transcricaoConfigurada();
+
+  const gravada = await prisma.whatsappMensagem.create({
     data: {
       conversaId: conversa.id,
       messageId: messageId || `sem-id-${Date.now()}`,
@@ -368,6 +375,7 @@ export async function tratarMensagem(
       ...(grupo && !daMim
         ? { participante: telefoneDoJid(participante), participanteNome: pushName || null }
         : {}),
+      ...(vaiTranscrever ? { transcricaoStatus: 'pendente' } : {}),
     },
   });
 
@@ -398,6 +406,9 @@ export async function tratarMensagem(
   if (!grupo) {
     void renovarAvatar(instancia.token, conversa.id, remoteJid, conversa.fotoAtualizadaEm);
   }
+
+  // Depois da mensagem existir e ser tocável — nunca antes.
+  if (vaiTranscrever) void transcreverMensagem(gravada.id).catch(() => {});
 }
 
 /**

@@ -11,8 +11,11 @@ import {
   FileText,
   Image as ImageIcon,
   Mic,
+  Forward,
   Paperclip,
+  Reply,
   Sticker,
+  StickyNote,
   Trash2,
 } from 'lucide-react';
 
@@ -98,9 +101,13 @@ function Transcricao({ mensagem }: { mensagem: MensagemUI }) {
 export function Bolha({
   mensagem: m,
   onApagar,
+  onResponder,
+  onEncaminhar,
 }: {
   mensagem: MensagemUI;
   onApagar?: (id: string) => void;
+  onResponder?: () => void;
+  onEncaminhar?: () => void;
 }) {
   const [copiado, setCopiado] = useState(false);
   const minha = m.daMim;
@@ -114,6 +121,22 @@ export function Bolha({
   // Num áudio, o que existe para copiar é a transcrição — é dela que sai o
   // trecho colado numa proposta ou repassado para outra pessoa.
   const textoCopiavel = m.texto || m.transcricao || '';
+
+  // Nota interna nao e mensagem do WhatsApp: e recado da equipe. Precisa ser
+  // visivelmente OUTRA coisa, senao alguem confia que o cliente leu.
+  if (m.notaInterna) {
+    return (
+      <div className="flex justify-center">
+        <div className="max-w-[85%] rounded-md border border-warning/40 bg-warning/[0.12] px-3 py-2">
+          <p className="mb-0.5 flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-warning-strong">
+            <StickyNote className="h-3 w-3" /> Nota interna — o cliente nao ve
+          </p>
+          <p className="whitespace-pre-wrap text-body text-foreground">{m.texto}</p>
+          <p className="mt-0.5 text-right text-caption text-muted-foreground">{hora}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (m.tipo === 'SISTEMA') {
     return (
@@ -138,6 +161,15 @@ export function Bolha({
           <p className="mb-0.5 text-caption font-semibold text-primary-strong">
             {m.participanteNome}
           </p>
+        )}
+
+        {m.respondeATexto && (
+          <div className="mb-1.5 rounded border-l-2 border-primary bg-background/40 px-2 py-1">
+            <p className="text-caption font-medium text-primary-strong">
+              {m.respondeADeMim ? 'Voce' : 'Cliente'}
+            </p>
+            <p className="truncate text-caption text-muted-foreground">{m.respondeATexto}</p>
+          </div>
         )}
 
         {m.temMidia ? (
@@ -178,6 +210,12 @@ export function Bolha({
 
         {m.tipo === 'AUDIO' && <Transcricao mensagem={m} />}
 
+        {m.reacao && (
+          <span className="mr-1 inline-block rounded-full bg-background px-1.5 text-body-sm shadow-xs">
+            {m.reacao}
+          </span>
+        )}
+
         <div className="mt-0.5 flex items-center justify-end gap-1 text-caption text-muted-foreground">
           {m.editada && <span className="italic">editada</span>}
           <span>{hora}</span>
@@ -191,6 +229,16 @@ export function Bolha({
               ⋯
             </DropdownMenuTrigger>
             <DropdownMenuContent align={minha ? 'end' : 'start'}>
+              {onResponder && (
+                <DropdownMenuItem onClick={onResponder}>
+                  <Reply /> Responder
+                </DropdownMenuItem>
+              )}
+              {onEncaminhar && (
+                <DropdownMenuItem onClick={onEncaminhar}>
+                  <Forward /> Encaminhar
+                </DropdownMenuItem>
+              )}
               {textoCopiavel && (
                 <DropdownMenuItem
                   onClick={() => {

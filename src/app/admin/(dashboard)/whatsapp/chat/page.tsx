@@ -31,8 +31,10 @@ export default async function ChatPage() {
     );
   }
 
+  // Arquivadas vêm juntas: a tela tem uma aba para elas, e buscar de novo a
+  // cada troca de aba deixaria a alternância lenta sem ganho nenhum.
   const conversas = await prisma.whatsappConversa.findMany({
-    where: { instanciaId: instancia.id, arquivada: false },
+    where: { instanciaId: instancia.id },
     orderBy: [{ ultimaMensagemEm: 'desc' }, { createdAt: 'desc' }],
     take: 200,
     include: { lead: { select: { id: true, nome: true } } },
@@ -48,10 +50,13 @@ export default async function ChatPage() {
     ultimaMinha: c.ultimaMensagemMinha,
     ultimaEm: c.ultimaMensagemEm?.toISOString() ?? null,
     fotoUrl: c.fotoUrl,
+    situacao: c.situacao,
+    etiquetas: (c.etiquetas as string[] | null) ?? [],
+    arquivada: c.arquivada,
     lead: c.lead,
   }));
 
-  const naoLidas = ui.reduce((a, c) => a + c.naoLidas, 0);
+  const naoLidas = ui.filter((c) => !c.arquivada).reduce((a, c) => a + c.naoLidas, 0);
 
   return (
     <div className="space-y-3">
@@ -61,7 +66,7 @@ export default async function ChatPage() {
           <p className="text-body-sm text-muted-foreground">
             {instancia.status === 'CONECTADA' ? (
               <>
-                {ui.length} conversa(s)
+                {ui.filter((c) => !c.arquivada).length} conversa(s)
                 {naoLidas > 0 && (
                   <>
                     {' · '}

@@ -40,6 +40,10 @@ export interface MensagemUI {
   transcricao: string | null;
   transcricaoStatus: string | null;
   participanteNome: string | null;
+  respondeATexto: string | null;
+  respondeADeMim: boolean | null;
+  notaInterna: boolean;
+  reacao: string | null;
 }
 
 /** Mensagens de uma conversa, da mais antiga para a mais recente. */
@@ -74,6 +78,10 @@ export async function mensagensDaConversa(conversaId: string): Promise<MensagemU
     transcricao: m.transcricao,
     transcricaoStatus: m.transcricaoStatus,
     participanteNome: m.participanteNome,
+    respondeATexto: m.respondeATexto,
+    respondeADeMim: m.respondeADeMim,
+    notaInterna: m.notaInterna,
+    reacao: m.reacao,
   }));
 }
 

@@ -1656,6 +1656,9 @@ model WhatsappConversa {
   /// Quem renomeou na mão tinha um motivo — nenhuma sincronização desfaz.
   nomeManual Boolean @default(false)
 
+  /// Etiquetas livres da conversa, para filtrar a fila.
+  etiquetas Json?
+
   /// Quando pedimos o histórico deste chat ao WhatsApp. A marca fica aqui, e
   /// não numa consulta por JID: o mesmo contato chega ora como
   /// `…@s.whatsapp.net`, ora como `…@lid`, e a busca pela forma errada
@@ -1711,6 +1714,20 @@ model WhatsappMensagem {
   /// quando a mensagem chegou.
   participante     String?
   participanteNome String?
+
+  /// Mensagem citada (o "responder" do WhatsApp). Guarda o id e um resumo: a
+  /// citada pode ser apagada depois, e a citação precisa continuar legível —
+  /// ela é o contexto do que foi respondido.
+  respondeA      String?
+  respondeATexto String?
+  respondeADeMim Boolean?
+
+  /// Reação (emoji) colocada nesta mensagem.
+  reacao String?
+
+  /// Nota interna: só aparece aqui, NUNCA vai para o WhatsApp. É o recado que
+  /// a equipe deixa sobre a conversa sem o cliente ver.
+  notaInterna Boolean @default(false)
 
   status    WhatsappStatusMensagem @default(PENDENTE)
   editada   Boolean                @default(false)
