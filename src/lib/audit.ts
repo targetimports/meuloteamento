@@ -3,6 +3,43 @@ import { prisma } from './prisma';
 
 type UserType = 'ADMIN' | 'CLIENTE' | 'SYSTEM';
 
+/**
+ * Registra quem abriu o documento pessoal de quem.
+ *
+ * Documento de identidade não é um arquivo qualquer: quem o vê, quando e de
+ * onde é informação que a LGPD espera que exista, e é o que permite responder
+ * "houve acesso indevido?" — pergunta que ficou sem resposta no incidente de
+ * 11/08/2026, porque o nginx servia esses arquivos com `access_log off`.
+ *
+ * Nunca derruba a requisição: falhar a leitura de um documento porque o log
+ * não gravou seria trocar um problema pequeno por um grande. O erro sobe para
+ * o log do processo e a vida segue.
+ */
+export async function logAcessoDocumento(input: {
+  entity: 'FormularioArquivo' | 'VendaArquivo';
+  arquivoId: string;
+  action?: 'VISUALIZOU' | 'BAIXOU' | 'EXCLUIU';
+  userId?: string | null;
+  ip?: string | null;
+  contexto?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: input.userId ?? null,
+        userType: 'ADMIN',
+        action: `DOCUMENTO_${input.action ?? 'VISUALIZOU'}`,
+        entity: input.entity,
+        entityId: input.arquivoId,
+        ip: input.ip ?? null,
+        diff: (input.contexto as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      },
+    });
+  } catch (e) {
+    console.error('[audit] falha ao registrar acesso a documento', e);
+  }
+}
+
 export async function logVenda(input: {
   vendaId: string;
   action: string;

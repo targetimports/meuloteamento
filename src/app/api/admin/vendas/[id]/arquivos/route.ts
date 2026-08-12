@@ -126,6 +126,7 @@ export async function POST(
       subdir: `vendas/${venda.id}`,
       nomeArquivo: finalName,
       conteudo: buf,
+      mimeType: f.type || null,
     });
     const row = await prisma.vendaArquivo.create({
       data: {

@@ -159,6 +159,7 @@ export async function POST(
         subdir: `formularios/${resposta.id}`,
         nomeArquivo: finalName,
         conteudo: buf,
+        mimeType: file.type || null,
       });
       await prisma.formularioArquivo.create({
         data: {

@@ -6,10 +6,11 @@
  * Auth: admin com acesso à loteadora dona da venda.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile, unlink } from 'fs/promises';
+import { unlink } from 'fs/promises';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteadora, requireAdmin } from '@/lib/tenant';
-import { localizarDocumento } from '@/lib/storage-seguro';
+import { lerDocumento, localizarDocumento } from '@/lib/storage-seguro';
+import { logAcessoDocumento } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  await requireAdmin();
+  const sessao = await requireAdmin();
   const arquivo = await carregarArquivoComScope(params.id);
   if (!arquivo) {
     return new NextResponse('Arquivo não encontrado', { status: 404 });
@@ -44,14 +45,25 @@ export async function GET(
     return new NextResponse('Sem permissão', { status: 403 });
   }
 
-  // O arquivo vive no cofre, fora do webroot (ver lib/storage-seguro).
-  const abs = await localizarDocumento(arquivo.caminho);
-  if (!abs) {
+  // O arquivo vive no cofre, fora do webroot e cifrado (ver lib/storage-seguro).
+  let buffer: Buffer<ArrayBuffer>;
+  try {
+    buffer = await lerDocumento(arquivo.caminho);
+  } catch {
     return new NextResponse('Arquivo não está no disco', { status: 410 });
   }
-  const buffer = await readFile(abs);
 
   const download = req.nextUrl.searchParams.has('download');
+
+  await logAcessoDocumento({
+    entity: 'VendaArquivo',
+    arquivoId: arquivo.id,
+    action: download ? 'BAIXOU' : 'VISUALIZOU',
+    userId: sessao.sub,
+    ip: req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? null,
+    contexto: { vendaId: arquivo.vendaId, categoria: arquivo.categoria },
+  });
+
   const headers = new Headers();
   headers.set('Content-Type', arquivo.mimeType || 'application/octet-stream');
   headers.set('Content-Length', String(buffer.length));
