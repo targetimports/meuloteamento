@@ -33,11 +33,12 @@ model AdminUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  historicoLote    LoteHistorico[]
-  leadInteracoes   LeadInteracao[]
-  vendaHistorico   VendaHistorico[]
-  parcelaHistorico ParcelaHistorico[]
-  envios           EnvioComunicacao[]
+  historicoLote     LoteHistorico[]
+  leadInteracoes    LeadInteracao[]
+  vendaHistorico    VendaHistorico[]
+  parcelaHistorico  ParcelaHistorico[]
+  envios            EnvioComunicacao[]
+  whatsappInstancia WhatsappInstancia?
 
   @@index([loteadoraId])
   @@map("admin_users")
@@ -86,8 +87,8 @@ model Cliente {
   aceitaWhatsApp Boolean @default(true)
   aceitaEmail    Boolean @default(true)
 
-  reservas Reserva[]
-  vendas   Venda[]
+  reservas         Reserva[]
+  vendas           Venda[]
   cobrancasAvulsas CobrancaAvulsa[]
 
   createdAt DateTime @default(now())
@@ -133,9 +134,9 @@ model Loteadora {
   asaasSandbox Boolean @default(true)
 
   // Representante legal — assina os contratos pela loteadora
-  representanteNome String?
-  representanteCpf  String?
-  representanteRg   String?
+  representanteNome  String?
+  representanteCpf   String?
+  representanteRg    String?
   representanteCargo String? @default("Sócio Administrador")
 
   // Integrações de comunicação (cada loteadora pode usar suas próprias chaves)
@@ -148,9 +149,9 @@ model Loteadora {
   emailReplyTo     String?
 
   // Provedor de assinatura eletrônica (por loteadora)
-  signProvider  String? // "clicksign" | "zapsign"
-  signApiToken  String?
-  signSandbox   Boolean @default(true)
+  signProvider String? // "clicksign" | "zapsign"
+  signApiToken String?
+  signSandbox  Boolean @default(true)
 
   // Régua de cobrança ativa
   reguaCobrancaId String?
@@ -168,24 +169,25 @@ model Loteadora {
 
   ativo Boolean @default(true)
 
-  loteamentos    Loteamento[]
-  adminUsers     AdminUser[]
-  corretores     Corretor[]
-  contas         ContaFinanceira[]
-  reguasCobranca ReguaCobranca[]    @relation("LoteadoraReguas")
-  templates      ContratoTemplate[]
-  pipelines      PipelineLead[]
-  filtrosSalvos  FiltroSalvo[]
-  envios         EnvioComunicacao[]
+  loteamentos      Loteamento[]
+  adminUsers       AdminUser[]
+  corretores       Corretor[]
+  contas           ContaFinanceira[]
+  reguasCobranca   ReguaCobranca[]    @relation("LoteadoraReguas")
+  templates        ContratoTemplate[]
+  pipelines        PipelineLead[]
+  filtrosSalvos    FiltroSalvo[]
+  envios           EnvioComunicacao[]
   cobrancasAvulsas CobrancaAvulsa[]
-  formularios    Formulario[]
+  formularios      Formulario[]
 
   /// Assinatura da loteadora na plataforma (backoffice). Opcional: loteadora
   /// sem assinatura opera normalmente, sem cobranca e sem bloqueio.
   assinatura Assinatura?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  whatsappInstancias WhatsappInstancia[]
 
   @@index([reguaCobrancaId])
   @@map("loteadoras")
@@ -203,7 +205,7 @@ model Corretor {
   loteadoraId String
   loteadora   Loteadora @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
 
-  nome String
+  nome           String
   // E-mail e CPF são únicos DENTRO da loteadora, não no sistema inteiro — a
   // mesma pessoa pode ser corretor de duas empresas diferentes.
   email          String
@@ -219,9 +221,9 @@ model Corretor {
   capacidadeDiaria Int      @default(10)
   cidadesAtende    String[] @default([])
 
-  vendas      Venda[]
-  leads       Lead[]
-  comissoes   ComissaoParcela[]
+  vendas    Venda[]
+  leads     Lead[]
+  comissoes ComissaoParcela[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -262,8 +264,8 @@ model ComissaoParcela {
   parcelaCliente   Parcela? @relation(fields: [parcelaClienteId], references: [id], onDelete: SetNull)
 
   status     ComissaoStatus @default(BLOQUEADA)
-  liberadaEm DateTime?      // quando o cliente pagou a parcela vinculada
-  pagaEm     DateTime?      // quando admin efetivamente pagou ao corretor
+  liberadaEm DateTime? // quando o cliente pagou a parcela vinculada
+  pagaEm     DateTime? // quando admin efetivamente pagou ao corretor
   valorPago  Decimal?       @db.Decimal(12, 2)
 
   /// De qual conta financeira saiu o dinheiro repassado ao corretor.
@@ -284,8 +286,8 @@ model ComissaoParcela {
 
 enum ComissaoStatus {
   BLOQUEADA // cliente ainda não pagou a parcela vinculada
-  LIBERADA  // cliente pagou → comissão liberada para repasse
-  PAGA      // já repassada ao corretor
+  LIBERADA // cliente pagou → comissão liberada para repasse
+  PAGA // já repassada ao corretor
   CANCELADA // venda cancelada/distratada
 }
 
@@ -317,8 +319,8 @@ model Loteamento {
   lng      Float?
 
   // Dados cartoriais — usados em contratos
-  cartorio        String? // ex: "Cartório de Registro de Imóveis de Tucano/BA"
-  comarca         String? // se vazio, usa cidade
+  cartorio String? // ex: "Cartório de Registro de Imóveis de Tucano/BA"
+  comarca  String? // se vazio, usa cidade
 
   imagemCapa     String?
   imagensGaleria String[] @default([])
@@ -332,7 +334,7 @@ model Loteamento {
   /// Calibração das posições dos lotes APENAS pra vista satélite (touch/3D).
   /// JSON: { offsetX, offsetY, scale, rotation }
   /// Não afeta posições da planta (mapaX/Y/W/H ficam intocados).
-  mapaSateliteCalib       Json?
+  mapaSateliteCalib Json?
 
   cidadeTitulo String?
   cidadeTexto  String?
@@ -396,24 +398,24 @@ model Lote {
   mapaAltura  Float?
 
   // Dados para o contrato — Lei 6.766/79 exige descrição precisa
-  matricula              String? // nº matrícula no Cartório de Registro de Imóveis
-  viaFrente              String? // "Rua Maria Conceição Andrade"
-  ladoVia                String? // "par" | "ímpar"
-  confrontacaoEsquerdo   String? // "lote 11"
-  confrontacaoDireito    String? // "lote 13"
-  confrontacaoFrente     String? // "Rua X"
-  confrontacaoFundo      String? // "propriedade Y / lote Z / via W"
+  matricula            String? // nº matrícula no Cartório de Registro de Imóveis
+  viaFrente            String? // "Rua Maria Conceição Andrade"
+  ladoVia              String? // "par" | "ímpar"
+  confrontacaoEsquerdo String? // "lote 11"
+  confrontacaoDireito  String? // "lote 13"
+  confrontacaoFrente   String? // "Rua X"
+  confrontacaoFundo    String? // "propriedade Y / lote Z / via W"
 
   status         LoteStatus @default(DISPONIVEL)
   tipo           LoteTipo   @default(RESIDENCIAL)
   motivoBloqueio String?
 
-  reservas  Reserva[]
-  vendas    Venda[]
-  historico LoteHistorico[]
-  leads     Lead[]
+  reservas         Reserva[]
+  vendas           Venda[]
+  historico        LoteHistorico[]
+  leads            Lead[]
   cobrancasAvulsas CobrancaAvulsa[]
-  vendaLotes VendaLote[]
+  vendaLotes       VendaLote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -540,9 +542,9 @@ model Venda {
   formaPagamento FormaPagamento
 
   // Taxa de corretagem integrada ao preço (informativo no contrato)
-  taxaCorretagem Decimal? @db.Decimal(12, 2)
+  taxaCorretagem          Decimal? @db.Decimal(12, 2)
   // Desconto por pontualidade (%) — usado na cláusula de PRECO E FORMA DE PAGAMENTO
-  descontoPontualidadePct Decimal? @db.Decimal(5, 2) @default(0)
+  descontoPontualidadePct Decimal? @default(0) @db.Decimal(5, 2)
 
   status       VendaStatus @default(ATIVA)
   dataContrato DateTime    @default(now())
@@ -574,9 +576,9 @@ model Venda {
   /// O `loteId` acima referencia o lote PRINCIPAL (compatibilidade).
   /// Para vendas multi-lote, todos os lotes aparecem em `vendaLotes`,
   /// incluindo o principal — sempre consulte daqui para o total real.
-  vendaLotes VendaLote[]
+  vendaLotes       VendaLote[]
   /// Documentos anexados à venda (RG, CPF, comprovantes, contratos físicos, etc.).
-  arquivos VendaArquivo[]
+  arquivos         VendaArquivo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -601,7 +603,7 @@ model VendaLote {
   /// Valor deste lote específico dentro da venda (a soma deve bater com Venda.valorTotal)
   valor Decimal @db.Decimal(12, 2)
   /// Ordem de exibição (0 = principal)
-  ordem Int @default(0)
+  ordem Int     @default(0)
 
   createdAt DateTime @default(now())
 
@@ -711,9 +713,9 @@ enum VendaStatus {
 }
 
 enum VendaOrigem {
-  ADMIN            // Lançada pelo painel admin (corretor/gerente)
-  CHECKOUT_ONLINE  // Cliente fez sozinho pelo site público
-  IMPORTACAO       // Importada de planilha/migração
+  ADMIN // Lançada pelo painel admin (corretor/gerente)
+  CHECKOUT_ONLINE // Cliente fez sozinho pelo site público
+  IMPORTACAO // Importada de planilha/migração
 }
 
 model Parcela {
@@ -743,12 +745,12 @@ model Parcela {
   ///   PAGO       → cheque compensado
   ///   ATRASADO   → venceu mas ainda não compensou (cron marca)
   ///   ESTORNADO  → cheque devolvido pelo banco
-  chequeNumero    String?
-  chequeBanco     String?
+  chequeNumero   String?
+  chequeBanco    String?
   /// Quem emitiu o cheque (caso seja de terceiro/cônjuge — senão = o cliente)
-  chequeEmitente  String?
+  chequeEmitente String?
   /// Praça do cheque (cidade da agência) — útil pra compensação
-  chequePraca     String?
+  chequePraca    String?
 
   contaId String?
   conta   ContaFinanceira? @relation(fields: [contaId], references: [id], onDelete: SetNull)
@@ -763,8 +765,8 @@ model Parcela {
   ultimaCobrancaEm  DateTime?
   cobrancasEnviadas Int       @default(0)
 
-  historico        ParcelaHistorico[]
-  envios           EnvioComunicacao[]
+  historico            ParcelaHistorico[]
+  envios               EnvioComunicacao[]
   /// Comissões cuja liberação é destravada quando esta parcela for paga.
   comissoesDestravadas ComissaoParcela[]
 
@@ -885,8 +887,9 @@ model Lead {
 
   interacoes LeadInteracao[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  whatsappConversas WhatsappConversa[]
 
   @@index([status, createdAt])
   @@index([status, ordem])
@@ -1087,11 +1090,11 @@ model ContratoTemplate {
 // =====================================================================
 
 model ReguaCobranca {
-  id          String  @id @default(cuid())
-  loteadoraId String
-  nome        String
-  descricao   String?
-  ativa       Boolean @default(true)
+  id                 String  @id @default(cuid())
+  loteadoraId        String
+  nome               String
+  descricao          String?
+  ativa              Boolean @default(true)
   cobrarAtrasoDiario Boolean @default(false)
 
   passos        ReguaCobrancaPasso[]
@@ -1293,10 +1296,10 @@ model Formulario {
   loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
 
   // Identificação
-  slug        String  @unique // usado em /f/<slug>
-  nome        String
-  descricao   String?
-  ativo       Boolean @default(true)
+  slug      String  @unique // usado em /f/<slug>
+  nome      String
+  descricao String?
+  ativo     Boolean @default(true)
 
   // Vinculo opcional com loteamento (afeta dropdown de lotes)
   loteamentoId String?
@@ -1306,10 +1309,10 @@ model Formulario {
   campos Json
 
   // Aparência / textos
-  corPrimaria      String?
-  logo             String?
-  mensagemSucesso  String? // mostrado após envio
-  redirectUrl      String? // se setado, redireciona após envio
+  corPrimaria     String?
+  logo            String?
+  mensagemSucesso String? // mostrado após envio
+  redirectUrl     String? // se setado, redireciona após envio
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1326,10 +1329,10 @@ model FormularioResposta {
   formulario   Formulario @relation(fields: [formularioId], references: [id], onDelete: Cascade)
 
   // Dados extraídos (indexados para busca rápida)
-  nome     String?
-  cpfCnpj  String?
-  email    String?
-  telefone String?
+  nome       String?
+  cpfCnpj    String?
+  email      String?
+  telefone   String?
   loteCodigo String?
 
   // Todas as respostas (dadosCampoId → valor)
@@ -1566,4 +1569,154 @@ enum FaturaStatus {
 enum FaturaOrigem {
   AUTOMATICA
   MANUAL
+}
+
+// =====================================================================
+// WhatsApp — caixa de entrada
+// =====================================================================
+
+/// Instância de WhatsApp pareada por um usuário do admin.
+///
+/// Uma por usuário: quem pareia o celular é a pessoa que atende, e a conversa
+/// nasce dentro do número dela. O `token` é gerado por nós ANTES de pedir o
+/// `create` ao gateway — é ele que autentica as chamadas daquela instância e
+/// que compõe a URL do webhook, então precisa existir antes de qualquer
+/// mensagem poder chegar.
+model WhatsappInstancia {
+  id String @id @default(cuid())
+
+  userId String    @unique
+  user   AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Denormalizado do usuário para filtrar sem join. Nulo = super admin.
+  loteadoraId String?
+  loteadora   Loteadora? @relation(fields: [loteadoraId], references: [id], onDelete: Cascade)
+
+  /// Nome da instância no gateway (único lá).
+  nome             String  @unique
+  /// 32 hex. Autentica as chamadas e compõe a URL do webhook.
+  token            String  @unique
+  /// Id que o gateway devolve no create.
+  instanciaGateway String?
+
+  /// Número pareado, só depois que o QR é lido.
+  telefone   String?
+  perfilNome String?
+
+  status      WhatsappStatus @default(DESCONECTADA)
+  conectadaEm DateTime?
+  ultimoErro  String?
+
+  conversas WhatsappConversa[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteadoraId, status])
+  @@map("whatsapp_instancias")
+}
+
+enum WhatsappStatus {
+  DESCONECTADA
+  PAREANDO
+  CONECTADA
+  ERRO
+}
+
+/// Uma conversa (contato ou grupo) dentro de uma instância.
+model WhatsappConversa {
+  id          String            @id @default(cuid())
+  instanciaId String
+  instancia   WhatsappInstancia @relation(fields: [instanciaId], references: [id], onDelete: Cascade)
+
+  /// Identificador do WhatsApp: 5511999999999@s.whatsapp.net ou ...@g.us
+  remoteJid String
+  telefone  String?
+  nome      String?
+  ehGrupo   Boolean @default(false)
+
+  naoLidas              Int       @default(0)
+  ultimaMensagemEm      DateTime?
+  ultimaMensagemMinha   Boolean?
+  /// Prévia curta para a lista, evitando carregar a última mensagem inteira.
+  ultimaMensagemPreview String?
+
+  fotoUrl          String?
+  fotoAtualizadaEm DateTime?
+
+  arquivada Boolean @default(false)
+
+  /// Liga a conversa ao funil: quem está falando é (ou vira) um lead.
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  mensagens WhatsappMensagem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// O mesmo contato em duas instâncias são duas conversas — são caixas de
+  /// entrada diferentes, de pessoas diferentes.
+  @@unique([instanciaId, remoteJid])
+  @@index([instanciaId, ultimaMensagemEm])
+  @@index([leadId])
+  @@map("whatsapp_conversas")
+}
+
+model WhatsappMensagem {
+  id         String           @id @default(cuid())
+  conversaId String
+  conversa   WhatsappConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  /// Id da mensagem no WhatsApp. Com a conversa, é a chave de idempotência:
+  /// o webhook reentrega o mesmo evento e não pode duplicar a bolha na tela.
+  messageId String
+
+  daMim Boolean
+  tipo  WhatsappTipoMensagem @default(TEXTO)
+  texto String?
+
+  /// Caminho da mídia NO COFRE (/uploads/whatsapp/...), nunca em public/:
+  /// cliente manda foto de documento por WhatsApp o tempo todo.
+  /// Ver lib/storage-seguro.ts.
+  midiaCaminho String?
+  midiaMime    String?
+  midiaTamanho Int?
+  /// Duração de áudio/vídeo em segundos.
+  duracao      Int?
+
+  transcricao       String?
+  transcricaoStatus String?
+
+  status    WhatsappStatusMensagem @default(PENDENTE)
+  editada   Boolean                @default(false)
+  /// Momento informado pelo WhatsApp, não o da gravação: mensagem antiga
+  /// chega em sincronia de histórico e precisa cair na posição certa.
+  enviadaEm DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([conversaId, messageId])
+  @@index([conversaId, enviadaEm])
+  @@map("whatsapp_mensagens")
+}
+
+enum WhatsappTipoMensagem {
+  TEXTO
+  IMAGEM
+  VIDEO
+  AUDIO
+  DOCUMENTO
+  STICKER
+  LOCALIZACAO
+  CONTATO
+  SISTEMA
+}
+
+enum WhatsappStatusMensagem {
+  PENDENTE
+  ENVIADA
+  ENTREGUE
+  LIDA
+  ERRO
 }
