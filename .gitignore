@@ -36,3 +36,6 @@ next-env.d.ts
 
 # Uploads (mapas, fotos, etc) — persistem no servidor, fora do repo
 public/uploads/
+
+# Cache incremental do TypeScript — local, nao versionado.
+tsconfig.tsbuildinfo
