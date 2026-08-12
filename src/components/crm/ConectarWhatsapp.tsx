@@ -213,6 +213,10 @@ export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
             <DialogTitle>Leia o código no seu celular</DialogTitle>
             <DialogDescription>
               WhatsApp → Aparelhos conectados → Conectar aparelho. O código se renova sozinho.
+              <span className="mt-2 block text-caption">
+                É neste momento que o WhatsApp envia as conversas antigas — ele faz isso uma vez,
+                ao parear. Depois de conectar, aguarde alguns minutos com a página aberta.
+              </span>
             </DialogDescription>
           </DialogHeader>
 

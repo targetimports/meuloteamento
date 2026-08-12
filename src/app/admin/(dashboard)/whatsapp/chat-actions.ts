@@ -270,6 +270,29 @@ export async function sincronizarHistorico(): Promise<
     return { ok: false, erro: 'O gateway não aceitou os eventos — o histórico não chegaria.' };
   }
 
+  /**
+   * 🔴 Este botão NÃO serve para o primeiro carregamento.
+   *
+   * Cada pedido de histórico exige uma mensagem de referência: o WhatsApp
+   * devolve o que veio ANTES dela. Sem nenhuma conversa gravada não há
+   * referência, e `/chat/history-sync` sem `messageInfo` responde 500 (o
+   * contrato do servidor diz que o campo é opcional; na prática não é).
+   *
+   * O histórico inicial chega sozinho, uma única vez, quando um dispositivo
+   * NOVO é pareado — o WhatsApp o envia como HISTORY_SYNC logo após o QR.
+   * Reconectar a mesma sessão não o traz de volta.
+   *
+   * Dizer "pedido enviado" com zero conversas seria mentir para quem clicou.
+   */
+  const quantas = await prisma.whatsappConversa.count({ where: { instanciaId: instancia.id } });
+  if (quantas === 0) {
+    return {
+      ok: false,
+      erro:
+        'Não há conversa nenhuma para pedir histórico. O histórico antigo só chega no momento em que o número é pareado — desconecte e leia o QR de novo para recebê-lo.',
+    };
+  }
+
   const r = await pedirHistoricoDasConversas(instancia);
   revalidatePath('/admin/whatsapp/chat');
   return { ok: true, ...r };
