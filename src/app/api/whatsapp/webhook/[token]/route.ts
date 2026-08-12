@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import {
-  normalizarEvento,
-  extrairTexto,
-  detectarTipo,
-  paraData,
-  telefoneDoJid,
-  ehGrupo,
-} from '@/lib/whatsapp-evento';
+import { normalizarEvento } from '@/lib/whatsapp-evento';
+import { tratarMensagem, tratarRecibo, tratarHistorico } from '@/lib/whatsapp-ingestao';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,105 +41,40 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   return NextResponse.json({ ok: true });
 }
 
-async function processar(token: string, corpo: Record<string, unknown> | null): Promise<void> {
+async function processar(token: string, corpo: Record<string, any> | null): Promise<void> {
   const instancia = await prisma.whatsappInstancia.findUnique({
     where: { token },
-    select: { id: true, status: true },
+    select: { id: true, token: true },
   });
   // Token desconhecido: instância excluída aqui e ainda viva no gateway. Ignora
   // em silêncio — responder erro faria o gateway reenviar para sempre.
   if (!instancia) return;
 
-  const evento = normalizarEvento(corpo);
-  if (!evento) return;
+  const tipoTopo = String(
+    typeof corpo?.event === 'string' ? corpo.event : corpo?.type || ''
+  ).toUpperCase();
 
-  // Só mensagem interessa por ora. Recibo de leitura e sincronia de histórico
-  // entram numa próxima etapa, quando a caixa de entrada existir na tela.
-  if (evento.tipo && !['MESSAGE', 'MESSAGES', 'HISTORYSYNC', 'HISTORY_SYNC'].includes(evento.tipo)) {
+  // Histórico tem formato próprio — trata antes do normalizador de mensagem.
+  if (tipoTopo.includes('HISTORY')) {
+    await tratarHistorico(instancia, corpo?.data, normalizarEvento);
     return;
   }
-  if (!evento.remoteJid || !evento.messageId) return;
 
-  const grupo = ehGrupo(evento.remoteJid);
-  // Em conversa LID o `remoteJid` é um identificador interno; o telefone real
-  // vem no jid alternativo.
-  const telefone = telefoneDoJid(evento.jidAlternativo) ?? telefoneDoJid(evento.remoteJid);
-  const texto = extrairTexto(evento.conteudo);
-  const tipo = detectarTipo(evento.conteudo);
-  const enviadaEm = paraData(evento.timestamp);
-
-  const conversa = await prisma.whatsappConversa.upsert({
-    where: {
-      instanciaId_remoteJid: { instanciaId: instancia.id, remoteJid: evento.remoteJid },
-    },
-    create: {
-      instanciaId: instancia.id,
-      remoteJid: evento.remoteJid,
-      telefone,
-      nome: evento.pushName || null,
-      ehGrupo: grupo,
-    },
-    update: {
-      // O nome só melhora, nunca piora: `pushName` vem vazio na mensagem que
-      // nós enviamos, e sobrescrever apagaria o nome já conhecido do contato.
-      ...(evento.pushName ? { nome: evento.pushName } : {}),
-      ...(telefone ? { telefone } : {}),
-    },
-    select: { id: true },
-  });
-
-  const previa = texto?.slice(0, 120) ?? rotuloDeMidia(tipo);
-
-  try {
-    await prisma.$transaction([
-      prisma.whatsappMensagem.create({
-        data: {
-          conversaId: conversa.id,
-          messageId: evento.messageId,
-          daMim: evento.daMim,
-          tipo,
-          texto,
-          enviadaEm,
-          status: evento.daMim ? 'ENVIADA' : 'ENTREGUE',
-        },
-      }),
-      prisma.whatsappConversa.update({
-        where: { id: conversa.id },
-        data: {
-          ultimaMensagemEm: enviadaEm,
-          ultimaMensagemMinha: evento.daMim,
-          ultimaMensagemPreview: previa,
-          // Mensagem nossa zera o contador: se eu respondi, não há o que ler.
-          naoLidas: evento.daMim ? 0 : { increment: 1 },
-        },
-      }),
-    ]);
-  } catch (e) {
-    // Violação da chave (conversa, messageId) = reenvio do mesmo evento.
-    // É o caso esperado, não um erro: sai sem duplicar e sem poluir o log.
-    const codigo = (e as { code?: string }).code;
-    if (codigo === 'P2002') return;
-    throw e;
+  // Recibo de entrega/leitura — é o que acende o segundo tique e o azul.
+  if (tipoTopo.includes('RECEIPT')) {
+    await tratarRecibo(instancia.id, corpo?.data);
+    return;
   }
-}
 
-function rotuloDeMidia(tipo: string): string {
-  switch (tipo) {
-    case 'IMAGEM':
-      return '📷 Foto';
-    case 'VIDEO':
-      return '🎥 Vídeo';
-    case 'AUDIO':
-      return '🎤 Áudio';
-    case 'DOCUMENTO':
-      return '📄 Documento';
-    case 'STICKER':
-      return 'Figurinha';
-    case 'LOCALIZACAO':
-      return '📍 Localização';
-    case 'CONTATO':
-      return '👤 Contato';
-    default:
-      return '';
+  const evento = normalizarEvento(corpo);
+  if (!evento) {
+    // Formato não reconhecido: registra o começo do payload para ajustar o
+    // leitor sem precisar adivinhar. Sem isso a falha seria invisível.
+    console.warn('[whatsapp] payload não reconhecido:', JSON.stringify(corpo).slice(0, 600));
+    return;
+  }
+
+  if (!evento.tipo || evento.tipo.includes('MESSAGE')) {
+    await tratarMensagem(instancia, evento);
   }
 }

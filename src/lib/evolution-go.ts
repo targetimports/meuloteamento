@@ -219,16 +219,138 @@ export function normalizarDestino(valor: string): string {
   return v.replace(/\D/g, '');
 }
 
-export function enviarTexto(token: string, destino: string, texto: string) {
-  return chamar<{ id?: string }>('POST', '/message/send/text', {
+export function enviarTexto(token: string, destino: string, texto: string, quoted?: unknown) {
+  return chamar<{ id?: string; ID?: string }>('POST', '/send/text', {
     apikey: token,
-    body: { phone: normalizarDestino(destino), message: texto },
+    body: { number: normalizarDestino(destino), text: texto, ...(quoted ? { quoted } : {}) },
   });
 }
 
-export function marcarComoLida(token: string, destino: string, messageId: string) {
-  return chamar('POST', '/message/read', {
+/**
+ * Mídia por URL — o servidor BUSCA o arquivo, não recebe base64.
+ *
+ * Base64 de 20 MB dentro de um JSON seria payload demais para atravessar duas
+ * camadas de proxy. A consequência para nós é que o arquivo precisa estar
+ * alcançável pelo gateway no momento do envio; como a mídia vive no cofre
+ * (privado), quem chama precisa produzir um endereço temporário.
+ */
+export function enviarMidia(
+  token: string,
+  destino: string,
+  opts: { url: string; tipo: string; legenda?: string; nomeArquivo?: string; quoted?: unknown }
+) {
+  return chamar<{ id?: string; ID?: string }>('POST', '/send/media', {
     apikey: token,
-    body: { phone: normalizarDestino(destino), messageId },
+    body: {
+      number: normalizarDestino(destino),
+      url: opts.url,
+      type: opts.tipo,
+      ...(opts.legenda ? { caption: opts.legenda } : {}),
+      ...(opts.nomeArquivo ? { filename: opts.nomeArquivo } : {}),
+      ...(opts.quoted ? { quoted: opts.quoted } : {}),
+    },
   });
+}
+
+export function marcarLida(token: string, messageId: string, destino: string) {
+  return chamar('POST', '/message/markread', {
+    apikey: token,
+    body: { id: messageId, number: normalizarDestino(destino) },
+  });
+}
+
+export function reagir(
+  token: string,
+  opts: { destino: string; messageId: string; daMim: boolean; emoji: string }
+) {
+  return chamar('POST', '/message/react', {
+    apikey: token,
+    body: {
+      number: normalizarDestino(opts.destino),
+      messageId: opts.messageId,
+      fromMe: Boolean(opts.daMim),
+      emoji: opts.emoji,
+    },
+  });
+}
+
+export function apagarMensagem(
+  token: string,
+  opts: { destino: string; messageId: string; daMim: boolean }
+) {
+  return chamar('POST', '/message/delete', {
+    apikey: token,
+    body: {
+      number: normalizarDestino(opts.destino),
+      messageId: opts.messageId,
+      fromMe: Boolean(opts.daMim),
+    },
+  });
+}
+
+/**
+ * Baixa a mídia de uma mensagem recebida.
+ *
+ * 🔴 "Mídia chega em base64 no evento" é falso. No ERP foram 26 mensagens de
+ * mídia (20 áudios, 3 figurinhas, 1 documento, 1 imagem) e TODAS com o arquivo
+ * vazio — o campo `base64` do webhook nunca veio preenchido, e o sintoma na
+ * tela era uma bolha vazia com só o horário.
+ *
+ * O caminho certo é este endpoint: manda-se de volta o objeto `Message` cru que
+ * veio no webhook (é ele que carrega `mediaKey`, `directPath` e o resto do que
+ * o WhatsApp exige para decifrar) e o servidor devolve o conteúdo. O retorno é
+ * um mapa sem forma declarada no spec, então quem chama procura o base64 em
+ * mais de um nome possível.
+ */
+export function baixarMidia(token: string, message: unknown) {
+  return chamar<Record<string, unknown>>('POST', '/message/downloadmedia', {
+    apikey: token,
+    body: { message },
+  });
+}
+
+/**
+ * Pede ao WhatsApp o histórico de um chat, a partir de uma mensagem de
+ * referência. O retorno chega depois, pelo webhook, como HISTORY_SYNC.
+ */
+export function solicitarHistorico(
+  token: string,
+  opts: { count?: number; messageInfo: Record<string, unknown> }
+) {
+  return chamar('POST', '/chat/history-sync', {
+    apikey: token,
+    body: { count: opts.count ?? 50, messageInfo: opts.messageInfo },
+  });
+}
+
+/**
+ * Foto de perfil do contato.
+ *
+ * A URL vem do CDN do WhatsApp e EXPIRA — quem chama guarda a data e revalida,
+ * em vez de tratar como permanente.
+ *
+ * ⚠️ Não confundir com `/user/profilePicture`, que DEFINE a nossa própria foto.
+ */
+export function obterFotoPerfil(token: string, jidOuNumero: string, preview = true) {
+  const bruto = String(jidOuNumero || '');
+  const number = bruto.includes('@') ? bruto : `${normalizarDestino(bruto)}@s.whatsapp.net`;
+  return chamar<{ url?: string; URL?: string }>('POST', '/user/avatar', {
+    apikey: token,
+    body: { number, preview },
+  });
+}
+
+/**
+ * Agenda de contatos do número conectado.
+ *
+ * É a fonte de nome mais confiável que existe: o `pushName` do webhook só
+ * aparece quando o contato mandou mensagem, e some quando fomos nós que
+ * iniciamos a conversa.
+ */
+export function listarContatos(token: string) {
+  return chamar<Array<{ Jid?: string; FullName?: string; FirstName?: string; PushName?: string; BusinessName?: string }>>(
+    'GET',
+    '/user/contacts',
+    { apikey: token }
+  );
 }

@@ -1646,6 +1646,22 @@ model WhatsappConversa {
 
   arquivada Boolean @default(false)
 
+  /// Situação do atendimento. Mensagem do cliente reabre conversa encerrada.
+  situacao String @default("novo")
+
+  /// De onde veio o nome atual: manual | contatos | push | numero.
+  /// Nome vindo da agenda não pode ser rebaixado pelo apelido da próxima
+  /// mensagem, que muitas vezes é só um emoji ou o nome da loja.
+  nomeOrigem String  @default("numero")
+  /// Quem renomeou na mão tinha um motivo — nenhuma sincronização desfaz.
+  nomeManual Boolean @default(false)
+
+  /// Quando pedimos o histórico deste chat ao WhatsApp. A marca fica aqui, e
+  /// não numa consulta por JID: o mesmo contato chega ora como
+  /// `…@s.whatsapp.net`, ora como `…@lid`, e a busca pela forma errada
+  /// concluiria que a conversa não existe, repedindo o histórico para sempre.
+  historicoPedido DateTime?
+
   /// Liga a conversa ao funil: quem está falando é (ou vira) um lead.
   leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
@@ -1682,11 +1698,19 @@ model WhatsappMensagem {
   midiaCaminho String?
   midiaMime    String?
   midiaTamanho Int?
+  /// Nome original do documento, para exibir e para o download.
+  nomeArquivo  String?
   /// Duração de áudio/vídeo em segundos.
   duracao      Int?
 
   transcricao       String?
   transcricaoStatus String?
+
+  /// Só em grupo: quem falou. O telefone e o nome exibido NO MOMENTO — o nome
+  /// muda depois, e o histórico precisa continuar legível com o que valia
+  /// quando a mensagem chegou.
+  participante     String?
+  participanteNome String?
 
   status    WhatsappStatusMensagem @default(PENDENTE)
   editada   Boolean                @default(false)
