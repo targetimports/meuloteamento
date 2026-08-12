@@ -6,16 +6,13 @@
  *   - arquivo:<campoId>: arquivo enviado (pode haver vários no mesmo campo)
  */
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import { mkdir, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
 import { prisma } from '@/lib/prisma';
 import { parseCampos } from '@/lib/formulario-tipos';
+import { gravarDocumento } from '@/lib/storage-seguro';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PUBLIC_UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads', 'formularios');
 const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB hard limit per file
 const MAX_FILES = 20;
 
@@ -149,19 +146,20 @@ export async function POST(
       },
     });
 
-    // Salva arquivos em disco e registra
-    const arquivosDir = path.join(PUBLIC_UPLOADS_DIR, resposta.id);
-    if (arquivosParaSalvar.length > 0 && !existsSync(arquivosDir)) {
-      await mkdir(arquivosDir, { recursive: true });
-    }
-
+    // Salva os arquivos no cofre (fora do webroot) e registra.
+    //
+    // São documentos pessoais — identidade, comprovante de residência. Eles não
+    // podem cair em `public/`, onde o nginx os entregaria a qualquer um que
+    // soubesse a URL.
     for (const { campoId, file } of arquivosParaSalvar) {
       const safeName = sanitizeFilename(file.name) || `arquivo-${Date.now()}`;
       const finalName = `${Date.now()}-${campoId}-${safeName}`;
-      const absPath = path.join(arquivosDir, finalName);
       const buf = Buffer.from(await file.arrayBuffer());
-      await writeFile(absPath, buf);
-      const relativo = `/uploads/formularios/${resposta.id}/${finalName}`;
+      const relativo = await gravarDocumento({
+        subdir: `formularios/${resposta.id}`,
+        nomeArquivo: finalName,
+        conteudo: buf,
+      });
       await prisma.formularioArquivo.create({
         data: {
           respostaId: resposta.id,

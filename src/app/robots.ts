@@ -21,6 +21,11 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/minha-conta/',
           '/checkout/',
+          // Documentos pessoais. O acesso já é negado no nginx e os arquivos
+          // saíram do webroot; isto é a terceira barreira, para o caso de uma
+          // URL antiga ter vazado e ainda estar em alguma fila de rastreamento.
+          '/uploads/formularios/',
+          '/uploads/vendas/',
           '/_next/',
         ],
       },
@@ -48,6 +53,11 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/minha-conta/',
           '/checkout/',
+          // Documentos pessoais. O acesso já é negado no nginx e os arquivos
+          // saíram do webroot; isto é a terceira barreira, para o caso de uma
+          // URL antiga ter vazado e ainda estar em alguma fila de rastreamento.
+          '/uploads/formularios/',
+          '/uploads/vendas/',
         ],
       },
     ],

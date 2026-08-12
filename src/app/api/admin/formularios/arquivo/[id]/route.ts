@@ -3,10 +3,10 @@
  * Só admin com acesso à loteadora dona do formulário pode baixar.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import { readFile, stat } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteadora, requireAdmin } from '@/lib/tenant';
+import { localizarDocumento } from '@/lib/storage-seguro';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,14 +33,11 @@ export async function GET(
     return new NextResponse('Sem permissão', { status: 403 });
   }
 
-  // Caminho absoluto a partir do "caminho" (relativo a /public)
-  // Ex: arquivo.caminho = "/uploads/formularios/abc123/789-doc-rg.jpg"
-  const rel = arquivo.caminho.replace(/^\/+/, '');
-  const abs = path.join(process.cwd(), 'public', rel);
-
-  try {
-    await stat(abs);
-  } catch {
+  // O arquivo vive no cofre, fora do webroot. `localizarDocumento` ainda aceita
+  // o lugar antigo enquanto a migração não termina, e recusa caminho que tente
+  // escapar da raiz.
+  const abs = await localizarDocumento(arquivo.caminho);
+  if (!abs) {
     return new NextResponse('Arquivo não encontrado em disco', { status: 410 });
   }
   const buffer = await readFile(abs);

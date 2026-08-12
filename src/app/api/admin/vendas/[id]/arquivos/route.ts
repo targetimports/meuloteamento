@@ -7,20 +7,18 @@
  *     - categoria: string opcional (RG | CPF | COMPROVANTE_RESIDENCIA | CONTRATO | RECIBO | CHEQUE | OUTRO)
  *     - descricao: string opcional
  *
- * Arquivos vão para: /public/uploads/vendas/<vendaId>/<timestamp>-<nome>.ext
+ * Arquivos vão para o cofre, FORA do webroot (ver lib/storage-seguro), e só
+ * saem pela rota autenticada /api/admin/vendas/arquivo/<id>.
  * Aceita qualquer tipo (PDF, imagens, doc, xls, etc.) — sem conversão.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import { mkdir, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteadora, requireAdmin } from '@/lib/tenant';
+import { gravarDocumento } from '@/lib/storage-seguro';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads', 'vendas');
 const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB por arquivo
 const MAX_FILES_POR_UPLOAD = 20;
 
@@ -117,19 +115,18 @@ export async function POST(
     }
   }
 
-  const destDir = path.join(UPLOADS_ROOT, venda.id);
-  if (!existsSync(destDir)) {
-    await mkdir(destDir, { recursive: true });
-  }
-
+  // Documentos de venda (RG, CPF, comprovantes, contratos assinados) vão para o
+  // cofre fora do webroot — ver lib/storage-seguro.
   const criados: Array<{ id: string; nome: string }> = [];
   for (const f of files) {
     const safeName = sanitizeFilename(f.name) || `arquivo-${Date.now()}`;
     const finalName = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${safeName}`;
-    const absPath = path.join(destDir, finalName);
     const buf = Buffer.from(await f.arrayBuffer());
-    await writeFile(absPath, buf);
-    const caminho = `/uploads/vendas/${venda.id}/${finalName}`;
+    const caminho = await gravarDocumento({
+      subdir: `vendas/${venda.id}`,
+      nomeArquivo: finalName,
+      conteudo: buf,
+    });
     const row = await prisma.vendaArquivo.create({
       data: {
         vendaId: venda.id,
