@@ -38,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/corretores', label: 'Corretores', Icon: NavBriefcase, group: 'gestao' },
   { href: '/admin/comissoes', label: 'Comissões', Icon: NavMoney, group: 'gestao' },
   { href: '/admin/leads', label: 'Leads / CRM', Icon: NavInbox, group: 'gestao' },
+  { href: '/admin/whatsapp', label: 'WhatsApp', Icon: NavInbox, group: 'gestao' },
   // Quem quer ASSINAR a plataforma (dono de loteadora). Diferente de Lead, que
   // e quem quer comprar um lote. So o dono da plataforma enxerga.
   { href: '/admin/interessados', label: 'Interessados', Icon: NavUsers, superAdminOnly: true, group: 'gestao' },
