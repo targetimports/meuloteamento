@@ -54,6 +54,11 @@ async function processar(token: string, corpo: Record<string, any> | null): Prom
     typeof corpo?.event === 'string' ? corpo.event : corpo?.type || ''
   ).toUpperCase();
 
+  // Uma linha por evento, com o tipo. Sem isto, "chegou 200 mas não gravou
+  // nada" é indistinguível de "não chegou nada" — foi exatamente a dúvida que
+  // custou uma investigação no log do nginx para responder.
+  console.log(`[whatsapp] evento ${tipoTopo || '(sem tipo)'}`);
+
   // Histórico tem formato próprio — trata antes do normalizador de mensagem.
   if (tipoTopo.includes('HISTORY')) {
     await tratarHistorico(instancia, corpo?.data, normalizarEvento);
