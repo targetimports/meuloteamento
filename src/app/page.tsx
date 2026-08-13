@@ -19,6 +19,7 @@ import {
   NovidadesGrid,
   CTAFlutuante,
 } from '@/components/landing-premium';
+import { VitrineAtendimento } from '@/components/landing-whatsapp';
 import { CaseParqueTucano } from '@/components/CaseParqueTucano';
 import { prisma } from '@/lib/prisma';
 import {
@@ -31,6 +32,11 @@ import {
   IconCheck,
   IconX,
   IconArrowRight,
+  IconWhatsApp,
+  IconShieldCheck,
+  IconMap,
+  IconBolt,
+  IconBadge,
 } from '@/components/icons';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://meuloteamento.com').replace(/\/+$/, '');
@@ -38,11 +44,14 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://meuloteamento.com')
 export const metadata: Metadata = {
   title: 'meuloteamento — Plataforma para venda de loteamentos online',
   description:
-    'Sistema completo para loteadoras: site personalizado por loteamento, mapa interativo, reserva online de lotes, CRM de leads, contrato digital, cobrança automática via PIX/Boleto e área do comprador. Integração nativa com Asaas.',
+    'Sistema completo para loteadoras: CRM com WhatsApp integrado, funil de vendas configurável, site personalizado por loteamento, mapa interativo, reserva online de lotes, contrato digital, cobrança automática via PIX/Boleto e área do comprador. Integração nativa com Asaas.',
   keywords: [
     'venda de loteamento online',
     'sistema para loteadoras',
     'CRM imobiliário',
+    'CRM com WhatsApp integrado',
+    'WhatsApp para imobiliária',
+    'funil de vendas para loteadora',
     'reserva de lote online',
     'mapa interativo de loteamento',
     'cobrança PIX loteamento',
@@ -61,7 +70,7 @@ export const metadata: Metadata = {
     siteName: 'meuloteamento',
     title: 'meuloteamento — Plataforma para venda de loteamentos online',
     description:
-      'Sistema completo para loteadoras: site personalizado, mapa interativo, reserva online, CRM, contrato digital e cobrança automática.',
+      'Sistema completo para loteadoras: CRM com WhatsApp integrado, site personalizado, mapa interativo, reserva online, contrato digital e cobrança automática.',
     images: [
       {
         url: '/og-default.png',
@@ -118,7 +127,20 @@ const SOFTWARE_JSONLD = {
     price: '299.00',
   },
   description:
-    'Plataforma completa para loteadoras venderem lotes online: site, CRM, cobrança, contrato digital.',
+    'Plataforma completa para loteadoras venderem lotes online: site, CRM com WhatsApp integrado, cobrança, contrato digital.',
+  featureList: [
+    'CRM com WhatsApp integrado (caixa de entrada, quadro e funil)',
+    'Transcrição automática de áudios recebidos',
+    'Funil de vendas com etapas configuráveis e SLA por etapa',
+    'Landing page e mapa interativo por loteamento',
+    'Reserva online com lock automático de lote',
+    'Cobrança automática via PIX, boleto e cartão (Asaas)',
+    'Régua de cobrança por WhatsApp e e-mail',
+    'Contrato digital com assinatura eletrônica',
+    'Cofre criptografado para documentos pessoais (LGPD)',
+    'Área do comprador com segunda via e renegociação',
+    'Gestão de corretores, comissões e conciliação financeira',
+  ],
 };
 
 // WebSite com SearchAction — permite que o Google exiba a caixa "Sitelinks
@@ -232,6 +254,7 @@ export default async function HomePage() {
         ]}
       />
       <Comparison />
+      <AtendimentoSection />
       <ComparativoConcorrentes />
       <EcossistemaOrbit />
       <CaseParqueTucano />
@@ -244,6 +267,7 @@ export default async function HomePage() {
       <ContratoSection />
       <AreaCompradorSection />
       <IntegracoesSection />
+      <SegurancaSection />
       <HowItWorks />
       <Testimonials />
       <Pricing />
@@ -278,6 +302,9 @@ function Navbar() {
           </a>
         </div>
         <nav className="hidden md:flex items-center gap-8 text-sm">
+          <a href="#atendimento" className="text-slate-300 hover:text-white transition">
+            WhatsApp + CRM
+          </a>
           <a href="#features" className="text-slate-300 hover:text-white transition">
             Recursos
           </a>
@@ -385,7 +412,7 @@ function Hero() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span>
-              Mapa interativo · CRM · Financeiro · IA · Portal do Cliente · Tudo integrado
+              Mapa interativo · CRM · WhatsApp · Financeiro · IA · Portal do Cliente · Tudo integrado
             </span>
           </div>
 
@@ -395,14 +422,14 @@ function Hero() {
           </h1>
 
           <p className="text-lg md:text-2xl text-slate-200 max-w-3xl mx-auto mt-8 animate-fade-up delay-2 leading-relaxed [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]">
-            Do mapa interativo ao financeiro. Da reserva online ao contrato assinado.
+            Da conversa no WhatsApp ao contrato assinado. Do mapa interativo ao financeiro.
             <br className="hidden md:block" />
             <strong className="text-white">Uma única plataforma — pensada para escalar.</strong>
           </p>
 
           {/* Pílulas dos módulos centrais — reforça o "ecossistema" no hero */}
           <div className="flex flex-wrap items-center justify-center gap-2 mt-6 animate-fade-up delay-2">
-            {['🗺 Mapa', '👥 CRM', '💰 Financeiro', '🤖 IA', '📱 Portal cliente', '⚡ PIX'].map((m) => (
+            {['🗺 Mapa', '👥 CRM', '💬 WhatsApp', '💰 Financeiro', '🤖 IA', '📱 Portal cliente', '⚡ PIX'].map((m) => (
               <span
                 key={m}
                 className="text-xs px-3 py-1.5 rounded-full bg-white/[0.06] backdrop-blur border border-white/10 text-slate-200"
@@ -527,8 +554,9 @@ function Comparison() {
     'Planilha que ninguém atualiza',
     'Lote vendido pra duas pessoas no mesmo dia',
     'Cliente liga pra perguntar se ainda tem o A-12',
-    'WhatsApp lotado de comprovante de pagamento',
+    'Conversa no celular do corretor — que some quando ele sai',
     'Contrato impresso e perdido na gaveta',
+    'Foto de RG no grupo do WhatsApp e na pasta do PC',
     'Você descobre que tá inadimplente quando ele vira inadimplência',
   ];
 
@@ -536,8 +564,9 @@ function Comparison() {
     'Mapa de lotes atualizado em tempo real',
     'Lock automático impede venda duplicada',
     'Cliente vê disponibilidade direto no site',
-    'Asaas confirma pagamento automaticamente',
+    'WhatsApp da equipe dentro do CRM, com histórico que fica',
     'Tudo digital, com histórico completo',
+    'Documento pessoal cifrado no cofre, com quem abriu registrado',
     'Dashboard mostra inadimplência no minuto seguinte',
   ];
 
@@ -590,15 +619,132 @@ function Comparison() {
 }
 
 // =====================================================================
+// ATENDIMENTO — WhatsApp nativo + CRM (seção de destaque)
+// =====================================================================
+
+function AtendimentoSection() {
+  const pilares = [
+    {
+      titulo: 'Conversa e cadastro na mesma tela',
+      texto:
+        'A conversa abre com o lead do lado: etapa, origem, lote de interesse, valor, corretor e as notas internas. Ninguém precisa sair do chat para atualizar o CRM.',
+    },
+    {
+      titulo: 'Áudio vira texto sozinho',
+      texto:
+        'Todo áudio recebido é transcrito automaticamente. Dá para ler a proposta do cliente no meio da reunião, e a busca encontra o que foi dito em áudio.',
+    },
+    {
+      titulo: 'Quadro por tempo de espera',
+      texto:
+        'As conversas viram cartões agrupados por quanto tempo o cliente está esperando — até 15 min, 1h, 4h ou mais. O que está apodrecendo aparece primeiro.',
+    },
+    {
+      titulo: 'Um número por corretor',
+      texto:
+        'Cada usuário conecta o próprio WhatsApp lendo um QR Code. O histórico das conversas antigas entra junto, e cada corretor vê apenas o que é dele.',
+    },
+  ];
+
+  return (
+    <section id="atendimento" className="relative bg-slate-950 py-24 overflow-hidden">
+      <div className="absolute inset-0 bg-grid-dark opacity-40" />
+      <div className="absolute top-0 left-1/3 w-[700px] h-[400px] conic-bg opacity-30" />
+
+      <div className="relative max-w-7xl mx-auto px-6">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-500/10 backdrop-blur border border-emerald-500/30 rounded-full mb-5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="text-xs font-bold text-emerald-200 uppercase tracking-[0.2em]">
+              Novo · WhatsApp nativo
+            </span>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight max-w-3xl mx-auto">
+            O WhatsApp da sua equipe{' '}
+            <span className="gradient-text">dentro do CRM</span>
+          </h2>
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
+            Não é link de &ldquo;chamar no WhatsApp&rdquo;. É a caixa de entrada inteira dentro da
+            plataforma — com funil, quadro, mídia, áudio transcrito e o cadastro do cliente ao lado
+            da conversa.
+          </p>
+        </div>
+
+        <div className="max-w-5xl mx-auto mb-12">
+          <VitrineAtendimento />
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {pilares.map((p) => (
+            <div
+              key={p.titulo}
+              className="bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur border border-white/10 rounded-2xl p-5"
+            >
+              <h3 className="font-bold text-white mb-2 text-sm">{p.titulo}</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">{p.texto}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
+          {[
+            'Mídia: foto, vídeo, documento e localização',
+            'Modelos de mensagem com atalho',
+            'Etiquetas e notas internas',
+            'Fixar, silenciar e arquivar',
+            'Conversa vinculada ao lead e à venda',
+            'Grupos',
+            'Conversas duplicadas unidas em um clique',
+          ].map((t) => (
+            <span
+              key={t}
+              className="text-xs px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-slate-300"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// =====================================================================
 // FEATURES
 // =====================================================================
 
 function Features() {
   const features = [
     {
+      icon: IconWhatsApp,
+      title: 'WhatsApp dentro do sistema',
+      text: 'Caixa de entrada completa: cada corretor conecta o próprio número por QR Code, e a conversa abre com o cadastro do lead do lado. Áudio transcrito, mídia, modelos e etiquetas.',
+      novo: true,
+    },
+    {
+      icon: IconChart,
+      title: 'Funil que você configura',
+      text: 'Crie, renomeie e reordene as etapas do seu processo. Cada uma tem prazo próprio (SLA) — quem passa do tempo fica marcado em vermelho antes de esfriar.',
+      novo: true,
+    },
+    {
+      icon: IconBolt,
+      title: 'Captura de leads sem duplicar',
+      text: 'Quem simula ou começa o checkout vira lead na hora. Se a mesma pessoa mandar de novo, o sistema reconhece pelo telefone e enriquece o cadastro em vez de criar outro.',
+      novo: true,
+    },
+    {
       icon: IconBrand,
       title: 'Landing page por loteamento',
-      text: 'Cada empreendimento ganha seu próprio site, com sua identidade visual, fotos, mapa, condições de pagamento e formulário de interesse.',
+      text: 'Cada empreendimento ganha seu próprio site, com identidade visual, fotos, mapa, condições de pagamento, simulador de financiamento e formulário de interesse.',
+    },
+    {
+      icon: IconMap,
+      title: 'Mapa de lotes interativo',
+      text: 'Suba a planta, posicione os lotes e o cliente vê no site o que está livre, reservado ou vendido — atualizado no mesmo minuto em que a venda entra.',
     },
     {
       icon: IconLock,
@@ -611,19 +757,20 @@ function Features() {
       text: 'PIX, boleto, cartão e parcelamento recorrente. Webhook idempotente faz a baixa automática assim que o pagamento entra na sua conta.',
     },
     {
-      icon: IconChart,
-      title: 'Captura automática de leads',
-      text: 'Cliente que simula ou inicia o checkout vira lead na hora — mesmo sem pagar. O CRM distribui pro corretor certo automaticamente.',
-    },
-    {
       icon: IconPayment,
       title: 'Régua de cobrança automática',
       text: 'WhatsApp e e-mail de cobrança disparados sozinhos, antes e depois do vencimento. A inadimplência despenca sem ninguém ligar.',
     },
     {
-      icon: IconBrand,
+      icon: IconBadge,
       title: 'Contrato digital + assinatura',
       text: 'Gera o contrato preenchido a partir dos dados da venda e envia para assinatura eletrônica via Clicksign. Sem papel, sem cartório de ida e volta.',
+    },
+    {
+      icon: IconShieldCheck,
+      title: 'Formulários com upload seguro',
+      text: 'Monte o formulário de cadastro que sua loteadora usa, com campos e documentos obrigatórios. RG, CPF e comprovantes entram cifrados no cofre.',
+      novo: true,
     },
     {
       icon: IconUsers,
@@ -631,14 +778,9 @@ function Features() {
       text: 'Seu cliente acessa o portal, vê as parcelas, paga por PIX, baixa o contrato e renegocia sozinho. Menos ligação, mais autonomia.',
     },
     {
-      icon: IconUsers,
-      title: 'Corretores e comissões',
-      text: 'Cadastre sua equipe comercial, distribua leads por round-robin, defina comissão por venda. Cada corretor vê o que é dele.',
-    },
-    {
       icon: IconDashboard,
-      title: 'Painel CRM completo',
-      text: 'Dashboard de vendas, funil de leads, financeiro, conciliação, auditoria de cada mudança. Tudo num só lugar, em tempo real.',
+      title: 'Corretores, comissões e financeiro',
+      text: 'Equipe comercial com distribuição de leads, comissão por venda em parcelas, conciliação bancária, saldo por conta e auditoria de cada mudança.',
     },
   ];
 
@@ -665,8 +807,15 @@ function Features() {
             >
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary-500/10 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition" />
               <div className="relative">
-                <div className="inline-flex p-3 bg-primary-50 text-primary-600 rounded-xl mb-4 group-hover:scale-110 transition">
-                  <f.icon />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="inline-flex p-3 bg-primary-50 text-primary-600 rounded-xl group-hover:scale-110 transition">
+                    <f.icon />
+                  </div>
+                  {f.novo && (
+                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Novo
+                    </span>
+                  )}
                 </div>
                 <h3 className="font-bold text-slate-900 mb-2 text-lg">{f.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{f.text}</p>
@@ -756,10 +905,11 @@ function CaptureLeadSection() {
             </p>
             <ul className="space-y-3">
               {[
-                'Captura no simulador e no checkout abandonado',
+                'Captura no simulador, no checkout abandonado e no WhatsApp',
                 'Distribuição automática por round-robin e cidade',
                 'Score e temperatura calculados na hora',
-                'Kanban com arrastar-soltar e ações em massa',
+                'Mesmo contato não vira dois leads: o sistema reconhece e une',
+                'Kanban com arrastar-soltar, etapas próprias e ações em massa',
               ].map((i) => (
                 <li key={i} className="flex items-center gap-3 text-slate-700">
                   <span className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0">
@@ -963,6 +1113,101 @@ function IntegracoesSection() {
           </div>
           <div>
             <IntegracoesMock />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// =====================================================================
+// SEGURANÇA — cofre de documentos pessoais (LGPD)
+// =====================================================================
+
+function SegurancaSection() {
+  const camadas = [
+    {
+      titulo: 'Fora do site',
+      texto:
+        'Os arquivos não ficam na pasta pública. Não existe endereço que abra um RG direto no navegador, nem por tentativa e erro.',
+    },
+    {
+      titulo: 'Cifrados em repouso',
+      texto:
+        'Cada documento é gravado com AES-256-GCM. Quem tirar o disco da máquina leva bytes embaralhados: a chave não mora junto com o arquivo.',
+    },
+    {
+      titulo: 'Link que expira',
+      texto:
+        'Para ver um documento, o painel gera um endereço assinado que vale minutos. Depois disso o mesmo link não abre mais — nem para quem o recebeu.',
+    },
+    {
+      titulo: 'Sem rastro de GPS',
+      texto:
+        'A foto do RG tirada pelo celular carrega coordenadas e modelo do aparelho. Esses metadados são removidos antes de a imagem ser guardada.',
+    },
+    {
+      titulo: 'Quem abriu fica registrado',
+      texto:
+        'Todo acesso a documento pessoal vira linha de auditoria com usuário, data e arquivo. Em pedido de titular ou incidente, existe resposta.',
+    },
+    {
+      titulo: 'Backup que também é cifrado',
+      texto:
+        'Cópia diária para fora do servidor, já criptografada. A chave não acompanha o backup, então o provedor de nuvem não lê o conteúdo.',
+    },
+  ];
+
+  return (
+    <section className="bg-white py-24">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid lg:grid-cols-2 gap-12 items-start">
+          <div className="lg:sticky lg:top-24">
+            <p className="text-sm font-semibold text-primary-600 uppercase tracking-wider mb-3">
+              LGPD na prática
+            </p>
+            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
+              Documento de cliente vive num{' '}
+              <span className="gradient-text">cofre, não numa pasta</span>
+            </h2>
+            <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+              Para fechar uma venda você precisa de RG, CPF, comprovante de renda e certidão de
+              estado civil. É o tipo de arquivo que, vazado, não tem como desfazer — e a maioria
+              dos sistemas simplesmente joga tudo numa pasta que o site inteiro consegue ler.
+            </p>
+            <p className="text-lg text-slate-600 leading-relaxed">
+              Aqui não. O upload passa por seis camadas antes de virar um arquivo em disco, e o
+              acesso a ele é sempre nominal e temporário.
+            </p>
+
+            <div className="mt-8 rounded-2xl bg-slate-900 p-5 font-mono text-xs overflow-hidden">
+              <p className="text-slate-500 mb-2"># o que existe no disco do servidor</p>
+              <p className="text-emerald-400">
+                MLC1<span className="text-slate-600">·8f2a…</span>
+                <span className="text-slate-500"> ← rg-frente.jpg cifrado</span>
+              </p>
+              <p className="text-slate-400 mt-2">
+                -rw------- <span className="text-slate-600">1 app app</span>{' '}
+                <span className="text-slate-500">(só o sistema lê)</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {camadas.map((c, i) => (
+              <div
+                key={c.titulo}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-5 card-lift"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-6 h-6 rounded-lg bg-primary-600 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <h3 className="font-bold text-slate-900 text-sm">{c.titulo}</h3>
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">{c.texto}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1182,6 +1427,14 @@ function Faq() {
     {
       q: 'Preciso de conhecimento técnico para usar?',
       a: 'Não. O painel foi pensado pra ser usado por quem entende de loteamento, não de software. Em 30 minutos você cadastra seu primeiro empreendimento.',
+    },
+    {
+      q: 'O WhatsApp é integrado de verdade ou é só um link?',
+      a: 'É integrado de verdade. Cada usuário conecta o próprio número lendo um QR Code, e a partir daí as conversas acontecem dentro da plataforma: caixa de entrada, quadro por tempo de espera, envio de foto, vídeo, documento e áudio, modelos de mensagem, etiquetas e nota interna. O áudio que o cliente manda é transcrito automaticamente, e a conversa fica vinculada ao lead — o que foi conversado não some quando o corretor sai da equipe.',
+    },
+    {
+      q: 'Onde ficam as fotos de RG e comprovantes que o cliente envia?',
+      a: 'Num cofre fora da pasta pública do site — não existe endereço que abra o documento direto no navegador. Cada arquivo é gravado criptografado com AES-256-GCM, os metadados da foto (inclusive a localização do celular) são removidos antes de salvar, e a visualização no painel usa um link assinado que expira em minutos. Todo acesso fica registrado com usuário e data, e o backup diário também sobe cifrado.',
     },
     {
       q: 'Como funciona a integração com o Asaas?',

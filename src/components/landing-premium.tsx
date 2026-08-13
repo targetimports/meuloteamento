@@ -420,6 +420,34 @@ export function ComparativoConcorrentes() {
 const NOVIDADES = [
   {
     badge: 'NOVO',
+    icon: '💬',
+    titulo: 'WhatsApp completo dentro do CRM',
+    desc: 'Caixa de entrada, quadro por tempo de espera, mídia, modelos, etiquetas e nota interna. Cada corretor conecta o próprio número por QR Code.',
+    cor: 'from-emerald-500 to-green-600',
+  },
+  {
+    badge: 'NOVO',
+    icon: '🎧',
+    titulo: 'Áudio do cliente vira texto',
+    desc: 'Todo áudio recebido é transcrito automaticamente embaixo da bolha. Dá para ler no meio da reunião — e a busca acha o que foi dito falando.',
+    cor: 'from-teal-500 to-emerald-500',
+  },
+  {
+    badge: 'NOVO',
+    icon: '🎚',
+    titulo: 'Etapas do funil configuráveis',
+    desc: 'Crie, renomeie e reordene as etapas do seu processo e defina o prazo (SLA) de cada uma. Lead parado além do prazo aparece marcado.',
+    cor: 'from-indigo-500 to-violet-500',
+  },
+  {
+    badge: 'NOVO',
+    icon: '🔐',
+    titulo: 'Cofre de documentos cifrado',
+    desc: 'RG, CPF e comprovantes saem da pasta pública: gravados com AES-256-GCM, sem EXIF, abertos só por link assinado que expira em minutos.',
+    cor: 'from-slate-500 to-slate-700',
+  },
+  {
+    badge: 'NOVO',
     icon: '📺',
     titulo: 'Modo TV — Plantão ao vivo',
     desc: 'Tela cheia 16:9 com KPIs gigantes, mapa em tempo real e ranking de corretores. Acesse /tv direto na TV do seu plantão de vendas.',
