@@ -35,9 +35,14 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
     await prisma.simuladorTipoLote.findMany({
       where: { loteamentoId: loteamento.id, ativo: true },
       orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, nome: true, preco: true },
+      select: { id: true, nome: true, preco: true, categoria: true },
     })
-  ).map((t) => ({ id: t.id, nome: t.nome, preco: Number(t.preco) }));
+  ).map((t) => ({
+    id: t.id,
+    nome: t.nome,
+    preco: Number(t.preco),
+    categoria: t.categoria ?? ('' as const),
+  }));
 
   const criarAction = criarLote.bind(null, loteamento.id);
   const bulkAction = criarLotesEmMassa.bind(null, loteamento.id);

@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 export interface TipoUI {
   id: string;
   nome: string;
+  categoria: string;
   descricao: string | null;
   preco: string;
   entradaMinima: string;
@@ -312,6 +313,30 @@ export function TiposLote({
                       placeholder="300 a 400 m²"
                       className={campo}
                     />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="categoria"
+                      className="block text-xs font-medium text-slate-600 mb-1"
+                    >
+                      Categoria do lote
+                    </label>
+                    <select
+                      id="categoria"
+                      name="categoria"
+                      defaultValue={editando?.categoria ?? ''}
+                      className={campo}
+                    >
+                      <option value="">— Não definir —</option>
+                      <option value="RESIDENCIAL">Residencial</option>
+                      <option value="COMERCIAL">Comercial</option>
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Ao cadastrar um lote com este tipo, o campo residencial/comercial
+                      do lote vem preenchido assim. Em branco, o lote fica como
+                      residencial, que é o padrão do sistema.
+                    </p>
                   </div>
 
                   <div className="sm:col-span-2">

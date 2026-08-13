@@ -6,9 +6,19 @@ import { prisma } from '@/lib/prisma';
 import { assertAcessoLoteamento, assertAcessoLote } from '@/lib/tenant';
 import { mudarStatusLote } from '@/lib/lote-status';
 import { getSession } from '@/lib/auth';
-import type { LoteStatus, OrientacaoSolar } from '@prisma/client';
+import type { LoteStatus, LoteTipo, OrientacaoSolar } from '@prisma/client';
 
 type FormState = { error?: string; ok?: boolean; criados?: number };
+
+/**
+ * Categoria vinda do tipo de lote escolhido no formulário.
+ *
+ * Opcional em todos os schemas: o campo só é enviado quando o tipo declara a
+ * categoria. Ausente, nada é gravado — na criação o lote fica no default do
+ * banco e na edição a categoria atual é preservada, que é como sempre foi.
+ */
+const categoriaOpcional = z.enum(['RESIDENCIAL', 'COMERCIAL']).optional();
+const comCategoria = (tipo?: string) => (tipo ? { tipo: tipo as LoteTipo } : {});
 
 function parseLines(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -44,6 +54,7 @@ const loteSchema = z.object({
     .or(z.literal('')),
   esquina: checkbox.default(false),
   fronteAreaVerde: checkbox.default(false),
+  tipo: categoriaOpcional,
 });
 
 export async function criarLote(loteamentoId: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -74,6 +85,7 @@ export async function criarLote(loteamentoId: string, _prev: FormState, formData
       orientacaoSolar: data.orientacaoSolar ? (data.orientacaoSolar as OrientacaoSolar) : null,
       esquina: data.esquina,
       fronteAreaVerde: data.fronteAreaVerde,
+      ...comCategoria(data.tipo),
     },
   });
 
@@ -92,6 +104,7 @@ const lotesBulkSchema = z.object({
   quantidade: z.coerce.number().int().min(1).max(200),
   area: z.coerce.number().positive(),
   preco: z.coerce.number().positive(),
+  tipo: categoriaOpcional,
 });
 
 export async function criarLotesEmMassa(
@@ -104,7 +117,7 @@ export async function criarLotesEmMassa(
   const parsed = lotesBulkSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
 
-  const { quadra, numeroInicial, quantidade, area, preco } = parsed.data;
+  const { quadra, numeroInicial, quantidade, area, preco, tipo } = parsed.data;
   const quadraNorm = quadra.toUpperCase();
 
   const planejados: { numero: string; codigo: string }[] = [];
@@ -132,6 +145,7 @@ export async function criarLotesEmMassa(
       codigo: p.codigo,
       area,
       preco,
+      ...comCategoria(tipo),
     })),
   });
 
@@ -157,6 +171,7 @@ const atualizarSchema = z.object({
   esquina: checkbox.default(false),
   fronteAreaVerde: checkbox.default(false),
   fotos: z.string().optional(),
+  tipo: categoriaOpcional,
 });
 
 export async function atualizarLote(loteId: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -193,6 +208,7 @@ export async function atualizarLote(loteId: string, _prev: FormState, formData: 
       esquina: data.esquina,
       fronteAreaVerde: data.fronteAreaVerde,
       fotos: parseLines(data.fotos),
+      ...comCategoria(data.tipo),
     },
   });
 

@@ -19,6 +19,8 @@ export interface TipoLoteUI {
   id: string;
   nome: string;
   preco: number;
+  /** Vazio quando a loteadora não definiu — e aí o lote fica no padrão. */
+  categoria?: 'RESIDENCIAL' | 'COMERCIAL' | '';
 }
 
 const brl = (v: number) =>
@@ -65,6 +67,18 @@ function SelectTipo({
       </p>
     </div>
   );
+}
+
+/**
+ * Só envia o campo quando o tipo escolhido declara a categoria.
+ *
+ * Sem o campo no envio, a action não mexe no residencial/comercial do lote —
+ * que é o que precisa acontecer para quem não usa tipos, e para os tipos que
+ * ficaram sem categoria definida.
+ */
+function CategoriaDoTipo({ tipo }: { tipo: TipoLoteUI | null }) {
+  if (!tipo?.categoria) return null;
+  return <input type="hidden" name="tipo" value={tipo.categoria} />;
 }
 
 /** Preço travado sob um tipo: digitar aqui contradiria a opção escolhida. */
@@ -140,6 +154,7 @@ export function NovoLoteForm({
       )}
 
       <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
+      <CategoriaDoTipo tipo={tipo} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <div>
@@ -234,6 +249,7 @@ export function NovosLotesEmMassaForm({
       )}
 
       <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
+      <CategoriaDoTipo tipo={tipo} />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
         <div>
@@ -311,6 +327,7 @@ export function EditarLoteForm({
         )}
 
         <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
+      <CategoriaDoTipo tipo={tipo} />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>

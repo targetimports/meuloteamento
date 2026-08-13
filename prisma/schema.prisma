@@ -1851,6 +1851,12 @@ model SimuladorTipoLote {
   /// Uma linha de apoio sob o preço. Ex.: "300 a 400 m²".
   descricao String?
 
+  /// Residencial ou comercial, para o cadastro de lote preencher a categoria
+  /// junto com o preço. Opcional de propósito: o nome do tipo é livre
+  /// ("Comercial BA 395") e deduzir a categoria dele erraria. Nulo deixa o
+  /// lote no default do banco, que é como sempre funcionou.
+  categoria LoteTipo?
+
   preco         Decimal @db.Decimal(12, 2)
   entradaMinima Decimal @db.Decimal(12, 2)
   parcelas      Int

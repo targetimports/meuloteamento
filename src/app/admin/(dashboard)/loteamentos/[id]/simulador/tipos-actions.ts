@@ -101,8 +101,15 @@ export async function salvarTipoLote(
     return { error: 'Há atalho de entrada maior ou igual ao preço do lote.' };
   }
 
+  // Em branco continua nulo: sem categoria o lote fica no default do banco,
+  // que é o comportamento de quem nunca preencheu isso.
+  const categoriaBruta = String(formData.get('categoria') ?? '').trim();
+  const categoria =
+    categoriaBruta === 'RESIDENCIAL' || categoriaBruta === 'COMERCIAL' ? categoriaBruta : null;
+
   const dados = {
     nome,
+    categoria,
     descricao: String(formData.get('descricao') ?? '').trim() || null,
     preco,
     entradaMinima,

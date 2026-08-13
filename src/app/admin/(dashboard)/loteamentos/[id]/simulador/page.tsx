@@ -94,6 +94,7 @@ export default async function SimuladorLoteamentoPage({
         tipos={tipos.map((t) => ({
           id: t.id,
           nome: t.nome,
+          categoria: t.categoria ?? '',
           descricao: t.descricao,
           preco: String(t.preco),
           entradaMinima: String(t.entradaMinima),
