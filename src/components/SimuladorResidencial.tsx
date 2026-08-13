@@ -590,14 +590,14 @@ export function SimuladorResidencial({
                       value={leadNome}
                       onChange={(e) => setLeadNome(e.target.value)}
                       placeholder="Seu nome"
-                      className="px-3 py-2 text-sm rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white placeholder-white/50 focus:outline-none focus:bg-white/25"
+                      className="px-3 py-2 text-sm rounded-lg bg-white/25 backdrop-blur border border-white/50 text-white placeholder-white/80 focus:outline-none focus:bg-white/35 focus:border-white/80 focus:ring-2 focus:ring-white/40 transition"
                     />
                     <input
                       type="tel"
                       value={leadFone}
                       onChange={(e) => setLeadFone(e.target.value)}
                       placeholder="WhatsApp (DDD)"
-                      className="px-3 py-2 text-sm rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white placeholder-white/50 focus:outline-none focus:bg-white/25"
+                      className="px-3 py-2 text-sm rounded-lg bg-white/25 backdrop-blur border border-white/50 text-white placeholder-white/80 focus:outline-none focus:bg-white/35 focus:border-white/80 focus:ring-2 focus:ring-white/40 transition"
                     />
                   </div>
                   {leadCapturado && (
@@ -688,14 +688,14 @@ export function SimuladorResidencial({
                     value={leadNome}
                     onChange={(e) => setLeadNome(e.target.value)}
                     placeholder="Seu nome"
-                    className="px-3 py-2 text-sm rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white placeholder-white/50 focus:outline-none focus:bg-white/25"
+                    className="px-3 py-2 text-sm rounded-lg bg-white/25 backdrop-blur border border-white/50 text-white placeholder-white/80 focus:outline-none focus:bg-white/35 focus:border-white/80 focus:ring-2 focus:ring-white/40 transition"
                   />
                   <input
                     type="tel"
                     value={leadFone}
                     onChange={(e) => setLeadFone(e.target.value)}
                     placeholder="WhatsApp (DDD)"
-                    className="px-3 py-2 text-sm rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white placeholder-white/50 focus:outline-none focus:bg-white/25"
+                    className="px-3 py-2 text-sm rounded-lg bg-white/25 backdrop-blur border border-white/50 text-white placeholder-white/80 focus:outline-none focus:bg-white/35 focus:border-white/80 focus:ring-2 focus:ring-white/40 transition"
                   />
                 </div>
               )}
