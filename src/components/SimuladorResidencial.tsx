@@ -26,6 +26,9 @@ export interface SimuladorProps {
   /** Valor da parcela na condição padrão (default 1.000) — usado pra inferir a taxa Price */
   valorParcelaPadrao?: number;
 
+  /** Atalhos de entrada mostrados como botões. Vazio = degraus padrão. */
+  entradasSugeridas?: number[];
+
   /** Preço do lote comercial (default 300.000) */
   precoComercial?: number;
 
@@ -80,6 +83,7 @@ export function SimuladorResidencial({
   entradaMinima = 5000,
   parcelas = 60,
   valorParcelaPadrao = 1000,
+  entradasSugeridas,
   precoComercial = 300000,
   corPrimaria = '#0ea5e9',
   whatsapp = '',
@@ -358,13 +362,22 @@ export function SimuladorResidencial({
 
               {/* Atalhos de entrada — escalam com a qtd de lotes */}
               <div className="grid grid-cols-4 gap-1.5 mt-4">
-                {[
-                  entradaMinimaTotal,
-                  10000 * qtdLotes,
-                  20000 * qtdLotes,
-                  30000 * qtdLotes,
-                ]
+                {/* Atalhos configurados pela loteadora; sem eles, os degraus
+                    fixos de antes. Num lote de 50 mil com entrada mínima de
+                    1 mil, saltar direto para 10 mil pula a faixa que mais
+                    interessa a quem está simulando. */}
+                {(entradasSugeridas?.length
+                  ? [entradaMinimaTotal, ...entradasSugeridas.map((v) => v * qtdLotes)]
+                  : [
+                      entradaMinimaTotal,
+                      10000 * qtdLotes,
+                      20000 * qtdLotes,
+                      30000 * qtdLotes,
+                    ]
+                )
+                  .filter((v, i, arr) => arr.indexOf(v) === i)
                   .filter((v) => v >= entradaMinimaTotal && v <= entradaMaxima)
+                  .slice(0, 4)
                   .map((v) => (
                     <button
                       key={v}

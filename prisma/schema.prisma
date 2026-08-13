@@ -360,6 +360,29 @@ model Loteamento {
   permiteFinanciamento Boolean @default(true)
   maxParcelas          Int     @default(120)
 
+  // ===================================================================
+  // SIMULADOR PÚBLICO
+  // -------------------------------------------------------------------
+  // Até aqui esses números viviam como padrão fixo no componente
+  // (55.000 / 5.000 / 60x / 1.000) e valiam para todo mundo — cada
+  // loteadora via o preço de um empreendimento que não era o dela.
+  //
+  // Todos opcionais: NULL mantém o padrão anterior, então nenhum
+  // loteamento muda de comportamento até alguém configurar.
+  //
+  // A dupla simPrecoResidencial + simValorParcela define a CONDIÇÃO DE
+  // REFERÊNCIA, e é dela que o simulador deduz a taxa de juros embutida.
+  // Mudar uma sem pensar na outra muda o juro de todas as simulações.
+  // ===================================================================
+  simPrecoResidencial Decimal? @db.Decimal(12, 2)
+  simPrecoComercial   Decimal? @db.Decimal(12, 2)
+  simEntradaMinima    Decimal? @db.Decimal(12, 2)
+  simParcelas         Int?
+  simValorParcela     Decimal? @db.Decimal(12, 2)
+  /// Atalhos de entrada mostrados como botões. Ex.: [5000, 10000, 20000].
+  /// Vazio = o simulador calcula sozinho a partir da entrada mínima.
+  simEntradasSugeridas Json?
+
   // Pipeline de leads ativo (sobrescreve o da loteadora se setado)
   pipelineId String?
   pipeline   PipelineLead? @relation(fields: [pipelineId], references: [id])
