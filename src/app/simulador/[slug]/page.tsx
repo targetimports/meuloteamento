@@ -3,55 +3,9 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { SimuladorResidencial } from '@/components/SimuladorResidencial';
+import { paramsSimulador } from '@/lib/simulador-params';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Converte os parâmetros configurados em props do simulador.
- *
- * Só entrega o que está preenchido: campo nulo é omitido do objeto, e o
- * componente aplica o próprio padrão. Passar `undefined` explicitamente
- * também funcionaria, mas omitir deixa claro que "não configurado" e "zero"
- * são coisas diferentes — um lote não custa R$ 0.
- */
-function paramsSimulador(l: {
-  simPrecoResidencial: unknown;
-  simPrecoComercial: unknown;
-  simEntradaMinima: unknown;
-  simParcelas: number | null;
-  simValorParcela: unknown;
-  simEntradasSugeridas: unknown;
-  simuladorTipos?: unknown[];
-}) {
-  const n = (v: unknown) => (v === null || v === undefined ? undefined : Number(v));
-  return {
-    tiposLote: (l as { simuladorTipos?: unknown[] }).simuladorTipos?.map((t) => {
-      const x = t as Record<string, unknown>;
-      return {
-        id: String(x.id),
-        nome: String(x.nome),
-        descricao: (x.descricao as string | null) ?? null,
-        preco: Number(x.preco),
-        entradaMinima: Number(x.entradaMinima),
-        parcelas: Number(x.parcelas),
-        valorParcela: Number(x.valorParcela),
-        entradasSugeridas: Array.isArray(x.entradasSugeridas)
-          ? (x.entradasSugeridas as number[])
-          : null,
-        simulavel: Boolean(x.simulavel),
-        ativo: Boolean(x.ativo),
-      };
-    }),
-    precoResidencial: n(l.simPrecoResidencial),
-    precoComercial: n(l.simPrecoComercial),
-    entradaMinima: n(l.simEntradaMinima),
-    parcelas: l.simParcelas ?? undefined,
-    valorParcelaPadrao: n(l.simValorParcela),
-    entradasSugeridas: Array.isArray(l.simEntradasSugeridas)
-      ? (l.simEntradasSugeridas as number[])
-      : undefined,
-  };
-}
 
 interface Props {
   params: { slug: string };

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
+import { paramsSimulador } from '@/lib/simulador-params';
 import { LeadFormPublic } from '@/components/LeadFormPublic';
 import {
   StatsBar,
@@ -157,6 +158,12 @@ async function getLoteamento(slug: string) {
     where: { slug },
     include: {
       loteadora: true,
+      // Sem isto os tipos nao chegam ao componente e a landing segue
+      // mostrando os valores padrao — foi exatamente o que aconteceu.
+      simuladorTipos: {
+        where: { ativo: true },
+        orderBy: [{ ordem: "asc" }, { createdAt: "asc" }],
+      },
       lotes: {
         orderBy: [{ quadra: 'asc' }, { numero: 'asc' }],
       },
@@ -996,6 +1003,7 @@ export default async function LoteamentoPublicPage({ params }: PageProps) {
       {/* ============ SIMULADOR DE FINANCIAMENTO (antes dos lotes) ============ */}
       <section id="simulador" className="scroll-mt-20">
         <SimuladorResidencial
+          {...paramsSimulador(loteamento)}
           corPrimaria={corPrimaria}
           whatsapp={whatsappPhone}
           loteamentoNome={loteamento.nome}
