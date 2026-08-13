@@ -174,6 +174,32 @@ export async function whereLoteadora(): Promise<{ loteadoraId?: string }> {
   return session.loteadoraId ? { loteadoraId: session.loteadoraId } : {};
 }
 
+/**
+ * Filtro de clientes por loteadora.
+ *
+ * `Cliente` é uma tabela GLOBAL: não tem `loteadoraId`, porque email e CPF são
+ * únicos no sistema inteiro — a mesma pessoa não é cadastrada duas vezes por
+ * comprar de duas empresas. O vínculo com a empresa existe só através das
+ * vendas e reservas dela, e é por isso que o filtro é uma relação, não uma
+ * coluna.
+ *
+ * Mora aqui, e não copiado em cada tela, porque a expressão já tinha sido
+ * escrita certa em um lugar e esquecida em quatro outros: a empresa nova abria
+ * "Nova venda" e via os compradores da empresa antiga.
+ *
+ * Síncrona de propósito — quem chama já tem o `tid` em mãos e às vezes é um
+ * route handler, onde não cabe outro `await` de sessão.
+ */
+export function whereClienteDaLoteadora(tid: string | null) {
+  if (!tid) return {};
+  return {
+    OR: [
+      { vendas: { some: { lote: { loteamento: { loteadoraId: tid } } } } },
+      { reservas: { some: { lote: { loteamento: { loteadoraId: tid } } } } },
+    ],
+  };
+}
+
 export async function loteadoraAlvoId(): Promise<string | null> {
   const session = await requireAdmin();
   if (session.loteadoraId) return session.loteadoraId;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { whereClienteDaLoteadora } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,13 @@ export async function GET(request: Request) {
   if (q.length < 2) return NextResponse.json({ groups: [] });
 
   const tid = session.loteadoraId;
-  const onlyTenant = (cond: object) => (tid ? { ...cond, ...{ loteadoraId: tid } } : cond);
+  // Cliente não tem `loteadoraId` — o filtro anterior injetava essa coluna aqui
+  // e o Prisma recusava a query inteira, derrubando a busca global para todo
+  // admin de empresa. O vínculo do cliente com a empresa é por venda/reserva.
+  // AND, não spread: os dois lados usam `OR` (os campos da busca e o vínculo
+  // com a empresa) e um espalhado por cima do outro apagaria o primeiro.
+  const onlyTenantCliente = (cond: object) =>
+    tid ? { AND: [cond, whereClienteDaLoteadora(tid)] } : cond;
   const onlyTenantLoteamento = (cond: object) =>
     tid ? { ...cond, lote: { loteamento: { loteadoraId: tid } } } : cond;
   const onlyTenantLote = (cond: object) =>
@@ -25,7 +32,7 @@ export async function GET(request: Request) {
 
   const [clientes, lotes, vendas, leads] = await Promise.all([
     prisma.cliente.findMany({
-      where: onlyTenant({
+      where: onlyTenantCliente({
         OR: [
           { nome: { contains: q, mode: 'insensitive' } },
           { cpfCnpj: { contains: q } },

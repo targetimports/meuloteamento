@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { tenantId } from '@/lib/tenant';
+import { tenantId, whereClienteDaLoteadora } from '@/lib/tenant';
 import { formatBRL, formatCpfCnpj, formatPhone, formatDateTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -17,14 +17,7 @@ export default async function ClientesPage({
   const tid = await tenantId();
   const q = (searchParams.q ?? '').trim();
 
-  const tenantWhere = tid
-    ? {
-        OR: [
-          { vendas: { some: { lote: { loteamento: { loteadoraId: tid } } } } },
-          { reservas: { some: { lote: { loteamento: { loteadoraId: tid } } } } },
-        ],
-      }
-    : {};
+  const tenantWhere = whereClienteDaLoteadora(tid);
 
   const searchWhere = q
     ? {

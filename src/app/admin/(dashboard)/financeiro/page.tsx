@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { tenantId } from '@/lib/tenant';
+import { tenantId, whereClienteDaLoteadora } from '@/lib/tenant';
 import { formatBRL, formatDate } from '@/lib/format';
 import { ParcelaActionButton } from '@/components/ParcelaActionButton';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
@@ -132,6 +132,7 @@ export default async function FinanceiroPage({
   // Dados para modal "Nova cobrança PIX"
   const [clientesAtivos, lotesDisponiveis, loteadoras] = await Promise.all([
     prisma.cliente.findMany({
+      where: whereClienteDaLoteadora(tid2),
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true, cpfCnpj: true, telefone: true, email: true },
       take: 500,

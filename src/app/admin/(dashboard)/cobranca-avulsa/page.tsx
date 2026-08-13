@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { tenantId } from '@/lib/tenant';
+import { tenantId, whereClienteDaLoteadora } from '@/lib/tenant';
 import { CobrancaPixRapida } from '@/components/CobrancaPixRapida';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,7 @@ export default async function CobrancaAvulsaPage() {
 
   const [clientesAtivos, lotesDisponiveis, loteadoras, avulsas] = await Promise.all([
     prisma.cliente.findMany({
+      where: whereClienteDaLoteadora(tid),
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true, cpfCnpj: true, telefone: true, email: true },
       take: 500,

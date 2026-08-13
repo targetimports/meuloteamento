@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { canAccessLoteadora, tenantId } from '@/lib/tenant';
+import { canAccessLoteadora, tenantId, whereClienteDaLoteadora } from '@/lib/tenant';
 import { VendaForm, type PrefillCliente } from '@/components/VendaForm';
 import { criarVenda } from './actions';
 
@@ -38,6 +38,7 @@ export default async function NovaVendaPage({
       },
     }),
     prisma.cliente.findMany({
+      where: whereClienteDaLoteadora(tid),
       orderBy: { createdAt: 'desc' },
       take: 100,
       select: { id: true, nome: true, email: true, cpfCnpj: true, telefone: true },

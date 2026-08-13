@@ -79,7 +79,16 @@ export function VendaForm({
   const [clienteId, setClienteId] = useState(clienteExistenteId ?? '');
   const [valorTotal, setValorTotal] = useState(0);
   const [valorTotalManual, setValorTotalManual] = useState(false);
-  const [valorEntrada, setValorEntrada] = useState(0);
+  /**
+   * O input da entrada guarda TEXTO, não número, para poder ficar vazio.
+   *
+   * Com estado numérico, apagar o campo virava `Number('')` === 0 e o zero
+   * reaparecia sob o cursor — não dava para limpar e digitar outro valor sem
+   * apagar por cima. O número continua sendo derivado daqui, então o resto do
+   * formulário (total restante, prévia, regra de venda sem entrada) não muda.
+   */
+  const [entradaTexto, setEntradaTexto] = useState('0');
+  const valorEntrada = Number(entradaTexto) || 0;
   const [numeroParcelas, setNumeroParcelas] = useState(60);
   /**
    * Data específica da PRIMEIRA parcela mensal.
@@ -526,15 +535,15 @@ export function VendaForm({
                 type="number"
                 step="0.01"
                 min="0"
-                value={valorEntrada}
-                onChange={(e) => setValorEntrada(Number(e.target.value))}
+                value={entradaTexto}
+                onChange={(e) => setEntradaTexto(e.target.value)}
                 className={inputClass}
               />
               {/* Atalho — admin: zerar entrada */}
               <div className="flex gap-1.5 mt-1.5">
                 <button
                   type="button"
-                  onClick={() => setValorEntrada(0)}
+                  onClick={() => setEntradaTexto('0')}
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                     valorEntrada === 0
                       ? 'bg-amber-200 text-amber-900'
@@ -547,7 +556,7 @@ export function VendaForm({
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setValorEntrada(v)}
+                    onClick={() => setEntradaTexto(String(v))}
                     className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                       valorEntrada === v
                         ? 'bg-primary-200 text-primary-900'
@@ -561,16 +570,16 @@ export function VendaForm({
             </Field>
             <Field
               label="Número de parcelas"
-              hint="Máximo permitido: 65 parcelas."
+              hint="Máximo permitido: 72 parcelas."
             >
               <input
                 name="numeroParcelas"
                 type="number"
                 min="1"
-                max="65"
+                max="72"
                 value={numeroParcelas}
                 onChange={(e) =>
-                  setNumeroParcelas(Math.min(65, Math.max(1, Number(e.target.value))))
+                  setNumeroParcelas(Math.min(72, Math.max(1, Number(e.target.value))))
                 }
                 className={inputClass}
               />

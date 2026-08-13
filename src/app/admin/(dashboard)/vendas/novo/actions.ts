@@ -60,11 +60,14 @@ const schema = z.object({
   valorTotal: z.coerce.number().positive('Valor total deve ser positivo'),
   valorEntrada: z.coerce.number().min(0).default(0),
   /**
-   * Limite máximo: 65 parcelas (corte exclusivo do admin).
+   * Limite máximo: 72 parcelas.
    * Valor padrão: 60 (regra de tabela do Parque Tucano).
-   * Cliente público no simulador também é limitado a 60 — só o admin chega a 65.
+   *
+   * Era 65 desde que só existia a tabela do Parque Tucano. O Alto do Sertão
+   * vende em 72x, e o corte antigo recusava a venda no envio mesmo com o
+   * simulador público já oferecendo o prazo.
    */
-  numeroParcelas: z.coerce.number().int().min(1).max(65).default(60),
+  numeroParcelas: z.coerce.number().int().min(1).max(72).default(60),
   diaVencimento: z.coerce.number().int().min(1).max(28).default(10),
   /**
    * Data específica da PRIMEIRA parcela mensal (não a entrada).
