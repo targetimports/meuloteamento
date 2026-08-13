@@ -26,6 +26,19 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
     orderBy: [{ quadra: 'asc' }, { numero: 'asc' }],
   });
 
+  /**
+   * Tipos do simulador viram opções de preço nos formulários. Empresa que não
+   * cadastrou nenhum recebe lista vazia e os formulários ficam como sempre
+   * foram — o preço segue digitado à mão.
+   */
+  const tipos = (
+    await prisma.simuladorTipoLote.findMany({
+      where: { loteamentoId: loteamento.id, ativo: true },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, nome: true, preco: true },
+    })
+  ).map((t) => ({ id: t.id, nome: t.nome, preco: Number(t.preco) }));
+
   const criarAction = criarLote.bind(null, loteamento.id);
   const bulkAction = criarLotesEmMassa.bind(null, loteamento.id);
 
@@ -48,8 +61,8 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
         <p className="text-sm text-slate-500">{lotes.length} lote(s) cadastrado(s)</p>
       </div>
 
-      <NovosLotesEmMassaForm action={bulkAction} />
-      <NovoLoteForm action={criarAction} />
+      <NovosLotesEmMassaForm action={bulkAction} tipos={tipos} />
+      <NovoLoteForm action={criarAction} tipos={tipos} />
 
       {/* Listagem agrupada por quadra */}
       {Object.entries(porQuadra).map(([quadra, items]) => (
@@ -86,6 +99,7 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
                   <EditarLoteForm
+                    tipos={tipos}
                     loteId={lote.id}
                     initial={{
                       area: Number(lote.area),

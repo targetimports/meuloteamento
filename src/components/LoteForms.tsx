@@ -1,8 +1,98 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
 type FormState = { error?: string; ok?: boolean; criados?: number };
+
+/**
+ * Tipo de lote cadastrado no simulador — vira opção de preço aqui.
+ *
+ * Digitar o preço à mão em 200 lotes é onde o erro aparece: basta um zero a
+ * mais e a parcela que o site anuncia deixa de bater com a do lote. Escolhendo
+ * o tipo, o preço vem do mesmo lugar que alimenta o simulador e a venda.
+ *
+ * Ausente ou vazio para empresa que não cadastrou tipos, e aí o formulário
+ * fica igual ao que sempre foi.
+ */
+export interface TipoLoteUI {
+  id: string;
+  nome: string;
+  preco: number;
+}
+
+const brl = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+/** Estado compartilhado pelos três formulários: o tipo escolhido manda no preço. */
+function usePrecoPorTipo(tipos: TipoLoteUI[] | undefined, precoInicial?: number) {
+  const [tipoId, setTipoId] = useState('');
+  const [preco, setPreco] = useState(precoInicial === undefined ? '' : String(precoInicial));
+  const lista = tipos ?? [];
+  const tipo = lista.find((t) => t.id === tipoId) ?? null;
+
+  useEffect(() => {
+    if (tipo) setPreco(String(tipo.preco));
+  }, [tipo]);
+
+  return { lista, tipo, tipoId, setTipoId, preco, setPreco };
+}
+
+function SelectTipo({
+  lista,
+  tipoId,
+  setTipoId,
+}: {
+  lista: TipoLoteUI[];
+  tipoId: string;
+  setTipoId: (v: string) => void;
+}) {
+  if (lista.length === 0) return null;
+  return (
+    <div className="mb-3">
+      <label className="block text-xs font-medium text-slate-700 mb-1">Tipo de lote</label>
+      <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className={inputClass}>
+        <option value="">— Preço livre —</option>
+        {lista.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.nome} — {brl(t.preco)}
+          </option>
+        ))}
+      </select>
+      <p className="text-[11px] text-slate-400 mt-1">
+        Escolher um tipo preenche o preço com o valor cadastrado no simulador, para o
+        lote não sair de um valor que o site não anuncia.
+      </p>
+    </div>
+  );
+}
+
+/** Preço travado sob um tipo: digitar aqui contradiria a opção escolhida. */
+function InputPreco({
+  preco,
+  setPreco,
+  travado,
+  obrigatorio = true,
+}: {
+  preco: string;
+  setPreco: (v: string) => void;
+  travado: boolean;
+  obrigatorio?: boolean;
+}) {
+  return (
+    <input
+      name="preco"
+      type="number"
+      step="0.01"
+      required={obrigatorio}
+      value={preco}
+      onChange={(e) => setPreco(e.target.value)}
+      readOnly={travado}
+      className={`${inputClass} ${travado ? 'bg-slate-50 text-slate-600' : ''}`}
+      placeholder="120000.00"
+    />
+  );
+}
 
 function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel?: string }) {
   const { pending } = useFormStatus();
@@ -26,10 +116,13 @@ const inputClass =
 
 export function NovoLoteForm({
   action,
+  tipos,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
+  tipos?: TipoLoteUI[];
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
+  const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(tipos);
 
   return (
     <form action={formAction} className="bg-white border border-slate-200 rounded-xl p-5">
@@ -46,6 +139,8 @@ export function NovoLoteForm({
         </div>
       )}
 
+      <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Quadra *</label>
@@ -61,7 +156,7 @@ export function NovoLoteForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Preço (R$) *</label>
-          <input name="preco" type="number" step="0.01" required className={inputClass} placeholder="120000.00" />
+          <InputPreco preco={preco} setPreco={setPreco} travado={Boolean(tipo)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Testada (m)</label>
@@ -112,10 +207,13 @@ export function NovoLoteForm({
 
 export function NovosLotesEmMassaForm({
   action,
+  tipos,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
+  tipos?: TipoLoteUI[];
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
+  const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(tipos);
 
   return (
     <form action={formAction} className="bg-white border border-slate-200 rounded-xl p-5">
@@ -134,6 +232,8 @@ export function NovosLotesEmMassaForm({
           {state.criados} lote(s) criado(s).
         </div>
       )}
+
+      <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
         <div>
@@ -154,7 +254,7 @@ export function NovosLotesEmMassaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Preço (R$) *</label>
-          <input name="preco" type="number" step="0.01" required className={inputClass} placeholder="120000.00" />
+          <InputPreco preco={preco} setPreco={setPreco} travado={Boolean(tipo)} />
         </div>
       </div>
 
@@ -187,8 +287,13 @@ export function EditarLoteForm({
   };
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   onDelete: () => Promise<void>;
+  tipos?: TipoLoteUI[];
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
+  const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(
+    tipos,
+    initial.preco
+  );
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5">
@@ -204,6 +309,8 @@ export function EditarLoteForm({
           </div>
         )}
 
+        <SelectTipo lista={lista} tipoId={tipoId} setTipoId={setTipoId} />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">Área (m²)</label>
@@ -211,7 +318,7 @@ export function EditarLoteForm({
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">Preço (R$)</label>
-            <input name="preco" type="number" step="0.01" defaultValue={initial.preco} required className={inputClass} />
+            <InputPreco preco={preco} setPreco={setPreco} travado={Boolean(tipo)} />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
