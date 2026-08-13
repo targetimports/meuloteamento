@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { tenantId, loteadoraAlvoId } from '@/lib/tenant';
-import { evolutionConfigured } from '@/lib/evolution';
+import { evolutionConfigured, getConnectionState, instanceNameForLoteadora } from '@/lib/evolution';
 import WhatsAppConnectCard from '@/components/WhatsAppConnectCard';
 import CobrancaScheduleCard from '@/components/CobrancaScheduleCard';
 
@@ -22,6 +22,7 @@ export default async function EnviosPage({
         select: {
           id: true,
           whatsappProvider: true,
+          whatsappInstance: true,
           whatsapp: true,
           reguaCobranca: {
             select: {
@@ -33,6 +34,43 @@ export default async function EnviosPage({
         },
       })
     : null;
+
+  /**
+   * ESTADO REAL DA CONEXÃO, consultado na Evolution.
+   *
+   * Antes o card recebia `whatsappProvider === 'evolution'`, que só diz que o
+   * WhatsApp foi configurado um dia — e continua verdadeiro para sempre. Em
+   * 29/07/2026 a sessão caiu (código 401, derrubada pelo WhatsApp) e a tela
+   * seguiu exibindo "Conectado" por 14 dias, enquanto a régua acumulava falhas
+   * logo abaixo. Ninguém percebeu porque o topo da página afirmava que estava
+   * tudo bem.
+   *
+   * Falha de rede ou Evolution fora do ar NÃO derruba a página: cai no catch e
+   * o card mostra desconectado, que é a leitura segura — pior seria dizer
+   * "conectado" sem ter como confirmar.
+   */
+  let whatsappConectado = false;
+  let numeroConectado: string | null = null;
+
+  if (loteadora && evolutionConfigured()) {
+    try {
+      // Teto de 4s. evoFetch não tem timeout próprio, e outras chamadas dele
+      // (parear, criar instância) legitimamente demoram — então o limite fica
+      // aqui, e não no lib, para não encurtar o que precisa de tempo.
+      // Sem isso, uma Evolution pendurada travaria a tela de envios inteira:
+      // trocaríamos um status errado por uma página que não abre.
+      const info = await Promise.race([
+        getConnectionState(
+          instanceNameForLoteadora(loteadora.id, loteadora.whatsappInstance)
+        ),
+        new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+      ]);
+      whatsappConectado = info?.state === 'open';
+      numeroConectado = info?.number ?? null;
+    } catch {
+      whatsappConectado = false;
+    }
+  }
 
   const passos = loteadora?.reguaCobranca?.passos ?? [];
   const diasAntes = passos
@@ -68,8 +106,10 @@ export default async function EnviosPage({
         <>
           <WhatsAppConnectCard
             loteadoraId={loteadora.id}
-            connected={loteadora.whatsappProvider === 'evolution'}
-            number={loteadora.whatsapp ?? null}
+            connected={whatsappConectado}
+            // Número que a Evolution reporta quando a sessão está viva; o do
+            // cadastro serve de reserva, mas só quando há conexão de fato.
+            number={numeroConectado ?? (whatsappConectado ? loteadora.whatsapp : null)}
             configured={evolutionConfigured()}
             cobrancaAtiva={loteadora.reguaCobranca?.ativa ?? false}
           />
