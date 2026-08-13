@@ -19,7 +19,7 @@ export default async function NovaVendaPage({
   const tenantWhereLote = tid ? { loteamento: { loteadoraId: tid } } : {};
   const tenantWhereCorretor = tid ? { loteadoraId: tid } : {};
 
-  const [lotes, clientes, corretores, contas] = await Promise.all([
+  const [lotes, clientes, corretores, contas, condicoes] = await Promise.all([
     prisma.lote.findMany({
       where: {
         ...tenantWhereLote,
@@ -34,6 +34,7 @@ export default async function NovaVendaPage({
         preco: true,
         status: true,
         tipo: true,
+        loteamentoId: true,
         loteamento: { select: { nome: true } },
       },
     }),
@@ -52,6 +53,32 @@ export default async function NovaVendaPage({
       where: tid ? { loteadoraId: tid, ativa: true } : { ativa: true },
       orderBy: [{ ordem: 'asc' }, { nome: 'asc' }],
       select: { id: true, nome: true, tipo: true },
+    }),
+    /**
+     * Condições de venda = os tipos de lote que a empresa cadastrou no
+     * simulador. Servem para o admin escolher a condição pronta em vez de
+     * digitar total, entrada e prazo à mão.
+     *
+     * Empresa que não cadastrou nenhum tipo recebe lista vazia, e o formulário
+     * fica exatamente como era — é o caso do Grupo Germanos hoje.
+     */
+    prisma.simuladorTipoLote.findMany({
+      where: {
+        ativo: true,
+        simulavel: true,
+        loteamento: { ...(tid ? { loteadoraId: tid } : {}) },
+      },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        nome: true,
+        descricao: true,
+        preco: true,
+        entradaMinima: true,
+        parcelas: true,
+        valorParcela: true,
+        loteamentoId: true,
+      },
     }),
   ]);
 
@@ -119,7 +146,18 @@ export default async function NovaVendaPage({
             preco: Number(l.preco),
             status: l.status,
             tipo: l.tipo,
+            loteamentoId: l.loteamentoId,
             loteamentoNome: l.loteamento.nome,
+          }))}
+          condicoes={condicoes.map((c) => ({
+            id: c.id,
+            nome: c.nome,
+            descricao: c.descricao,
+            preco: Number(c.preco),
+            entradaMinima: Number(c.entradaMinima),
+            parcelas: c.parcelas,
+            valorParcela: Number(c.valorParcela),
+            loteamentoId: c.loteamentoId,
           }))}
           clientes={clientes}
           corretores={corretores.map((c) => ({

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useFormState } from 'react-dom';
 import { Field, Section, SubmitButton, ErrorBox, inputClass } from './ui';
-import { descobrirTaxaPrice } from '@/lib/price';
+import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 
 interface LoteOption {
   id: string;
@@ -12,7 +12,26 @@ interface LoteOption {
   area: number;
   status: string;
   tipo: 'RESIDENCIAL' | 'COMERCIAL';
+  loteamentoId: string;
   loteamentoNome: string;
+}
+
+/**
+ * Condição de venda pronta — vem dos tipos de lote do simulador.
+ *
+ * Escolher uma preenche total, entrada e prazo com a mesma matemática que o
+ * cliente viu na landing, em vez de deixar o admin digitar os três e torcer
+ * para que batam.
+ */
+export interface CondicaoOption {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  entradaMinima: number;
+  parcelas: number;
+  valorParcela: number;
+  loteamentoId: string;
 }
 
 interface ClienteOption {
@@ -46,6 +65,11 @@ export interface PrefillCliente {
 
 interface VendaFormProps {
   lotes: LoteOption[];
+  /**
+   * Vazio para empresa que não cadastrou tipos no simulador — e aí o
+   * formulário se comporta exatamente como antes, sem bloco nenhum a mais.
+   */
+  condicoes?: CondicaoOption[];
   clientes: ClienteOption[];
   corretores: CorretorOption[];
   contas: ContaOption[];
@@ -61,6 +85,7 @@ type FormState = { error?: string; ok?: boolean };
 
 export function VendaForm({
   lotes,
+  condicoes,
   clientes,
   corretores,
   contas,
@@ -91,6 +116,8 @@ export function VendaForm({
   const [entradaTexto, setEntradaTexto] = useState('0');
   const valorEntrada = Number(entradaTexto) || 0;
   const [numeroParcelas, setNumeroParcelas] = useState(60);
+  /** Condição de venda escolhida; vazio = preenchimento manual. */
+  const [condicaoId, setCondicaoId] = useState('');
   /**
    * Data específica da PRIMEIRA parcela mensal.
    * O dia do mês dela vira o dia-âncora de TODAS as demais (parcela N vence
@@ -193,6 +220,69 @@ export function VendaForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [somaPrecosLotes]);
+
+  // ===== Condições de venda vindas do simulador =====
+  /**
+   * Só para venda de UM lote. Com vários, cada um poderia ter tipo e preço
+   * diferentes, e não há resposta única para "qual condição vale" — melhor
+   * cair no preenchimento manual do que somar coisas que não se somam.
+   */
+  const condicoesDoLote = useMemo(() => {
+    if (!lote || isMultiLote) return [];
+    return (condicoes ?? []).filter((c) => c.loteamentoId === lote.loteamentoId);
+  }, [condicoes, lote, isMultiLote]);
+
+  const condicao = useMemo(
+    () => condicoesDoLote.find((c) => c.id === condicaoId) ?? null,
+    [condicoesDoLote, condicaoId]
+  );
+
+  /** Taxa que a condição embute — é ela que vale se a entrada mudar. */
+  const taxaDaCondicao = useMemo(
+    () =>
+      condicao
+        ? descobrirTaxaPrice(
+            condicao.preco - condicao.entradaMinima,
+            condicao.valorParcela,
+            condicao.parcelas
+          )
+        : 0,
+    [condicao]
+  );
+
+  // Trocar de lote reposiciona a condição. Quando existe exatamente uma com o
+  // preço do lote, ela já vem escolhida — é o caso comum e evita o erro de
+  // deixar o total no preço à vista.
+  useEffect(() => {
+    if (!condicoesDoLote.length) {
+      setCondicaoId('');
+      return;
+    }
+    const mesmoPreco = condicoesDoLote.filter((c) => c.preco === lote?.preco);
+    setCondicaoId(mesmoPreco.length === 1 ? mesmoPreco[0].id : '');
+  }, [condicoesDoLote, lote?.preco]);
+
+  // Escolher uma condição traz entrada mínima e prazo dela.
+  useEffect(() => {
+    if (!condicao) return;
+    setEntradaTexto(String(condicao.entradaMinima));
+    setNumeroParcelas(condicao.parcelas);
+    setValorTotalManual(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condicao?.id]);
+
+  /**
+   * Com condição ativa, o total é DERIVADO: entrada mais a soma das parcelas.
+   *
+   * Entrada maior abate juros pelo Price, exatamente como no simulador — não
+   * apenas divide o saldo por um número diferente.
+   */
+  useEffect(() => {
+    if (!condicao) return;
+    const saldo = Math.max(0, condicao.preco - valorEntrada);
+    const parcela = Math.round(pmtPrice(saldo, taxaDaCondicao, numeroParcelas) * 100) / 100;
+    setValorTotal(Math.round((valorEntrada + parcela * numeroParcelas) * 100) / 100);
+  }, [condicao, taxaDaCondicao, valorEntrada, numeroParcelas]);
 
   // Atualiza comissão sugerida quando muda corretor
   const corretor = useMemo(() => corretores.find((c) => c.id === corretorId), [corretores, corretorId]);
@@ -501,17 +591,50 @@ export function VendaForm({
           </Field>
         )}
 
+        {condicoesDoLote.length > 0 && (
+          <Field
+            label="Condição de venda"
+            wide
+            hint="Condições cadastradas no simulador deste loteamento. Escolher uma preenche total, entrada e prazo com os mesmos números que o cliente vê no site."
+          >
+            <select
+              value={condicaoId}
+              onChange={(e) => setCondicaoId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">— Preencher manualmente —</option>
+              {condicoesDoLote.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome} — {formatBRL(c.preco)} · entrada {formatBRL(c.entradaMinima)} ·{' '}
+                  {c.parcelas}x de {formatBRL(c.valorParcela)}
+                </option>
+              ))}
+            </select>
+            {condicao && condicao.preco !== lote?.preco && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
+                A condição vale para lote de {formatBRL(condicao.preco)}, e este lote está
+                cadastrado por {formatBRL(lote?.preco ?? 0)}. O cálculo usa o valor da
+                condição — confira se é isso mesmo.
+              </p>
+            )}
+          </Field>
+        )}
+
         <Field
           label="Valor total"
           required
           hint={
-            isMultiLote && !valorTotalManual
+            condicao
+              ? `Calculado pela condição "${condicao.nome}": entrada mais a soma das parcelas. Para digitar à mão, volte para "Preencher manualmente".`
+              : isMultiLote && !valorTotalManual
               ? `Auto-calculado: soma dos ${lotesSelecionados.length} lotes (R$ ${somaPrecosLotes.toFixed(2)})`
               : isMultiLote && valorTotalManual
                 ? `⚠ valor editado manualmente — soma dos lotes é R$ ${somaPrecosLotes.toFixed(2)}`
                 : undefined
           }
         >
+          {/* Somente leitura sob uma condição: o valor é derivado dela, e um
+              número digitado aqui seria sobrescrito no próximo cálculo. */}
           <input
             name="valorTotal"
             type="number"
@@ -522,8 +645,9 @@ export function VendaForm({
               setValorTotal(Number(e.target.value));
               setValorTotalManual(true);
             }}
+            readOnly={Boolean(condicao)}
             required
-            className={inputClass}
+            className={`${inputClass} ${condicao ? 'bg-slate-50 text-slate-600' : ''}`}
           />
           {isMultiLote && valorTotalManual && (
             <button
@@ -546,6 +670,10 @@ export function VendaForm({
               hint={
                 valorEntrada === 0
                   ? '⚠ Venda SEM entrada — todo o valor será diluído nas parcelas.'
+                  : condicao && valorEntrada < condicao.entradaMinima
+                  ? `⚠ Abaixo da entrada mínima da condição (${formatBRL(condicao.entradaMinima)}).`
+                  : condicao
+                  ? `Entrada maior abate juros e reduz a parcela, como no simulador. Mínima: ${formatBRL(condicao.entradaMinima)}.`
                   : undefined
               }
             >
@@ -589,16 +717,25 @@ export function VendaForm({
             </Field>
             <Field
               label="Número de parcelas"
-              hint="Máximo permitido: 72 parcelas."
+              hint={
+                condicao
+                  ? `Prazo máximo desta condição: ${condicao.parcelas} parcelas.`
+                  : 'Máximo permitido: 72 parcelas.'
+              }
             >
               <input
                 name="numeroParcelas"
                 type="number"
                 min="1"
-                max="72"
+                max={condicao ? condicao.parcelas : 72}
                 value={numeroParcelas}
                 onChange={(e) =>
-                  setNumeroParcelas(Math.min(72, Math.max(1, Number(e.target.value))))
+                  setNumeroParcelas(
+                    Math.min(
+                      condicao ? condicao.parcelas : 72,
+                      Math.max(1, Number(e.target.value))
+                    )
+                  )
                 }
                 className={inputClass}
               />
