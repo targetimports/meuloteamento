@@ -12,6 +12,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, canAccessLoteamento } from '@/lib/tenant';
+import type { LoteTipo } from '@prisma/client';
 
 export interface EstadoTipo {
   ok?: boolean;
@@ -104,7 +105,7 @@ export async function salvarTipoLote(
   // Em branco continua nulo: sem categoria o lote fica no default do banco,
   // que é o comportamento de quem nunca preencheu isso.
   const categoriaBruta = String(formData.get('categoria') ?? '').trim();
-  const categoria =
+  const categoria: LoteTipo | null =
     categoriaBruta === 'RESIDENCIAL' || categoriaBruta === 'COMERCIAL' ? categoriaBruta : null;
 
   const dados = {
