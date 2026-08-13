@@ -15,6 +15,7 @@ import {
   WhatsAppFloat,
   type LoteUI,
   type TabelaPrecoUI,
+  type CondicaoLoteUI,
 } from '@/components/loteamento-interactive';
 import {
   IconTrendingUp,
@@ -312,6 +313,22 @@ export default async function LoteamentoPublicPage({ params }: PageProps) {
     parcelasMin: t.parcelasMin,
     parcelasMax: t.parcelasMax,
   }));
+
+  /**
+   * Os mesmos tipos que alimentam o simulador principal, para o simulador do
+   * modal de lote responder igual. Vazio quando a loteadora não cadastrou
+   * nenhum — e aí o modal segue com as tabelas de preço, como sempre foi.
+   */
+  const condicoesUI: CondicaoLoteUI[] = loteamento.simuladorTipos
+    .filter((t) => t.simulavel)
+    .map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      preco: Number(t.preco),
+      entradaMinima: Number(t.entradaMinima),
+      parcelas: t.parcelas,
+      valorParcela: Number(t.valorParcela),
+    }));
 
   const documentos = (loteamento.documentos as { nome: string; url: string }[] | null) ?? [];
   const porqueInvestir = (loteamento.porqueInvestir as ItemConteudo[] | null) ?? [];
@@ -992,6 +1009,7 @@ export default async function LoteamentoPublicPage({ params }: PageProps) {
             imagemMapa={loteamento.imagemMapa}
             lotes={lotesUI}
             tabelas={tabelasUI}
+            condicoes={condicoesUI}
             loteamentoId={loteamento.id}
             loteamentoNome={loteamento.nome}
             loteamentoSlug={loteamento.slug}
@@ -1045,6 +1063,7 @@ export default async function LoteamentoPublicPage({ params }: PageProps) {
         <MapaInterativo
           lotes={lotesUI}
           tabelas={tabelasUI}
+          condicoes={condicoesUI}
           loteamentoId={loteamento.id}
           loteamentoNome={loteamento.nome}
           loteamentoSlug={loteamento.slug}

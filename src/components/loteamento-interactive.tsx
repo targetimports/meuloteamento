@@ -6,6 +6,7 @@ import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pa
 import { LeadFormPublic } from './LeadFormPublic';
 import { CheckoutFlow } from './CheckoutFlow';
 import { IconArrowRight, IconCheck, IconX } from './icons';
+import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 
 // =====================================================================
 // TIPOS COMPARTILHADOS
@@ -32,6 +33,26 @@ export interface LoteUI {
   mapaY: number | null;
   mapaLargura: number | null;
   mapaAltura: number | null;
+}
+
+/**
+ * Condição vinda dos tipos de lote do simulador.
+ *
+ * Existe para que o simulador do modal e o simulador principal da landing
+ * respondam a mesma coisa. Antes o do modal dividia o saldo pelo número de
+ * parcelas — sem juros —, então a mesma compra tinha dois preços na mesma
+ * página, dependendo de onde o visitante simulasse.
+ *
+ * Lista vazia mantém o comportamento antigo, com as tabelas de preço. É o caso
+ * de quem nunca cadastrou tipo nenhum.
+ */
+export interface CondicaoLoteUI {
+  id: string;
+  nome: string;
+  preco: number;
+  entradaMinima: number;
+  parcelas: number;
+  valorParcela: number;
 }
 
 export interface TabelaPrecoUI {
@@ -291,6 +312,7 @@ export function GalleryLightbox({ images }: { images: string[] }) {
 export function MapaInterativo({
   lotes,
   tabelas,
+  condicoes,
   loteamentoId,
   loteamentoNome,
   loteamentoSlug,
@@ -298,6 +320,7 @@ export function MapaInterativo({
 }: {
   lotes: LoteUI[];
   tabelas: TabelaPrecoUI[];
+  condicoes?: CondicaoLoteUI[];
   loteamentoId: string;
   loteamentoNome: string;
   loteamentoSlug: string;
@@ -508,6 +531,7 @@ export function MapaInterativo({
         <LoteModal
           lote={selected}
           tabelas={tabelas}
+          condicoes={condicoes}
           loteamentoId={loteamentoId}
           loteamentoNome={loteamentoNome}
           loteamentoSlug={loteamentoSlug}
@@ -566,6 +590,7 @@ export function MapaVisual({
   imagemMapa,
   lotes,
   tabelas,
+  condicoes,
   loteamentoId,
   loteamentoNome,
   loteamentoSlug,
@@ -575,6 +600,7 @@ export function MapaVisual({
   imagemMapa: string;
   lotes: LoteUI[];
   tabelas: TabelaPrecoUI[];
+  condicoes?: CondicaoLoteUI[];
   loteamentoId: string;
   loteamentoNome: string;
   loteamentoSlug: string;
@@ -926,6 +952,7 @@ export function MapaVisual({
         <LoteModal
           lote={selected}
           tabelas={tabelas}
+          condicoes={condicoes}
           loteamentoId={loteamentoId}
           loteamentoNome={loteamentoNome}
           loteamentoSlug={loteamentoSlug}
@@ -944,6 +971,7 @@ export function MapaVisual({
 function LoteModal({
   lote,
   tabelas,
+  condicoes,
   loteamentoId,
   loteamentoNome,
   loteamentoSlug,
@@ -952,6 +980,7 @@ function LoteModal({
 }: {
   lote: LoteUI;
   tabelas: TabelaPrecoUI[];
+  condicoes?: CondicaoLoteUI[];
   loteamentoId: string;
   loteamentoNome: string;
   loteamentoSlug: string;
@@ -1212,7 +1241,12 @@ function LoteModal({
           )}
 
           {tab === 'simulador' && (
-            <Simulador valorLote={lote.preco} tabelas={tabelas} corPrimaria={corPrimaria} />
+            <Simulador
+              valorLote={lote.preco}
+              tabelas={tabelas}
+              condicoes={condicoes}
+              corPrimaria={corPrimaria}
+            />
           )}
 
           {tab === 'reservar' && !indisponivel && (
@@ -1290,27 +1324,94 @@ function Info({ label, value, highlight }: { label: string; value: string; highl
 function Simulador({
   valorLote,
   tabelas,
+  condicoes,
   corPrimaria,
 }: {
   valorLote: number;
   tabelas: TabelaPrecoUI[];
+  condicoes?: CondicaoLoteUI[];
   corPrimaria: string;
 }) {
-  const [entradaPct, setEntradaPct] = useState(20);
-  const [parcelas, setParcelas] = useState(60);
-  const [tabelaId, setTabelaId] = useState<string>('');
+  /**
+   * Com tipos de lote cadastrados, este simulador passa a calcular pelo Price,
+   * na mesma taxa do simulador principal da página. Sem tipos, segue com as
+   * tabelas de preço e a divisão simples de antes — nada muda para quem nunca
+   * configurou o simulador.
+   */
+  const listaCondicoes = condicoes ?? [];
+  const usaCondicoes = listaCondicoes.length > 0;
 
+  // A condição do preço deste lote é a que faz sentido abrir; sem correspondência,
+  // a primeira da lista, que é a ordem definida pela loteadora.
+  const condicaoInicial =
+    listaCondicoes.find((c) => c.preco === valorLote) ?? listaCondicoes[0];
+
+  const [condicaoId, setCondicaoId] = useState<string>(condicaoInicial?.id ?? '');
+  const condicao = listaCondicoes.find((c) => c.id === condicaoId) ?? condicaoInicial;
+
+  const taxaCondicao = useMemo(
+    () =>
+      condicao
+        ? descobrirTaxaPrice(
+            condicao.preco - condicao.entradaMinima,
+            condicao.valorParcela,
+            condicao.parcelas
+          )
+        : 0,
+    [condicao]
+  );
+
+  const entradaMin = condicao ? Math.min(condicao.entradaMinima, valorLote - 1000) : 0;
+  const entradaMax = Math.max(entradaMin + 500, valorLote - 1000);
+
+  const [entradaReais, setEntradaReais] = useState(entradaMin);
+  const [entradaPct, setEntradaPct] = useState(20);
+  const [parcelas, setParcelas] = useState(condicao?.parcelas ?? 60);
+
+  // Trocar de condição muda entrada mínima e prazo; sem reposicionar, a entrada
+  // da anterior ficaria fora da faixa e o slider apareceria travado.
+  useEffect(() => {
+    if (!condicao) return;
+    setEntradaReais(entradaMin);
+    setParcelas(condicao.parcelas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condicao?.id]);
+
+  const [tabelaId, setTabelaId] = useState<string>('');
   const tabela = tabelas.find((t) => t.id === tabelaId);
   const descontoPct = tabela?.descontoPct ? Number(tabela.descontoPct) : 0;
 
   const valorComDesconto = valorLote * (1 - descontoPct / 100);
-  const entrada = (valorComDesconto * entradaPct) / 100;
-  const restante = valorComDesconto - entrada;
-  const valorParcela = parcelas > 0 ? restante / parcelas : 0;
+  const entrada = usaCondicoes ? entradaReais : (valorComDesconto * entradaPct) / 100;
+  const restante = (usaCondicoes ? valorLote : valorComDesconto) - entrada;
+  const valorParcela = usaCondicoes
+    ? pmtPrice(restante, taxaCondicao, parcelas)
+    : parcelas > 0
+    ? restante / parcelas
+    : 0;
 
   return (
     <div className="space-y-5">
-      {tabelas.length > 0 && (
+      {usaCondicoes && listaCondicoes.length > 1 && (
+        <div>
+          <label className="block text-xs font-medium text-slate-700 mb-2 uppercase tracking-wider">
+            Tipo de lote
+          </label>
+          <select
+            value={condicaoId}
+            onChange={(e) => setCondicaoId(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {listaCondicoes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome} — {c.parcelas}x de {formatBRL(c.valorParcela)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {!usaCondicoes && tabelas.length > 0 && (
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-2 uppercase tracking-wider">
             Condição
@@ -1337,18 +1438,40 @@ function Simulador({
             Entrada
           </label>
           <span className="text-sm font-semibold text-slate-900">
-            {entradaPct}% — {formatBRL(entrada)}
+            {usaCondicoes
+              ? formatBRL(entrada)
+              : `${entradaPct}% — ${formatBRL(entrada)}`}
           </span>
         </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={entradaPct}
-          onChange={(e) => setEntradaPct(Number(e.target.value))}
-          className="w-full accent-primary-600"
-        />
+        {/* Em reais quando há condição: a entrada mínima é um valor, não um
+            percentual, e converter para % só afastaria do que o site anuncia. */}
+        {usaCondicoes ? (
+          <>
+            <input
+              type="range"
+              min={entradaMin}
+              max={entradaMax}
+              step={500}
+              value={entradaReais}
+              onChange={(e) => setEntradaReais(Number(e.target.value))}
+              className="w-full accent-primary-600"
+            />
+            <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+              <span>Mínimo {formatBRL(entradaMin)}</span>
+              <span>{formatBRL(entradaMax)}</span>
+            </div>
+          </>
+        ) : (
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={entradaPct}
+            onChange={(e) => setEntradaPct(Number(e.target.value))}
+            className="w-full accent-primary-600"
+          />
+        )}
       </div>
 
       <div>
@@ -1358,14 +1481,23 @@ function Simulador({
           </label>
           <span className="text-sm font-semibold text-slate-900">{parcelas}x</span>
         </div>
+        {/* O prazo máximo passa a ser o da condição — é o mesmo teto que o
+            simulador principal e a tela de venda respeitam. */}
         <input
           type="range"
-          min={1}
-          max={tabela?.parcelasMax ?? 180}
+          min={usaCondicoes ? 6 : 1}
+          max={usaCondicoes ? condicao?.parcelas ?? 60 : tabela?.parcelasMax ?? 180}
+          step={usaCondicoes ? 6 : 1}
           value={parcelas}
           onChange={(e) => setParcelas(Number(e.target.value))}
           className="w-full accent-primary-600"
         />
+        {usaCondicoes && (
+          <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+            <span>6x</span>
+            <span>{condicao?.parcelas ?? 60}x</span>
+          </div>
+        )}
       </div>
 
       {/* Resultado */}
