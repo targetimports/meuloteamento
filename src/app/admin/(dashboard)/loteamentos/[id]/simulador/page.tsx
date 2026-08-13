@@ -74,7 +74,8 @@ export default async function SimuladorLoteamentoPage({
         <h1 className="text-2xl font-bold text-slate-900 mt-1">Simulador</h1>
         <p className="text-sm text-slate-500 mt-1 max-w-2xl">
           Os valores que o visitante vê ao simular a compra de um lote deste
-          loteamento. Campo em branco usa o padrão do sistema.
+          loteamento.
+          {tipos.length === 0 && ' Campo em branco usa o padrão do sistema.'}
         </p>
       </div>
 
@@ -110,29 +111,25 @@ export default async function SimuladorLoteamentoPage({
         moverAction={moverTipoLote}
       />
 
-      {/* A condição única só vale quando não há tipo nenhum. Dizer isso evita
-          alguém ajustar aqui e não ver efeito no site. */}
-      <div className={tipos.length > 0 ? 'opacity-60' : ''}>
-        {tipos.length > 0 && (
-          <p className="text-xs text-slate-500 mb-3">
-            Há tipos de lote cadastrados acima, e são eles que o simulador usa.
-            A condição abaixo só volta a valer se você remover todos.
-          </p>
-        )}
+      {/* A condição única só vale quando não há tipo nenhum. Antes ela ficava
+          na tela esmaecida, o que só rendia dúvida sobre qual das duas o site
+          usava — com tipos cadastrados ela some. Volta sozinha se todos forem
+          removidos, que é justamente quando ela passa a valer de novo. */}
+      {tipos.length === 0 && (
         <FormSimulador
-        loteamentoId={loteamento.id}
-        padroes={PADROES}
-        inicial={{
-          simPrecoResidencial: txt(loteamento.simPrecoResidencial),
-          simPrecoComercial: txt(loteamento.simPrecoComercial),
-          simEntradaMinima: txt(loteamento.simEntradaMinima),
-          simParcelas: txt(loteamento.simParcelas),
-          simValorParcela: txt(loteamento.simValorParcela),
-          simEntradasSugeridas: lista,
-        }}
-        action={salvarParametrosSimulador}
+          loteamentoId={loteamento.id}
+          padroes={PADROES}
+          inicial={{
+            simPrecoResidencial: txt(loteamento.simPrecoResidencial),
+            simPrecoComercial: txt(loteamento.simPrecoComercial),
+            simEntradaMinima: txt(loteamento.simEntradaMinima),
+            simParcelas: txt(loteamento.simParcelas),
+            simValorParcela: txt(loteamento.simValorParcela),
+            simEntradasSugeridas: lista,
+          }}
+          action={salvarParametrosSimulador}
         />
-      </div>
+      )}
 
       {loteamento.publicado && (
         <p className="text-xs text-slate-500">
