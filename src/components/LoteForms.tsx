@@ -272,6 +272,7 @@ export function EditarLoteForm({
   initial,
   action,
   onDelete,
+  tipos,
 }: {
   loteId: string;
   initial: {
