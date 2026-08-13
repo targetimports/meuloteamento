@@ -19,9 +19,9 @@
  * tiver), a mensagem de cada um e o maior score.
  *
  * 🔴 Nenhum histórico é apagado. Interação e conversa MUDAM de dono; só o
- * registro duplicado do lead some. Se algum deles tiver virado venda ou
- * reserva, o grupo inteiro é pulado — juntar registros com negócio atrelado
- * exige decisão humana, não script.
+ * registro duplicado do lead some. O status que fica é o MAIS AVANÇADO do
+ * grupo: quem já estava em atendimento não volta a ser "novo" por causa de um
+ * cadastro repetido.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -39,6 +39,9 @@ try {
 }
 
 const prisma = new PrismaClient();
+
+/** Do menos para o mais avançado. Na fusão, o mais avançado vence. */
+const AVANCO = ['PERDIDO', 'NOVO', 'EM_ATENDIMENTO', 'AGENDADO', 'CONVERTIDO'];
 const aplicar = process.argv.includes('--aplicar');
 
 const sufixo = (v) => {
@@ -83,28 +86,32 @@ async function main() {
   console.log(`${aplicar ? '' : '[simulação] '}${duplicados.length} contato(s) com duplicata:\n`);
 
   let fundidos = 0;
+  let removidos = 0;
   let pulados = 0;
 
   for (const grupo of duplicados) {
     const [principal, ...extras] = grupo; // o mais antigo primeiro
     const ids = extras.map((e) => e.id);
 
-    // Venda ou reserva atrelada ao lote de algum deles: não é caso de script.
-    const comNegocio = await prisma.venda.count({
-      where: { lote: { leads: { some: { id: { in: [principal.id, ...ids] } } } } },
-    });
-    if (comNegocio > 0) {
-      console.log(`  PULADO  ${principal.nome} (${principal.telefone}) — tem venda atrelada`);
-      pulados++;
-      continue;
-    }
-
+    /**
+     * Não se pula por causa de venda no lote.
+     *
+     * O vínculo Lead→Lote é INTERESSE, não compra: o lote pode ter sido vendido
+     * para outra pessoa, e o duplicado continua sendo duplicado. Verificar
+     * venda do lote pularia casos legítimos sem motivo — foi o que a primeira
+     * versão deste script fez.
+     *
+     * O que a fusão precisa preservar é o AVANÇO: se um dos registros chegou
+     * mais longe no funil, esse status é o que fica.
+     */
     const totalInteracoes = grupo.reduce((a, g) => a + g._count.interacoes, 0);
     console.log(
       `  ${principal.nome} (${principal.telefone}) — ${grupo.length} registros → 1` +
         `, ${totalInteracoes} interação(ões) preservada(s)`
     );
 
+    fundidos++;
+    removidos += ids.length;
     if (!aplicar) continue;
 
     const mensagens = grupo
@@ -135,6 +142,11 @@ async function main() {
           score: Math.max(...grupo.map((g) => g.score)),
           corretorId: principal.corretorId ?? grupo.find((g) => g.corretorId)?.corretorId ?? null,
           loteId: principal.loteId ?? grupo.find((g) => g.loteId)?.loteId ?? null,
+          // O avanço no funil não pode retroceder na fusão: quem já estava em
+          // atendimento não volta a ser "novo" por causa de um cadastro repetido.
+          status: grupo
+            .map((g) => g.status)
+            .sort((a, b) => AVANCO.indexOf(b) - AVANCO.indexOf(a))[0],
           ...(mensagens ? { mensagem: mensagens } : {}),
         },
       });
@@ -149,8 +161,6 @@ async function main() {
 
       await tx.lead.deleteMany({ where: { id: { in: ids } } });
     });
-
-    fundidos++;
   }
 
   console.log(
