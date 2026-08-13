@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useFormState } from 'react-dom';
 import { Field, Section, SubmitButton, ErrorBox, inputClass } from './ui';
+import { descobrirTaxaPrice } from '@/lib/price';
 
 interface LoteOption {
   id: string;
@@ -214,6 +215,24 @@ export function VendaForm({
     ? valorTotal
     : numeroParcelas > 0
     ? Math.round((restante / numeroParcelas) * 100) / 100
+    : 0;
+
+  /**
+   * Juro embutido na condição — a mesma leitura que o simulador público mostra.
+   *
+   * O sistema não calcula juros: "Valor total" é o total DO CONTRATO e a
+   * parcela sai de uma divisão simples. Só que o campo vem preenchido com o
+   * preço à vista do lote, então quem não o troca vende a 0% sem perceber —
+   * já aconteceu em produção. A taxa aqui torna isso visível antes de salvar.
+   */
+  const principalFinanciado = Math.max(0, somaPrecosLotes - valorEntrada);
+  const mostrarJuros =
+    !isAvista && somaPrecosLotes > 0 && principalFinanciado > 0 && numeroParcelas > 0;
+  const jurosEmbutidos = mostrarJuros
+    ? Math.max(0, valorEntrada + valorParcela * numeroParcelas - somaPrecosLotes)
+    : 0;
+  const taxaMensal = mostrarJuros
+    ? descobrirTaxaPrice(principalFinanciado, valorParcela, numeroParcelas)
     : 0;
 
   /**
@@ -947,6 +966,33 @@ export function VendaForm({
                     <span className="text-xs font-normal text-slate-500"> × {numeroParcelas}x</span>
                   </p>
                 </div>
+
+                {mostrarJuros && (
+                  <div className="col-span-2 md:col-span-4 pt-2 mt-2 border-t border-primary-200">
+                    {taxaMensal > 0 ? (
+                      <p className="text-xs text-slate-700">
+                        Preço à vista do lote:{' '}
+                        <strong>{formatBRL(somaPrecosLotes)}</strong> · juros embutidos:{' '}
+                        <strong>{formatBRL(jurosEmbutidos)}</strong> · taxa:{' '}
+                        <strong>
+                          {(taxaMensal * 100).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 3,
+                          })}
+                          % ao mês
+                        </strong>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <strong>Venda sem juros.</strong> O valor total está igual ao
+                        preço à vista do lote ({formatBRL(somaPrecosLotes)}), então as
+                        parcelas só devolvem o principal. Se a intenção é vender
+                        parcelado com juros, o valor total precisa ser o do contrato —
+                        entrada mais a soma das parcelas.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {dataPrimeiraParcela && (
                   <div className="col-span-2 md:col-span-4 pt-2 mt-2 border-t border-primary-200">
                     <p className="text-slate-500 text-xs">Cronograma</p>

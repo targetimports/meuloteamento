@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconCalc, IconWhatsApp } from './icons';
 import CustosCompra from './CustosCompra';
+import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 
 export interface SimuladorProps {
   /** Preço à vista do lote residencial padrão (default 55.000) */
@@ -67,29 +68,6 @@ function brl(n: number, decimals = 0): string {
     maximumFractionDigits: decimals,
     minimumFractionDigits: decimals,
   });
-}
-
-/** Resolve a taxa mensal Price embutida via bisseção. */
-function descobrirTaxaPrice(pv: number, pmt: number, n: number): number {
-  function calc(i: number) {
-    if (i === 0) return pv / n;
-    return (pv * i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
-  }
-  let lo = 0,
-    hi = 0.5,
-    mid = 0;
-  for (let k = 0; k < 200; k++) {
-    mid = (lo + hi) / 2;
-    if (calc(mid) > pmt) hi = mid;
-    else lo = mid;
-  }
-  return mid;
-}
-
-/** Calcula PMT pelo sistema Price. */
-function pmtPrice(pv: number, i: number, n: number): number {
-  if (i === 0) return pv / n;
-  return (pv * i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
 }
 
 export function SimuladorResidencial({
