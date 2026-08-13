@@ -37,6 +37,10 @@ export interface InstanciaUI {
 const INTERVALO_QR_MS = 25_000;
 /** Frequência da consulta de pareamento — não há evento de conexão no gateway. */
 const INTERVALO_STATUS_MS = 3_000;
+/** Ritmo do laço do QR: rápido enquanto não há código, para o primeiro chegar logo. */
+const CICLO_QR_MS = 5_000;
+/** Falhas seguidas antes de desistir — o gateway recusa enquanto prepara o código. */
+const TENTATIVAS_QR = 6;
 
 export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
   const router = useRouter();
@@ -48,6 +52,14 @@ export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
 
   // Guarda o timer para o efeito não empilhar laços a cada re-render.
   const timers = useRef<{ qr?: ReturnType<typeof setInterval>; status?: ReturnType<typeof setInterval> }>({});
+
+  // O laço do QR precisa saber se já há código na tela, e ele não enxerga o
+  // estado: o efeito é montado uma vez por pareamento e captura o valor antigo.
+  const qrRef = useRef<string | null>(null);
+  const aplicarQr = useCallback((v: string | null) => {
+    qrRef.current = v;
+    setQr(v);
+  }, []);
 
   const pararTimers = useCallback(() => {
     if (timers.current.qr) clearInterval(timers.current.qr);
@@ -65,32 +77,54 @@ export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
         setErro(r.erro ?? 'Não foi possível iniciar.');
         return;
       }
-      setQr(r.qr ?? null);
+      aplicarQr(r.qr ?? null);
       setPareando(true);
     });
   }
 
-  // Enquanto o QR está na tela: renova o código e pergunta se já pareou.
+  // Enquanto o QR está na tela: busca/renova o código e pergunta se já pareou.
   useEffect(() => {
     if (!pareando) return;
 
+    let ciclos = 0;
+    let falhas = 0;
+
     timers.current.qr = setInterval(async () => {
+      ciclos += 1;
+      // Sem código na tela, tenta a cada ciclo — o gateway leva alguns segundos
+      // para gerar o primeiro. Com código, só renova antes de ele expirar.
+      const hora = ciclos % Math.round(INTERVALO_QR_MS / CICLO_QR_MS) === 0;
+      if (qrRef.current && !hora) return;
+
       const r = await novoQr();
-      if (r.ok && r.qr) setQr(r.qr);
-    }, INTERVALO_QR_MS);
+      if (r.ok && r.qr) {
+        falhas = 0;
+        aplicarQr(r.qr);
+        return;
+      }
+
+      // Insistir para sempre é o que não serve: antes disto o modal girava
+      // indefinidamente e o motivo real nunca chegava à tela.
+      falhas += 1;
+      if (falhas >= TENTATIVAS_QR && !qrRef.current) {
+        pararTimers();
+        setPareando(false);
+        setErro(`Não foi possível gerar o código. ${r.erro ?? 'O gateway não respondeu.'}`);
+      }
+    }, CICLO_QR_MS);
 
     timers.current.status = setInterval(async () => {
       const s = await statusDaMinhaInstancia();
       if (s.conectada) {
         pararTimers();
         setPareando(false);
-        setQr(null);
+        aplicarQr(null);
         router.refresh();
       }
     }, INTERVALO_STATUS_MS);
 
     return pararTimers;
-  }, [pareando, pararTimers, router]);
+  }, [pareando, pararTimers, router, aplicarQr]);
 
   const conectada = instancia.existe && instancia.status === 'CONECTADA';
 
@@ -204,7 +238,7 @@ export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
           if (aberto) return;
           pararTimers();
           setPareando(false);
-          setQr(null);
+          aplicarQr(null);
           router.refresh();
         }}
       >
@@ -244,7 +278,7 @@ export function ConectarWhatsapp({ instancia }: { instancia: InstanciaUI }) {
               onClick={() => {
                 pararTimers();
                 setPareando(false);
-                setQr(null);
+                aplicarQr(null);
                 router.refresh();
               }}
             >

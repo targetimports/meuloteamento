@@ -20,6 +20,21 @@ import { telefoneDoJid } from '@/lib/whatsapp-evento';
 type Resultado = { ok: boolean; erro?: string };
 
 /**
+ * Traduz a falha do gateway para algo que a tela possa mostrar.
+ *
+ * `chamar()` devolve sempre o mesmo `error: 'erro_gateway'` e guarda o motivo
+ * real em `detalhe` — repassar só o primeiro daria "erro_gateway" ao usuário,
+ * que não diz nada e ainda esconde a causa de quem for investigar.
+ */
+function motivoDoGateway(r: { error: string; status?: number; detalhe?: unknown }): string {
+  const d = r.detalhe as { error?: string } | null;
+  if (d?.error) return d.error;
+  if (r.error === 'timeout') return 'O gateway não respondeu a tempo.';
+  if (r.error === 'inalcancavel') return 'O gateway está inacessível.';
+  return `O gateway respondeu ${r.status ?? 'erro'}.`;
+}
+
+/**
  * Cria a instância deste usuário no gateway e devolve o primeiro QR.
  *
  * A ordem importa e não é a intuitiva: o token é gerado e GRAVADO no nosso
@@ -124,7 +139,7 @@ export async function novoQr(): Promise<Resultado & { qr?: string }> {
   if (!instancia) return { ok: false, erro: 'Nenhuma instância.' };
 
   const qr = await obterQr(instancia.token);
-  if (!qr.ok) return { ok: false, erro: String(qr.error) };
+  if (!qr.ok) return { ok: false, erro: motivoDoGateway(qr) };
   return { ok: true, qr: qr.data?.qrcode ?? qr.data?.base64 ?? undefined };
 }
 
