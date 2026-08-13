@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { acharLeadRecente, enriquecerLead } from '@/lib/lead-dedup';
 import { mudarStatusLote, lockLote } from '@/lib/lote-status';
 
 export const runtime = 'nodejs';
@@ -95,20 +96,40 @@ export async function POST(req: NextRequest) {
         tx,
       });
 
-      // Cria também um Lead pra equipe comercial fazer follow-up
+      // Lead para follow-up — reaproveitando o que ja existe deste contato.
+      // Quem pediu informacao ontem e reserva hoje e a mesma pessoa: dois
+      // registros fariam o funil contar dois interessados onde ha um, e o
+      // corretor abordaria de novo quem ja avancou sozinho.
       if (loteamento) {
-        await tx.lead.create({
-          data: {
-            nome,
-            email,
-            telefone,
-            mensagem: mensagem || `Reservou o lote ${lote.id}`,
-            loteamentoId: loteamento.id,
-            loteId,
-            origem: 'reserva',
-            status: 'EM_ATENDIMENTO',
-          },
+        const dadosLead = {
+          nome,
+          email,
+          telefone,
+          mensagem: mensagem || `Reservou o lote ${lote.id}`,
+          origem: 'reserva',
+        };
+        const jaExiste = await acharLeadRecente({
+          loteamentoId: loteamento.id,
+          email,
+          telefone,
         });
+        if (jaExiste) {
+          await enriquecerLead(jaExiste, { ...dadosLead, tx });
+          await tx.lead.update({
+            where: { id: jaExiste.id },
+            data: { status: 'EM_ATENDIMENTO', loteId, temperatura: 'QUENTE' },
+          });
+        } else {
+          await tx.lead.create({
+            data: {
+              ...dadosLead,
+              loteamentoId: loteamento.id,
+              loteId,
+              status: 'EM_ATENDIMENTO',
+              temperatura: 'QUENTE',
+            },
+          });
+        }
       }
 
       return { reservaId: reserva.id, expiraEm, slug: loteamento?.slug };

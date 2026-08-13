@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { acharLeadRecente, enriquecerLead } from '@/lib/lead-dedup';
 import { lockLote, mudarStatusLote } from '@/lib/lote-status';
 import { getLoteadoraAsaasContext } from '@/lib/asaas-context';
 import {
@@ -238,19 +239,42 @@ export async function POST(req: NextRequest) {
         tx,
       });
 
-      // Cria lead pra equipe comercial
-      await tx.lead.create({
-        data: {
-          nome: data.nome,
-          email: data.email,
-          telefone: data.telefone,
-          mensagem: `Cliente iniciou compra do lote ${lote.codigo}. Forma: ${data.billingType}.`,
-          loteamentoId: loteamento.id,
-          loteId: data.loteId,
-          origem: 'checkout',
-          status: 'EM_ATENDIMENTO',
-        },
+      // Lead para a equipe comercial — mas só se este contato ainda não tiver
+      // um. Quem já pediu informação pelo site e agora está comprando é a MESMA
+      // pessoa: criar outro registro faria o funil mostrar dois interessados
+      // onde há um cliente, e o corretor abordaria de novo quem já fechou.
+      const jaExiste = await acharLeadRecente({
+        loteamentoId: loteamento.id,
+        email: data.email,
+        telefone: data.telefone,
       });
+
+      const dadosLead = {
+        nome: data.nome,
+        email: data.email,
+        telefone: data.telefone,
+        mensagem: `Cliente iniciou compra do lote ${lote.codigo}. Forma: ${data.billingType}.`,
+        origem: 'checkout',
+      };
+
+      if (jaExiste) {
+        await enriquecerLead(jaExiste, { ...dadosLead, tx });
+        // Quem chegou ao checkout está mais quente que qualquer etapa anterior.
+        await tx.lead.update({
+          where: { id: jaExiste.id },
+          data: { status: 'EM_ATENDIMENTO', loteId: data.loteId, temperatura: 'QUENTE' },
+        });
+      } else {
+        await tx.lead.create({
+          data: {
+            ...dadosLead,
+            loteamentoId: loteamento.id,
+            loteId: data.loteId,
+            status: 'EM_ATENDIMENTO',
+            temperatura: 'QUENTE',
+          },
+        });
+      }
 
       return {
         venda,

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
 import { calcularScoreLead, distribuirLead } from '@/lib/lead-distribution';
+import { acharLeadRecente, enriquecerLead } from '@/lib/lead-dedup';
 
 const leadSchema = z.object({
   nome: z.string().trim().min(2),
@@ -62,6 +63,37 @@ export async function POST(req: NextRequest) {
       where: { id: parsed.data.loteamentoId },
       select: { loteadoraId: true, cidade: true },
     });
+  }
+
+  /**
+   * 🔴 O mesmo contato mandando de novo NÃO cria outro lead.
+   *
+   * Quem preenche o formulário e não vê confirmação clara manda outra vez — e
+   * outra. Medido em produção: 47 leads para 19 telefones, com as cópias
+   * nascendo segundos depois da original. O corretor ligava duas vezes para
+   * quem já tinha atendido, e a contagem do funil mentia.
+   *
+   * O segundo envio enriquece o lead que existe (ver lib/lead-dedup) e devolve
+   * o mesmo id, então a página pública continua respondendo "deu certo" —
+   * dizer que falhou faria a pessoa tentar uma terceira vez.
+   */
+  if (parsed.data.loteamentoId) {
+    const existente = await acharLeadRecente({
+      loteamentoId: parsed.data.loteamentoId,
+      email: parsed.data.email,
+      telefone: parsed.data.telefone,
+    });
+    if (existente) {
+      const leadId = await enriquecerLead(existente, {
+        nome: parsed.data.nome,
+        email: parsed.data.email,
+        telefone: parsed.data.telefone,
+        mensagem: parsed.data.mensagem || null,
+        origem: parsed.data.origem || 'site',
+        score,
+      });
+      return NextResponse.json({ ok: true, leadId, atualizado: true });
+    }
   }
 
   const lead = await prisma.lead.create({

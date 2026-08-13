@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { acharLeadRecente, enriquecerLead } from '@/lib/lead-dedup';
 import { calcularScoreLead, distribuirLead } from '@/lib/lead-distribution';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
 
@@ -114,6 +115,28 @@ export async function POST(req: NextRequest, ctx: { params: { provider: string }
     mensagem: parsed.mensagem,
     origem: parsed.origem,
   });
+
+  // Facebook e Typeform reenviam o evento quando nossa resposta demora, e a
+  // mesma pessoa costuma preencher o formulario da campanha mais de uma vez.
+  // Sem esta checagem, cada reentrega virava um lead novo.
+  if (parsed.loteamentoId) {
+    const existente = await acharLeadRecente({
+      loteamentoId: parsed.loteamentoId,
+      email: parsed.email,
+      telefone: parsed.telefone,
+    });
+    if (existente) {
+      const leadId = await enriquecerLead(existente, {
+        nome: parsed.nome || undefined,
+        email: parsed.email,
+        telefone: parsed.telefone,
+        mensagem: parsed.mensagem ?? null,
+        origem: parsed.origem,
+        score,
+      });
+      return NextResponse.json({ ok: true, leadId, atualizado: true });
+    }
+  }
 
   const lead = await prisma.lead.create({
     data: {
