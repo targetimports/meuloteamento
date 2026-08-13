@@ -177,14 +177,33 @@
     A lista de exclusões existe porque checkbox, radio, range, color e file
     têm desenho próprio do navegador — pintar o fundo deles os desfigura.
   */
-  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='reset']),
+  /*
+    :where() em vez de :not() encadeado — a diferença é a especificidade, e ela
+    quebrou o simulador.
+
+    Cada :not([type=…]) conta como um seletor de atributo, então a versão
+    anterior somava oito e valia 0,8,1: mais que QUALQUER classe do Tailwind
+    (0,1,0). O que era para ser um padrão discreto virou uma regra que vencia
+    todo bg-* aplicado a input no sistema inteiro. No card do simulador, os
+    campos translúcidos viraram brancos sólidos e o placeholder branco sumiu
+    dentro deles.
+
+    :where() tem especificidade zero, então o seletor todo vale 0,0,1 e
+    qualquer classe passa por cima — que é o comportamento pretendido desde o
+    início: um padrão para quem não define nada, nunca uma imposição.
+  */
+  input:where(
+      :not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='reset'])
+    ),
   textarea,
   select {
     background-color: #ffffff;
     color: #0f172a; /* slate-900 */
   }
 
-  ::placeholder {
+  /* Mesmo cuidado: :where(input, textarea) mantém a regra em 0,0,1 para que
+     placeholder-* do Tailwind continue mandando onde for declarado. */
+  :where(input, textarea)::placeholder {
     color: #94a3b8; /* slate-400 */
     opacity: 1; /* Firefox esmaece por padrão, deixando quase ilegível */
   }
