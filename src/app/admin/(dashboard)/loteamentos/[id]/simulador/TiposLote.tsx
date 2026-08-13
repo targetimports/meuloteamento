@@ -78,12 +78,21 @@ export function TiposLote({
   // parcela para configurar.
   const [simulavel, setSimulavel] = useState(true);
 
+  // O estado do useFormState vive aqui, fora do modal, e não se limpa sozinho:
+  // sem esta trava o erro de um envio antigo reaparecia ao abrir o modal de
+  // novo — inclusive em outro tipo, falando de valores que não estão na tela.
+  const [verErro, setVerErro] = useState(false);
+
   useEffect(() => setMontado(true), []);
   useEffect(() => {
     if (estado.ok) setModal(null);
   }, [estado.ok]);
+  useEffect(() => {
+    if (estado.error) setVerErro(true);
+  }, [estado]);
 
   useEffect(() => {
+    setVerErro(false);
     if (!modal) return;
     setSimulavel(modal.editando ? modal.editando.simulavel : true);
     function onTecla(e: KeyboardEvent) {
@@ -272,7 +281,7 @@ export function TiposLote({
               <form action={formAction} className="p-6">
                 {editando && <input type="hidden" name="id" value={editando.id} />}
 
-                {estado.error && (
+                {verErro && estado.error && (
                   <p className="mb-4 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
                     {estado.error}
                   </p>
