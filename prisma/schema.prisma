@@ -383,6 +383,11 @@ model Loteamento {
   /// Vazio = o simulador calcula sozinho a partir da entrada mínima.
   simEntradasSugeridas Json?
 
+  /// Tipos de lote oferecidos no simulador. Quando houver algum cadastrado,
+  /// ele manda; os campos sim* acima ficam como condição de quem nunca
+  /// configurou nada.
+  simuladorTipos SimuladorTipoLote[]
+
   // Pipeline de leads ativo (sobrescreve o da loteadora se setado)
   pipelineId String?
   pipeline   PipelineLead? @relation(fields: [pipelineId], references: [id])
@@ -1820,4 +1825,51 @@ enum WhatsappStatusMensagem {
   ENTREGUE
   LIDA
   ERRO
+}
+
+// =====================================================================
+// TIPOS DE LOTE NO SIMULADOR
+// ---------------------------------------------------------------------
+// O simulador nasceu com dois tipos fixos no código — "Residencial" e
+// "Comercial" — porque era feito sob medida para um loteamento. Cada
+// empreendimento tem os seus: esquina, premium, área maior, condições de
+// lançamento. Dois campos de preço não davam conta.
+//
+// Cada tipo carrega a condição INTEIRA, não só o preço: entrada mínima,
+// prazo e valor da parcela definem juntos a taxa de juros embutida, e ela
+// costuma ser diferente por tipo. Guardar só o preço obrigaria todos a
+// dividirem o mesmo juro.
+// =====================================================================
+
+model SimuladorTipoLote {
+  id           String     @id @default(cuid())
+  loteamentoId String
+  loteamento   Loteamento @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
+
+  /// Rótulo da aba, como o visitante lê: "Residencial", "Esquina", "Premium".
+  nome      String
+  /// Uma linha de apoio sob o preço. Ex.: "300 a 400 m²".
+  descricao String?
+
+  preco         Decimal @db.Decimal(12, 2)
+  entradaMinima Decimal @db.Decimal(12, 2)
+  parcelas      Int
+  valorParcela  Decimal @db.Decimal(12, 2)
+
+  /// Atalhos de entrada deste tipo. Vazio = degraus automáticos.
+  entradasSugeridas Json?
+
+  /// false = a aba aparece, mostra o preço e leva ao contato, sem simular
+  /// parcela. É como o lote comercial sempre funcionou: preço sob consulta,
+  /// negociação caso a caso.
+  simulavel Boolean @default(true)
+
+  ativo Boolean @default(true)
+  ordem Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loteamentoId, ativo, ordem])
+  @@map("simulador_tipos_lote")
 }

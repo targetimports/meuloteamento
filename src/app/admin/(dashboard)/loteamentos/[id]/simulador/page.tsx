@@ -4,6 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento, requireAdmin } from '@/lib/tenant';
 import { FormSimulador } from './FormSimulador';
 import { salvarParametrosSimulador } from './actions';
+import { TiposLote } from './TiposLote';
+import {
+  salvarTipoLote,
+  excluirTipoLote,
+  alternarTipoAtivo,
+  moverTipoLote,
+} from './tipos-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +52,11 @@ export default async function SimuladorLoteamentoPage({
   if (!loteamento) notFound();
   if (!(await canAccessLoteamento(loteamento.loteadoraId))) notFound();
 
+  const tipos = await prisma.simuladorTipoLote.findMany({
+    where: { loteamentoId: loteamento.id },
+    orderBy: [{ ordem: "asc" }, { createdAt: "asc" }],
+  });
+
   const txt = (v: unknown) => (v === null || v === undefined ? '' : String(v));
   const lista = Array.isArray(loteamento.simEntradasSugeridas)
     ? (loteamento.simEntradasSugeridas as number[]).join(', ')
@@ -76,7 +88,38 @@ export default async function SimuladorLoteamentoPage({
         </p>
       )}
 
-      <FormSimulador
+      <TiposLote
+        loteamentoId={loteamento.id}
+        tipos={tipos.map((t) => ({
+          id: t.id,
+          nome: t.nome,
+          descricao: t.descricao,
+          preco: String(t.preco),
+          entradaMinima: String(t.entradaMinima),
+          parcelas: t.parcelas,
+          valorParcela: String(t.valorParcela),
+          entradasSugeridas: Array.isArray(t.entradasSugeridas)
+            ? (t.entradasSugeridas as number[]).join(', ')
+            : '',
+          simulavel: t.simulavel,
+          ativo: t.ativo,
+        }))}
+        salvarAction={salvarTipoLote}
+        excluirAction={excluirTipoLote}
+        alternarAction={alternarTipoAtivo}
+        moverAction={moverTipoLote}
+      />
+
+      {/* A condição única só vale quando não há tipo nenhum. Dizer isso evita
+          alguém ajustar aqui e não ver efeito no site. */}
+      <div className={tipos.length > 0 ? 'opacity-60' : ''}>
+        {tipos.length > 0 && (
+          <p className="text-xs text-slate-500 mb-3">
+            Há tipos de lote cadastrados acima, e são eles que o simulador usa.
+            A condição abaixo só volta a valer se você remover todos.
+          </p>
+        )}
+        <FormSimulador
         loteamentoId={loteamento.id}
         padroes={PADROES}
         inicial={{
@@ -88,7 +131,8 @@ export default async function SimuladorLoteamentoPage({
           simEntradasSugeridas: lista,
         }}
         action={salvarParametrosSimulador}
-      />
+        />
+      </div>
 
       {loteamento.publicado && (
         <p className="text-xs text-slate-500">

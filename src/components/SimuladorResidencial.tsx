@@ -12,7 +12,7 @@
  *   - Comercial: R$ 300.000, só atendimento WhatsApp (sem simulador automático)
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconCalc, IconWhatsApp } from './icons';
 import CustosCompra from './CustosCompra';
 
@@ -25,6 +25,20 @@ export interface SimuladorProps {
   parcelas?: number;
   /** Valor da parcela na condição padrão (default 1.000) — usado pra inferir a taxa Price */
   valorParcelaPadrao?: number;
+
+  /** Tipos de lote configurados pela loteadora. Quando há algum, vira as abas. */
+  tiposLote?: {
+    id: string;
+    nome: string;
+    descricao?: string | null;
+    preco: number;
+    entradaMinima: number;
+    parcelas: number;
+    valorParcela: number;
+    entradasSugeridas?: number[] | null;
+    simulavel: boolean;
+    ativo?: boolean;
+  }[];
 
   /** Atalhos de entrada mostrados como botões. Vazio = degraus padrão. */
   entradasSugeridas?: number[];
@@ -79,11 +93,16 @@ function pmtPrice(pv: number, i: number, n: number): number {
 }
 
 export function SimuladorResidencial({
-  precoResidencial = 55000,
-  entradaMinima = 5000,
-  parcelas = 60,
-  valorParcelaPadrao = 1000,
-  entradasSugeridas,
+  // Recebidos com sufixo Prop porque, logo abaixo, viram as variáveis de
+  // mesmo nome derivadas do tipo de lote selecionado. Assim o corpo do
+  // componente — que usa esses nomes em dezenas de pontos — não precisou ser
+  // reescrito para suportar múltiplos tipos.
+  precoResidencial: precoResidencialProp = 55000,
+  entradaMinima: entradaMinimaProp = 5000,
+  parcelas: parcelasProp = 60,
+  valorParcelaPadrao: valorParcelaPadraoProp = 1000,
+  entradasSugeridas: entradasSugeridasProp,
+  tiposLote,
   precoComercial = 300000,
   corPrimaria = '#0ea5e9',
   whatsapp = '',
@@ -94,6 +113,24 @@ export function SimuladorResidencial({
   loteamentoSlug,
   loteamentoId,
 }: SimuladorProps) {
+  /**
+   * Tipos de lote configurados pela loteadora. Quando existe pelo menos um,
+   * ele manda: as abas passam a ser os tipos e cada um traz a própria
+   * condição. Sem nenhum, tudo segue como antes — Residencial/Comercial fixos.
+   */
+  const tipos = (tiposLote ?? []).filter((t) => t.ativo !== false);
+  const temTipos = tipos.length > 0;
+
+  const [idxTipo, setIdxTipo] = useState(0);
+  const tipoAtivo = temTipos ? tipos[Math.min(idxTipo, tipos.length - 1)] : null;
+
+  // Valores efetivos: do tipo selecionado, ou dos props quando não há tipos.
+  const precoResidencial = tipoAtivo?.preco ?? precoResidencialProp;
+  const entradaMinima = tipoAtivo?.entradaMinima ?? entradaMinimaProp;
+  const parcelas = tipoAtivo?.parcelas || parcelasProp;
+  const valorParcelaPadrao = tipoAtivo?.valorParcela ?? valorParcelaPadraoProp;
+  const entradasSugeridas = tipoAtivo?.entradasSugeridas ?? entradasSugeridasProp;
+
   // Taxa Price embutida calculada uma vez
   const taxaMensal = useMemo(
     () =>
@@ -114,6 +151,13 @@ export function SimuladorResidencial({
   const [qtdLotes, setQtdLotes] = useState(1);
   const [entrada, setEntrada] = useState(entradaMinima);
   const [qtdParcelas, setQtdParcelas] = useState(parcelas);
+
+  // Trocar de aba muda preço e entrada mínima; sem reposicionar, a entrada da
+  // aba anterior ficaria fora da faixa da nova e o slider apareceria travado.
+  useEffect(() => {
+    setEntrada(entradaMinima);
+    setQtdParcelas(parcelas);
+  }, [entradaMinima, parcelas]);
 
   // Totais derivados da qtd de lotes
   const precoTotalLotes = precoResidencial * qtdLotes;
@@ -250,33 +294,66 @@ export function SimuladorResidencial({
           </p>
         </div>
 
-        {/* Tabs Residencial / Comercial */}
-        <div className="flex gap-2 justify-center mb-8">
-          <button
-            onClick={() => setTipo('residencial')}
-            className={`px-5 py-2.5 rounded-full text-sm font-semibold transition ${
-              tipo === 'residencial'
-                ? 'text-white shadow-md'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-            style={tipo === 'residencial' ? { background: corPrimaria } : undefined}
-          >
-            🏡 Residencial
-          </button>
-          <button
-            onClick={() => setTipo('comercial')}
-            className={`px-5 py-2.5 rounded-full text-sm font-semibold transition ${
-              tipo === 'comercial'
-                ? 'text-white shadow-md'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-            style={tipo === 'comercial' ? { background: corPrimaria } : undefined}
-          >
-            🏢 Comercial
-          </button>
-        </div>
+        {/* Abas: os tipos cadastrados pela loteadora ou, sem eles, o par fixo
+            de sempre. Uma aba só não vira aba — seria um botão que não escolhe
+            nada. */}
+        {temTipos ? (
+          tipos.length > 1 && (
+            <div className="flex gap-2 justify-center mb-8 flex-wrap">
+              {tipos.map((t, i) => {
+                const ativo = i === Math.min(idxTipo, tipos.length - 1);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setIdxTipo(i)}
+                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition ${
+                      ativo
+                        ? 'text-white shadow-md'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                    style={ativo ? { background: corPrimaria } : undefined}
+                  >
+                    {t.nome}
+                    {t.descricao && (
+                      <span className={`block text-[11px] font-normal ${ativo ? 'text-white/80' : 'text-slate-400'}`}>
+                        {t.descricao}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <div className="flex gap-2 justify-center mb-8">
+            <button
+              onClick={() => setTipo('residencial')}
+              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition ${
+                tipo === 'residencial'
+                  ? 'text-white shadow-md'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+              style={tipo === 'residencial' ? { background: corPrimaria } : undefined}
+            >
+              🏡 Residencial
+            </button>
+            <button
+              onClick={() => setTipo('comercial')}
+              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition ${
+                tipo === 'comercial'
+                  ? 'text-white shadow-md'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+              style={tipo === 'comercial' ? { background: corPrimaria } : undefined}
+            >
+              🏢 Comercial
+            </button>
+          </div>
+        )}
 
-        {tipo === 'residencial' ? (
+        {/* Com tipos cadastrados, quem decide entre simular e mandar ao
+            contato é o próprio tipo (simulavel), não mais o par fixo. */}
+        {(temTipos ? tipoAtivo?.simulavel !== false : tipo === 'residencial') ? (
           <>
           <div className="grid md:grid-cols-2 gap-6 items-start">
             {/* Controles */}

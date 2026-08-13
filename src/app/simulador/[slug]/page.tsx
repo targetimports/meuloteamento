@@ -21,9 +21,27 @@ function paramsSimulador(l: {
   simParcelas: number | null;
   simValorParcela: unknown;
   simEntradasSugeridas: unknown;
+  simuladorTipos?: unknown[];
 }) {
   const n = (v: unknown) => (v === null || v === undefined ? undefined : Number(v));
   return {
+    tiposLote: (l as { simuladorTipos?: unknown[] }).simuladorTipos?.map((t) => {
+      const x = t as Record<string, unknown>;
+      return {
+        id: String(x.id),
+        nome: String(x.nome),
+        descricao: (x.descricao as string | null) ?? null,
+        preco: Number(x.preco),
+        entradaMinima: Number(x.entradaMinima),
+        parcelas: Number(x.parcelas),
+        valorParcela: Number(x.valorParcela),
+        entradasSugeridas: Array.isArray(x.entradasSugeridas)
+          ? (x.entradasSugeridas as number[])
+          : null,
+        simulavel: Boolean(x.simulavel),
+        ativo: Boolean(x.ativo),
+      };
+    }),
     precoResidencial: n(l.simPrecoResidencial),
     precoComercial: n(l.simPrecoComercial),
     entradaMinima: n(l.simEntradaMinima),
@@ -57,6 +75,10 @@ async function getLoteamento(slug: string) {
       simParcelas: true,
       simValorParcela: true,
       simEntradasSugeridas: true,
+      simuladorTipos: {
+        where: { ativo: true },
+        orderBy: [{ ordem: "asc" }, { createdAt: "asc" }],
+      },
       loteadora: {
         select: {
           nome: true,
