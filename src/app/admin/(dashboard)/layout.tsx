@@ -10,6 +10,8 @@ import {
   NavUsers,
   NavBriefcase,
   NavInbox,
+  NavChat,
+  NavFunil,
   NavDoc,
   NavMoney,
   NavSettings,
@@ -24,10 +26,32 @@ interface NavItem {
   Icon: React.ComponentType<{ className?: string }>;
   superAdminOnly?: boolean;
   tenantOnly?: boolean;
-  group: 'main' | 'gestao' | 'sistema';
+  group: 'atendimento' | 'main' | 'gestao' | 'sistema';
+  /** Item de trabalho diario: fica maior e com cor propria no menu. */
+  destaque?: boolean;
+  /** Nome do contador a exibir ao lado (resolvido no servidor). */
+  badge?: 'whatsapp' | 'leads';
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // Atendimento vem antes de tudo: e onde a equipe passa o dia. Dashboard e
+  // relatorio se olha algumas vezes ao dia; conversa e funil sao o trabalho.
+  {
+    href: '/admin/whatsapp/chat',
+    label: 'WhatsApp',
+    Icon: NavChat,
+    group: 'atendimento',
+    destaque: true,
+    badge: 'whatsapp',
+  },
+  {
+    href: '/admin/leads',
+    label: 'CRM',
+    Icon: NavFunil,
+    group: 'atendimento',
+    destaque: true,
+    badge: 'leads',
+  },
   { href: '/admin', label: 'Dashboard', Icon: NavDashboard, group: 'main' },
   { href: '/admin/loteamentos', label: 'Loteamentos', Icon: NavHomes, group: 'main' },
   { href: '/admin/vendas', label: 'Vendas', Icon: NavDoc, group: 'main' },
@@ -37,9 +61,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/clientes', label: 'Clientes', Icon: NavUsers, group: 'gestao' },
   { href: '/admin/corretores', label: 'Corretores', Icon: NavBriefcase, group: 'gestao' },
   { href: '/admin/comissoes', label: 'Comissões', Icon: NavMoney, group: 'gestao' },
-  { href: '/admin/leads', label: 'Leads / CRM', Icon: NavInbox, group: 'gestao' },
-  { href: '/admin/whatsapp/chat', label: 'Conversas', Icon: NavInbox, group: 'gestao' },
-  { href: '/admin/whatsapp', label: 'WhatsApp (conexão)', Icon: NavSettings, group: 'sistema' },
+  { href: '/admin/whatsapp', label: 'Conectar WhatsApp', Icon: NavSettings, group: 'sistema' },
   // Quem quer ASSINAR a plataforma (dono de loteadora). Diferente de Lead, que
   // e quem quer comprar um lote. So o dono da plataforma enxerga.
   { href: '/admin/interessados', label: 'Interessados', Icon: NavUsers, superAdminOnly: true, group: 'gestao' },
@@ -53,6 +75,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const GROUP_LABEL: Record<NavItem['group'], string> = {
+  atendimento: 'Atendimento',
   main: 'Operação',
   gestao: 'Gestão',
   sistema: 'Sistema',
@@ -87,7 +110,39 @@ export default async function DashboardLayout({
   }
   const accent = loteadoraCor ?? '#6366f1';
 
-  const groups: NavItem['group'][] = ['main', 'gestao', 'sistema'];
+  /**
+   * Contadores do menu de atendimento.
+   *
+   * O numero ao lado do item e o que transforma "onde clico" em "o que preciso
+   * fazer agora": sem ele, a pessoa abre as duas telas para descobrir se ha algo
+   * esperando. Sao duas contagens baratas, feitas na mesma renderizacao do menu.
+   *
+   * O WhatsApp conta so a caixa de QUEM ESTA LOGADO — a caixa e do dono do
+   * numero, e mostrar o total da empresa aqui contradiria a tela.
+   */
+  const [naoLidasWhatsapp, leadsNovos] = await Promise.all([
+    prisma.whatsappConversa
+      .aggregate({
+        where: { arquivada: false, instancia: { userId: session.sub } },
+        _sum: { naoLidas: true },
+      })
+      .then((r) => r._sum.naoLidas ?? 0)
+      .catch(() => 0),
+    prisma.lead
+      .count({
+        where: {
+          status: 'NOVO',
+          ...(session.loteadoraId ? { loteamento: { loteadoraId: session.loteadoraId } } : {}),
+        },
+      })
+      .catch(() => 0),
+  ]);
+  const contadores: Record<string, number> = {
+    whatsapp: naoLidasWhatsapp,
+    leads: leadsNovos,
+  };
+
+  const groups: NavItem['group'][] = ['atendimento', 'main', 'gestao', 'sistema'];
   const initials = (session.nome || session.email)
     .split(' ')
     .map((s) => s.charAt(0))
@@ -156,16 +211,37 @@ export default async function DashboardLayout({
                   {GROUP_LABEL[g]}
                 </p>
                 <div className="space-y-0.5">
-                  {items.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-                    >
-                      <item.Icon className="w-[18px] h-[18px] flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  ))}
+                  {items.map((item) => {
+                    const contador = item.badge ? (contadores[item.badge] ?? 0) : 0;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={
+                          item.destaque
+                            ? 'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-semibold text-white bg-white/[0.07] ring-1 ring-white/10 hover:bg-white/[0.12] transition-colors'
+                            : 'group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors'
+                        }
+                      >
+                        {item.destaque ? (
+                          <span className="flex-shrink-0" style={{ color: accent }}>
+                            <item.Icon className="w-5 h-5" />
+                          </span>
+                        ) : (
+                          <item.Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                        )}
+                        <span className="truncate">{item.label}</span>
+                        {contador > 0 && (
+                          <span
+                            className="ml-auto flex-shrink-0 min-w-[20px] px-1.5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center text-slate-900"
+                            style={{ background: accent }}
+                          >
+                            {contador > 99 ? '99+' : contador}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             );

@@ -246,6 +246,24 @@ export function NavInbox({ className }: Props) {
   );
 }
 
+/** Balao de conversa — o menu do WhatsApp. */
+export function NavChat({ className }: Props) {
+  return (
+    <svg className={`${navBase} ${className ?? ''}`} fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
+    </svg>
+  );
+}
+
+/** Funil — o menu do CRM. */
+export function NavFunil({ className }: Props) {
+  return (
+    <svg className={`${navBase} ${className ?? ''}`} fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z" />
+    </svg>
+  );
+}
+
 export function NavDoc({ className }: Props) {
   return (
     <svg className={`${navBase} ${className ?? ''}`} fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
