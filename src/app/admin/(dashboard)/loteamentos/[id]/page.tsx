@@ -155,6 +155,12 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
           desc="planos e condições"
         />
         <QuickActionLink
+          href={`/admin/loteamentos/${loteamento.id}/simulador`}
+          icon="🧮"
+          label="Simulador"
+          desc="valores do site público"
+        />
+        <QuickActionLink
           href={`/touch/${loteamento.slug}`}
           icon="🖥"
           label="Stand 3D touch"

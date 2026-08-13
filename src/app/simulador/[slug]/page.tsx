@@ -6,6 +6,35 @@ import { SimuladorResidencial } from '@/components/SimuladorResidencial';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Converte os parâmetros configurados em props do simulador.
+ *
+ * Só entrega o que está preenchido: campo nulo é omitido do objeto, e o
+ * componente aplica o próprio padrão. Passar `undefined` explicitamente
+ * também funcionaria, mas omitir deixa claro que "não configurado" e "zero"
+ * são coisas diferentes — um lote não custa R$ 0.
+ */
+function paramsSimulador(l: {
+  simPrecoResidencial: unknown;
+  simPrecoComercial: unknown;
+  simEntradaMinima: unknown;
+  simParcelas: number | null;
+  simValorParcela: unknown;
+  simEntradasSugeridas: unknown;
+}) {
+  const n = (v: unknown) => (v === null || v === undefined ? undefined : Number(v));
+  return {
+    precoResidencial: n(l.simPrecoResidencial),
+    precoComercial: n(l.simPrecoComercial),
+    entradaMinima: n(l.simEntradaMinima),
+    parcelas: l.simParcelas ?? undefined,
+    valorParcelaPadrao: n(l.simValorParcela),
+    entradasSugeridas: Array.isArray(l.simEntradasSugeridas)
+      ? (l.simEntradasSugeridas as number[])
+      : undefined,
+  };
+}
+
 interface Props {
   params: { slug: string };
 }
@@ -22,6 +51,12 @@ async function getLoteamento(slug: string) {
       publicado: true,
       ativo: true,
       imagemCapa: true,
+      simPrecoResidencial: true,
+      simPrecoComercial: true,
+      simEntradaMinima: true,
+      simParcelas: true,
+      simValorParcela: true,
+      simEntradasSugeridas: true,
       loteadora: {
         select: {
           nome: true,
@@ -115,6 +150,7 @@ export default async function SimuladorPage({ params }: Props) {
 
       <main className="flex-1">
         <SimuladorResidencial
+          {...paramsSimulador(loteamento)}
           corPrimaria={corPrimaria}
           whatsapp={loteadora.whatsapp ?? ''}
           loteamentoNome={loteamento.nome}
