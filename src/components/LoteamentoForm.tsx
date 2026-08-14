@@ -672,6 +672,79 @@ function Toggle({
 // =====================================================================
 // IMAGEM com preview
 // =====================================================================
+function ChipsEditor({
+  items,
+  onChange,
+  placeholder,
+  addLabel,
+}: {
+  items: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+  addLabel?: string;
+}) {
+  const [novo, setNovo] = useState('');
+  function adicionar() {
+    const v = novo.trim();
+    if (!v) return;
+    onChange([...items, v]);
+    setNovo('');
+  }
+  function remover(i: number) {
+    onChange(items.filter((_, j) => j !== i));
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          value={novo}
+          onChange={(e) => setNovo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              adicionar();
+            }
+          }}
+          placeholder={placeholder}
+          className={inputCls}
+        />
+        <button
+          type="button"
+          onClick={adicionar}
+          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg whitespace-nowrap"
+        >
+          {addLabel ?? '+ Adicionar'}
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-slate-500 italic">Nenhum item ainda.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((it, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-200 rounded-full text-xs font-medium"
+            >
+              {it}
+              <button
+                type="button"
+                onClick={() => remover(i)}
+                className="hover:text-red-600 text-xs"
+                aria-label="Remover"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =====================================================================
+// DOCUMENTOS (lista nome|url)
+// =====================================================================
 function DocumentosEditor({
   items,
   onChange,
