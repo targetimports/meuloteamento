@@ -76,7 +76,7 @@ export function PainelCrm({
   const etiquetas = conversa.etiquetas ?? [];
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-4">
+    <aside className="flex w-60 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-3 lg:w-64 xl:w-72 xl:p-4">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-body-lg font-semibold text-foreground">Sobre o contato</h2>
         <Button variant="ghost" size="icon-sm" onClick={onFechar} aria-label="Fechar painel">
@@ -173,22 +173,34 @@ export function PainelCrm({
         <Label className="text-caption uppercase tracking-wide text-muted-foreground">
           Atendimento
         </Label>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {SITUACOES.map((s) => (
-            <button
-              key={s.valor}
-              disabled={pendente}
-              onClick={() => acao(() => mudarSituacao(conversa.id, s.valor))}
-              className={cn(
-                'rounded-full px-2.5 py-0.5 text-body-sm transition-colors',
-                conversa.situacao === s.valor
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-accent'
-              )}
-            >
-              {s.rotulo}
-            </button>
-          ))}
+        {/* Grade de duas colunas em vez de pilulas que quebram a linha: com
+            rotulos de larguras muito diferentes, o flex-wrap deixava uma
+            sozinha em cada linha e a secao parecia desalinhada. Quatro opcoes
+            fixas cabem em 2x2, e cada uma ocupa a mesma area — o alvo do
+            clique deixa de depender do tamanho da palavra. */}
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {SITUACOES.map((s) => {
+            const ativa = conversa.situacao === s.valor;
+            return (
+              <button
+                key={s.valor}
+                type="button"
+                disabled={pendente}
+                aria-pressed={ativa}
+                title={s.rotulo}
+                onClick={() => acao(() => mudarSituacao(conversa.id, s.valor))}
+                className={cn(
+                  'truncate rounded-md border px-2 py-1.5 text-center text-body-sm transition-colors',
+                  'disabled:cursor-not-allowed disabled:opacity-60',
+                  ativa
+                    ? 'border-primary bg-primary font-medium text-primary-foreground'
+                    : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {s.rotulo}
+              </button>
+            );
+          })}
         </div>
       </div>
 
