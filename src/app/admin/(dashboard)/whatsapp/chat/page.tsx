@@ -60,11 +60,14 @@ export default async function ChatPage() {
 
   const naoLidas = ui.filter((c) => !c.arquivada).reduce((a, c) => a + c.naoLidas, 0);
 
+  // A margem negativa puxa contra o padding do main: esta tela é do tipo
+  // "aplicativo", ocupa a altura toda, e cada pixel gasto no topo sai da
+  // lista de conversas.
   return (
-    <div className="space-y-3">
+    <div className="-mt-3 space-y-2 lg:-mt-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Conversas</h1>
+          <h1 className="text-xl font-bold text-foreground">Conversas</h1>
           <p className="text-body-sm text-muted-foreground">
             {instancia.status === 'CONECTADA' ? (
               <>

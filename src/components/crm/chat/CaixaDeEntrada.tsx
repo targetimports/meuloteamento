@@ -425,7 +425,9 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     <div
       className={cn(
         'flex flex-col gap-2',
-        telaCheia ? 'fixed inset-0 z-50 bg-background p-3' : 'h-[calc(100vh-12rem)]'
+        // 9rem cobre o padding do main mais o cabecalho ja encolhido. Antes
+        // eram 12rem, e a folga sobrava como espaco morto embaixo da caixa.
+        telaCheia ? 'fixed inset-0 z-50 bg-background p-3' : 'h-[calc(100vh-9rem)]'
       )}
     >
       {/* Barra de comando: contadores a esquerda, troca de visao a direita.
