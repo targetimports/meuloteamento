@@ -9,6 +9,15 @@ const nextConfig = {
       { hostname: 'localhost' },
     ],
   },
+  experimental: {
+    serverActions: {
+      // O padrão é 1 MB e os uploads passam por server action: sem isto, toda
+      // foto acima de 1 MB falhava, mesmo com a tela prometendo 8 MB. 30 MB é
+      // o mesmo teto que o nginx já aplica em client_max_body_size — subir
+      // daqui sem subir lá só trocaria o erro de lugar.
+      bodySizeLimit: '30mb',
+    },
+  },
 };
 
 export default nextConfig;

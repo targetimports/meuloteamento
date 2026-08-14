@@ -18,6 +18,48 @@ const ALLOWED_IMAGE_TYPES = new Set([
 ]);
 const ALLOWED_PDF_TYPES = new Set(['application/pdf']);
 
+/** Vídeos que todo navegador atual reproduz sem plugin. */
+export const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/webm']);
+
+export function ehVideo(mime: string): boolean {
+  return ALLOWED_VIDEO_TYPES.has(mime);
+}
+
+/**
+ * Grava um vídeo em public/uploads/<subdir>/.
+ *
+ * Separado de `saveUploadedFile` porque aquele converte PDF e valida tipos de
+ * imagem: misturar vídeo ali obrigaria a espalhar condicionais por um caminho
+ * que já faz duas coisas.
+ */
+export async function saveUploadedVideo(input: {
+  file: File;
+  subdir: string;
+  filenameBase?: string;
+  maxBytes?: number;
+}): Promise<{ url: string; absolutePath: string }> {
+  const { file, subdir, filenameBase, maxBytes = MAX_BYTES } = input;
+
+  if (file.size > maxBytes) {
+    throw new Error(`Arquivo muito grande (máx ${Math.round(maxBytes / 1024 / 1024)} MB).`);
+  }
+  if (!ALLOWED_VIDEO_TYPES.has(file.type)) {
+    throw new Error('Formato de vídeo não suportado. Use MP4 ou WebM.');
+  }
+
+  const safeSubdir = subdir.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const dirPath = path.join(PUBLIC_UPLOADS_DIR, safeSubdir);
+  if (!existsSync(dirPath)) await mkdir(dirPath, { recursive: true });
+
+  const base = (filenameBase || `video-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const ext = file.type === 'video/webm' ? 'webm' : 'mp4';
+  const filename = `${base}.${ext}`;
+  const absPath = path.join(dirPath, filename);
+
+  await writeFile(absPath, Buffer.from(await file.arrayBuffer()));
+  return { url: `/uploads/${safeSubdir}/${filename}`, absolutePath: absPath };
+}
+
 /**
  * Salva o arquivo enviado em public/uploads/<subdir>/.
  * Se for PDF, converte primeira página para PNG via pdftoppm.

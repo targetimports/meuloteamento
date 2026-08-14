@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
+import { UploadGaleria, UploadUnico } from '@/components/lotes/UploadMidia';
+
 // =====================================================================
 // TIPOS
 // =====================================================================
@@ -109,6 +111,13 @@ export function LoteamentoForm({
   const [nome, setNome] = useState(initial?.nome ?? '');
   const [slug, setSlug] = useState(initial?.slug ?? '');
   const [slugManual, setSlugManual] = useState(!!initial?.slug);
+  /**
+   * Pasta das mídias no servidor. Segue o slug porque é o que as já existentes
+   * usam (/uploads/parquetucano/...). Loteamento novo, ainda sem slug, cai numa
+   * pasta genérica — os arquivos ficam achados do mesmo jeito, e mover depois
+   * quebraria as URLs já gravadas.
+   */
+  const pastaMidia = (initial?.slug || slug || 'loteamentos').trim();
   const [tagline, setTagline] = useState(initial?.tagline ?? '');
   const [subtagline, setSubtagline] = useState(initial?.subtagline ?? '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
@@ -448,64 +457,60 @@ export function LoteamentoForm({
         {tab === 'midia' && (
           <div className="space-y-4">
             <Card title="Imagens principais">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ImageUrlField
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <UploadUnico
                   label="Imagem de capa"
                   hint="aparece no card do loteamento (16:9 sugerido)"
                   value={imagemCapa}
                   onChange={setImagemCapa}
+                  subdir={pastaMidia}
                 />
-                <ImageUrlField
+                <UploadUnico
                   label="Imagem do mapa / planta"
-                  hint="planta do loteamento (mostrada na seção mapa)"
+                  hint="mostrada na seção mapa"
                   value={imagemMapa}
                   onChange={setImagemMapa}
+                  subdir={pastaMidia}
                 />
               </div>
             </Card>
 
             <Card title="Galeria de fotos">
-              <GaleriaEditor items={galeria} onChange={setGaleria} />
+              <UploadGaleria items={galeria} onChange={setGaleria} subdir={pastaMidia} />
             </Card>
 
             <Card title="Vídeos">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Vídeo de apresentação (URL)" hint="seção 'sobre o loteamento'">
-                  <input
-                    type="url"
-                    value={videoApresentacao}
-                    onChange={(e) => setVideoApresentacao(e.target.value)}
-                    placeholder="https://..."
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Poster do vídeo de apresentação">
-                  <input
-                    type="url"
-                    value={videoApresentacaoPoster}
-                    onChange={(e) => setVideoApresentacaoPoster(e.target.value)}
-                    placeholder="https://..."
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Vídeo do hero (banner principal)" hint="vídeo ao fundo do topo da página">
-                  <input
-                    type="url"
-                    value={videoHero}
-                    onChange={(e) => setVideoHero(e.target.value)}
-                    placeholder="https://..."
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Poster do hero">
-                  <input
-                    type="url"
-                    value={videoHeroPoster}
-                    onChange={(e) => setVideoHeroPoster(e.target.value)}
-                    placeholder="https://..."
-                    className={inputCls}
-                  />
-                </Field>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <UploadUnico
+                  label="Vídeo de apresentação"
+                  hint="seção 'sobre o loteamento'"
+                  tipo="video"
+                  value={videoApresentacao}
+                  onChange={setVideoApresentacao}
+                  subdir={pastaMidia}
+                />
+                <UploadUnico
+                  label="Pôster do vídeo de apresentação"
+                  hint="imagem exibida antes de dar play"
+                  value={videoApresentacaoPoster}
+                  onChange={setVideoApresentacaoPoster}
+                  subdir={pastaMidia}
+                />
+                <UploadUnico
+                  label="Vídeo do hero"
+                  hint="roda ao fundo do topo da página"
+                  tipo="video"
+                  value={videoHero}
+                  onChange={setVideoHero}
+                  subdir={pastaMidia}
+                />
+                <UploadUnico
+                  label="Pôster do hero"
+                  hint="primeiro quadro, enquanto o vídeo carrega"
+                  value={videoHeroPoster}
+                  onChange={setVideoHeroPoster}
+                  subdir={pastaMidia}
+                />
               </div>
             </Card>
           </div>
@@ -666,243 +671,6 @@ function Toggle({
 
 // =====================================================================
 // IMAGEM com preview
-// =====================================================================
-function ImageUrlField({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <Field label={label} hint={hint} wide>
-      <div className="space-y-2">
-        <input
-          type="url"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="https://..."
-          className={inputCls}
-        />
-        {value && (
-          <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 aspect-video max-w-md">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={value}
-              alt={label}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => onChange('')}
-              className="absolute top-2 right-2 px-2 py-1 bg-black/70 text-white text-xs rounded-md hover:bg-black"
-            >
-              Remover
-            </button>
-          </div>
-        )}
-      </div>
-    </Field>
-  );
-}
-
-// =====================================================================
-// GALERIA com URL + preview + reorder
-// =====================================================================
-function GaleriaEditor({
-  items,
-  onChange,
-}: {
-  items: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const [novaUrl, setNovaUrl] = useState('');
-
-  function adicionar() {
-    const v = novaUrl.trim();
-    if (!v) return;
-    onChange([...items, v]);
-    setNovaUrl('');
-  }
-  function remover(i: number) {
-    onChange(items.filter((_, j) => j !== i));
-  }
-  function mover(i: number, dir: -1 | 1) {
-    const j = i + dir;
-    if (j < 0 || j >= items.length) return;
-    const novos = items.slice();
-    [novos[i], novos[j]] = [novos[j], novos[i]];
-    onChange(novos);
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
-        <input
-          type="url"
-          value={novaUrl}
-          onChange={(e) => setNovaUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              adicionar();
-            }
-          }}
-          placeholder="Cole a URL da imagem e dê Enter"
-          className={inputCls}
-        />
-        <button
-          type="button"
-          onClick={adicionar}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg whitespace-nowrap"
-        >
-          + Adicionar
-        </button>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="p-8 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-center">
-          <p className="text-4xl mb-1 opacity-50">🖼️</p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Nenhuma imagem na galeria ainda.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {items.map((url, i) => (
-            <div
-              key={`${i}-${url}`}
-              className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 aspect-square bg-slate-100 dark:bg-slate-800/50"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.opacity = '0.3';
-                }}
-              />
-              <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
-                {i + 1}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-1">
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => mover(i, -1)}
-                    disabled={i === 0}
-                    className="px-1.5 py-0.5 bg-white/90 text-slate-900 rounded text-xs disabled:opacity-30"
-                  >
-                    ←
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => mover(i, 1)}
-                    disabled={i === items.length - 1}
-                    className="px-1.5 py-0.5 bg-white/90 text-slate-900 rounded text-xs disabled:opacity-30"
-                  >
-                    →
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => remover(i)}
-                  className="px-1.5 py-0.5 bg-red-600 text-white rounded text-xs"
-                >
-                  🗑
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =====================================================================
-// CHIPS (diferenciais)
-// =====================================================================
-function ChipsEditor({
-  items,
-  onChange,
-  placeholder,
-  addLabel,
-}: {
-  items: string[];
-  onChange: (v: string[]) => void;
-  placeholder?: string;
-  addLabel?: string;
-}) {
-  const [novo, setNovo] = useState('');
-  function adicionar() {
-    const v = novo.trim();
-    if (!v) return;
-    onChange([...items, v]);
-    setNovo('');
-  }
-  function remover(i: number) {
-    onChange(items.filter((_, j) => j !== i));
-  }
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
-        <input
-          value={novo}
-          onChange={(e) => setNovo(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              adicionar();
-            }
-          }}
-          placeholder={placeholder}
-          className={inputCls}
-        />
-        <button
-          type="button"
-          onClick={adicionar}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg whitespace-nowrap"
-        >
-          {addLabel ?? '+ Adicionar'}
-        </button>
-      </div>
-      {items.length === 0 ? (
-        <p className="text-sm text-slate-500 italic">Nenhum item ainda.</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map((it, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-200 rounded-full text-xs font-medium"
-            >
-              {it}
-              <button
-                type="button"
-                onClick={() => remover(i)}
-                className="hover:text-red-600 text-xs"
-                aria-label="Remover"
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =====================================================================
-// DOCUMENTOS (lista nome|url)
 // =====================================================================
 function DocumentosEditor({
   items,
