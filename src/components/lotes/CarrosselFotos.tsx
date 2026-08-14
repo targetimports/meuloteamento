@@ -96,7 +96,15 @@ export function CarrosselFotos({
     // pelo Escape, que dizem exatamente o que fazem.
     <div
       ref={raiz}
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+      /**
+       * `pointer-events-auto` não é enfeite: enquanto um modal do Radix está
+       * aberto, ele põe `pointer-events: none` no body. Como este portal é
+       * filho do body, herdava isso e ficava transparente ao clique — o clique
+       * atravessava e caía no overlay do modal, que se fechava e levava o
+       * carrossel junto. Era isso, e não a propagação, que quebrava tudo:
+       * mesmo o X nunca chegava a receber o clique.
+       */
+      className="pointer-events-auto fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Fotos do lote"
