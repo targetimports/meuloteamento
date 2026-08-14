@@ -262,11 +262,21 @@ export async function marcarNaoLida(conversaId: string): Promise<Resultado> {
   const { instancia } = await minhaInstancia();
   if (!instancia) return { ok: false, erro: 'Sem instância.' };
 
-  const r = await prisma.whatsappConversa.updateMany({
+  const c = await prisma.whatsappConversa.findFirst({
     where: { id: conversaId, instanciaId: instancia.id },
-    data: { naoLidas: 1 },
+    select: { id: true, naoLidas: true },
   });
-  if (r.count === 0) return { ok: false, erro: 'Conversa não encontrada.' };
+  if (!c) return { ok: false, erro: 'Conversa não encontrada.' };
+
+  // Conversa que já tem não-lidas fica como está: gravar 1 aqui apagaria a
+  // contagem real, e "5 não lidas" viraria "1" por causa de um clique que
+  // pedia justamente para ela continuar não lida.
+  if (c.naoLidas === 0) {
+    await prisma.whatsappConversa.update({
+      where: { id: c.id },
+      data: { naoLidas: 1 },
+    });
+  }
 
   revalidatePath('/admin/whatsapp/chat');
   return { ok: true };

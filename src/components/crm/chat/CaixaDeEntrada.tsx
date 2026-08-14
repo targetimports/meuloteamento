@@ -220,6 +220,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
 
+  /** Conversa que a pessoa marcou como não lida e ainda não reabriu de propósito. */
+  const naoLidaManual = useRef<string | null>(null);
   const fimDaLista = useRef<HTMLDivElement>(null);
   const areaMensagens = useRef<HTMLDivElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
@@ -310,6 +312,15 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     if (!selecionada) return;
     setCitando(null);
     void carregarMensagens(selecionada);
+    /**
+     * Menos quando a pessoa acabou de marcar esta conversa como não lida.
+     *
+     * Sem esta trava a ação não tinha efeito visível: desmarcar a seleção fazia
+     * o efeito de auto-seleção escolher a primeira da fila, que costuma ser
+     * justamente a que se marcou, e abrir marcava como lida de novo — tudo no
+     * mesmo instante.
+     */
+    if (naoLidaManual.current === selecionada) return;
     void marcarConversaLida(selecionada).then(() => router.refresh());
   }, [selecionada, carregarMensagens, router]);
 
@@ -681,7 +692,11 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             return (
               <button
                 key={c.id}
-                onClick={() => setSelecionada(c.id)}
+                onClick={() => {
+                  // Clique explícito desfaz a trava: agora a pessoa quer ler.
+                  if (naoLidaManual.current === c.id) naoLidaManual.current = null;
+                  setSelecionada(c.id);
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setMenuAlvo({ conversa: c, x: e.clientX, y: e.clientY });
@@ -1003,6 +1018,7 @@ ${t}` : t))}
         aoFechar={() => setMenuAlvo(null)}
         aoEscolher={(acao, c) =>
           startSync(async () => {
+            if (acao === 'naoLida') naoLidaManual.current = c.id;
             const r =
               acao === 'naoLida'
                 ? await marcarNaoLida(c.id)
@@ -1011,9 +1027,6 @@ ${t}` : t))}
                   : acao === 'silenciar'
                     ? await silenciarConversa(c.id)
                     : await arquivarConversa(c.id);
-            // Marcar como não lida com a conversa aberta se desfaria na hora:
-            // abrir é ler, e o efeito de seleção marca lida de novo.
-            if (acao === 'naoLida' && selecionada === c.id) setSelecionada(null);
             if (!r.ok) setErro(r.erro ?? 'Não foi possível concluir.');
             router.refresh();
           })
