@@ -113,6 +113,9 @@ function Campo({
   );
 }
 
+/** Linhas por página. 25 cabe numa tela sem rolar a lista inteira. */
+const POR_PAGINA = 25;
+
 const ROTULO_STATUS: Record<string, { texto: string; classe: string }> = {
   DISPONIVEL: { texto: 'Disponível', classe: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' },
   RESERVADO: { texto: 'Reservado', classe: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
@@ -136,6 +139,7 @@ export function GerenciarLotes({
   const [editando, setEditando] = useState<LoteLinha | null>(null);
   const [excluindo, iniciarExclusao] = useTransition();
 
+  const [pagina, setPagina] = useState(1);
   const [filtros, setFiltros] = useState<Filtros>(FILTRO_VAZIO);
   const [filtrando, setFiltrando] = useState(false);
   /** Cópia editável enquanto o modal está aberto: fechar sem aplicar não muda a tabela. */
@@ -175,6 +179,18 @@ export function GerenciarLotes({
 
   const ativos = contarFiltros(filtros);
 
+  /**
+   * Paginação no cliente: os lotes já vieram todos na carga da página, então
+   * fatiar aqui é instantâneo e não cobra outra ida ao banco. Vale enquanto um
+   * loteamento tiver centenas de lotes; se chegar a milhares, o recorte precisa
+   * subir para a consulta.
+   */
+  const totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
+  // Filtrar encurta a lista e pode deixar a página atual sem conteúdo: em vez
+  // de mostrar tabela vazia, cai na última que existe.
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const daPagina = visiveis.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -197,7 +213,10 @@ export function GerenciarLotes({
           {ativos > 0 && (
             <button
               type="button"
-              onClick={() => setFiltros(FILTRO_VAZIO)}
+              onClick={() => {
+                setFiltros(FILTRO_VAZIO);
+                setPagina(1);
+              }}
               className="text-xs text-slate-500 hover:text-slate-800 transition"
             >
               Limpar
@@ -237,7 +256,7 @@ export function GerenciarLotes({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {visiveis.map((l) => {
+                {daPagina.map((l) => {
                   const s = ROTULO_STATUS[l.status] ?? {
                     texto: l.status,
                     classe: 'bg-slate-100 text-slate-600 ring-slate-500/20',
@@ -293,11 +312,37 @@ export function GerenciarLotes({
       </div>
 
       {visiveis.length > 0 && (
-        <p className="text-xs text-slate-400">
-          {visiveis.length === lotes.length
-            ? `${lotes.length} lote(s)`
-            : `${visiveis.length} de ${lotes.length} lote(s)`}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            {`${(paginaAtual - 1) * POR_PAGINA + 1}–${(paginaAtual - 1) * POR_PAGINA + daPagina.length}`}{' '}
+            de {visiveis.length}
+            {visiveis.length !== lotes.length && ` (${lotes.length} no total)`}
+          </p>
+
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPagina(paginaAtual - 1)}
+                disabled={paginaAtual === 1}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Anterior
+              </button>
+              <span className="px-2 text-xs text-slate-500">
+                {paginaAtual} de {totalPaginas}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPagina(paginaAtual + 1)}
+                disabled={paginaAtual === totalPaginas}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* -------------------- Filtro -------------------- */}
@@ -311,6 +356,9 @@ export function GerenciarLotes({
             onSubmit={(e) => {
               e.preventDefault();
               setFiltros(rascunho);
+              // Sem isto, aplicar um filtro estando na página 5 mostraria uma
+              // tabela vazia até a pessoa perceber que precisa voltar.
+              setPagina(1);
               setFiltrando(false);
             }}
             className="space-y-4"
