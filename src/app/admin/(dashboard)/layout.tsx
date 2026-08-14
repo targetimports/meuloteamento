@@ -27,8 +27,6 @@ interface NavItem {
   superAdminOnly?: boolean;
   tenantOnly?: boolean;
   group: 'atendimento' | 'main' | 'gestao' | 'sistema';
-  /** Item de trabalho diario: fica maior e com cor propria no menu. */
-  destaque?: boolean;
   /** Nome do contador a exibir ao lado (resolvido no servidor). */
   badge?: 'whatsapp' | 'leads';
 }
@@ -41,7 +39,6 @@ const NAV_ITEMS: NavItem[] = [
     label: 'WhatsApp',
     Icon: NavChat,
     group: 'atendimento',
-    destaque: true,
     badge: 'whatsapp',
   },
   {
@@ -49,7 +46,6 @@ const NAV_ITEMS: NavItem[] = [
     label: 'CRM',
     Icon: NavFunil,
     group: 'atendimento',
-    destaque: true,
     badge: 'leads',
   },
   { href: '/admin', label: 'Dashboard', Icon: NavDashboard, group: 'main' },
@@ -217,19 +213,9 @@ export default async function DashboardLayout({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={
-                          item.destaque
-                            ? 'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-semibold text-white bg-white/[0.07] ring-1 ring-white/10 hover:bg-white/[0.12] transition-colors'
-                            : 'group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors'
-                        }
+                        className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                       >
-                        {item.destaque ? (
-                          <span className="flex-shrink-0" style={{ color: accent }}>
-                            <item.Icon className="w-5 h-5" />
-                          </span>
-                        ) : (
-                          <item.Icon className="w-[18px] h-[18px] flex-shrink-0" />
-                        )}
+                        <item.Icon className="w-[18px] h-[18px] flex-shrink-0" />
                         <span className="truncate">{item.label}</span>
                         {contador > 0 && (
                           <span
