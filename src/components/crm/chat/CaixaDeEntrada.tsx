@@ -536,7 +536,9 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
 
       <div className="flex min-h-0 flex-1 gap-3">
       {/* Fila */}
-      <div className="flex w-[320px] shrink-0 flex-col rounded-lg border border-border bg-card">
+      {/* Largura acompanha a tela: 320px fixos espremiam o chat em notebook de
+          13 polegadas, onde sobrava menos da metade para as mensagens. */}
+      <div className="flex w-[240px] shrink-0 flex-col rounded-lg border border-border bg-card lg:w-[280px] xl:w-[320px]">
         <div className="space-y-2 border-b border-border p-2">
           <div className="flex gap-1.5">
             <div className="relative flex-1">
@@ -574,12 +576,15 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </TabsList>
           </Tabs>
 
-          <div className="flex gap-1.5">
+          {/* Quatro ações do mesmo peso, uma linha só. O histórico ocupava uma
+              linha inteira por causa do rótulo, e as duplicadas outra — três
+              linhas de barra numa coluna que existe para listar conversas. */}
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
-              size="sm"
-              className="flex-1"
+              size="icon-sm"
               disabled={sincronizando}
+              aria-label="Pedir o histórico"
               title="Pedir as mensagens antigas ao WhatsApp"
               onClick={() =>
                 startSync(async () => {
@@ -594,13 +599,14 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                 })
               }
             >
-              {sincronizando ? <Loader2 className="animate-spin" /> : <History />} Histórico
+              {sincronizando ? <Loader2 className="animate-spin" /> : <History />}
             </Button>
             <Button
               variant="outline"
               size="icon-sm"
               disabled={sincronizando}
-              title="Puxar nomes da agenda do WhatsApp"
+              aria-label="Atualizar contatos"
+              title="Puxar nomes da agenda e da base de clientes"
               onClick={() =>
                 startSync(async () => {
                   setAviso(avisoDaSincronia(await sincronizarContatos()));
@@ -614,6 +620,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               variant="outline"
               size="icon-sm"
               disabled={sincronizando}
+              aria-label="Ligar conversas aos leads"
               title="Ligar conversas aos leads do funil"
               onClick={() =>
                 startSync(async () => {
@@ -625,17 +632,16 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             >
               <Link2 />
             </Button>
+            <div className="ml-auto">
+              <Duplicadas />
+            </div>
           </div>
 
-          <div className="flex justify-end">
-            <Duplicadas />
-          </div>
-
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             <select
               value={filtroSituacao}
               onChange={(e) => setFiltroSituacao(e.target.value)}
-              className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
+              className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
               aria-label="Filtrar por situação"
             >
               <option value="">Toda situação</option>
@@ -648,7 +654,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               <select
                 value={filtroEtiqueta}
                 onChange={(e) => setFiltroEtiqueta(e.target.value)}
-                className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
+                className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
                 aria-label="Filtrar por etiqueta"
               >
                 <option value="">Toda etiqueta</option>
