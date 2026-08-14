@@ -675,14 +675,6 @@ export function GerenciarLotes({
           </DialogHeader>
           {editando && (
             <div className="max-h-[65vh] overflow-y-auto overscroll-contain pr-3 -mr-3 space-y-3">
-              <MapaDoLote
-                imagemMapa={imagemMapa}
-                codigo={editando.codigo}
-                x={editando.mapaX}
-                y={editando.mapaY}
-                largura={editando.mapaLargura}
-                altura={editando.mapaAltura}
-              />
               <EditarLoteForm
                 embutido
                 tipos={tipos}
@@ -709,6 +701,17 @@ export function GerenciarLotes({
                 }}
               />
               {excluindo && <p className="mt-2 text-xs text-slate-500">Excluindo…</p>}
+
+              {/* Depois do formulário: serve para conferir de que lote se
+                  trata, não para editar nada — e o que se edita vem primeiro. */}
+              <MapaDoLote
+                imagemMapa={imagemMapa}
+                codigo={editando.codigo}
+                x={editando.mapaX}
+                y={editando.mapaY}
+                largura={editando.mapaLargura}
+                altura={editando.mapaAltura}
+              />
             </div>
           )}
         </DialogContent>
