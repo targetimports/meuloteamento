@@ -265,16 +265,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
 
   const conversa = conversas.find((c) => c.id === selecionada) ?? null;
 
-  const naoLidasTotal = useMemo(
-    () => conversas.filter((c) => !c.arquivada).reduce((a, c) => a + c.naoLidas, 0),
-    [conversas]
-  );
-  /** Quem falou por ultimo foi o cliente: esta esperando resposta. */
-  const esperando = useMemo(
-    () => conversas.filter((c) => !c.arquivada && c.ultimaMinha === false).length,
-    [conversas]
-  );
-
   // Só imagem e vídeo entram no visor: documento baixa, áudio toca na bolha.
   const midias: ItemMidia[] = useMemo(
     () =>
@@ -448,16 +438,10 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
         telaCheia ? 'fixed inset-0 z-50 bg-background p-3' : 'h-[calc(100vh-7rem)]'
       )}
     >
-      {/* Barra de comando: contadores a esquerda, troca de visao a direita.
-          O agrupamento so aparece no quadro — na lista ele nao teria o que
-          agrupar, e controle que nao faz nada ensina a duvidar dos outros. */}
+      {/* Barra de comando. O agrupamento so aparece no quadro — na lista ele
+          nao teria o que agrupar, e controle que nao faz nada ensina a duvidar
+          dos outros. */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-        {naoLidasTotal > 0 && <Badge variant="errorSoft">{naoLidasTotal} nao lidas</Badge>}
-        {esperando > 0 && <Badge variant="warningSoft">{esperando} esperando resposta</Badge>}
-        {naoLidasTotal === 0 && esperando === 0 && (
-          <Badge variant="successSoft">Tudo respondido</Badge>
-        )}
-
         <div className="ml-auto flex items-center gap-1.5">
           {visao === 'quadro' && (
             <Segmented
