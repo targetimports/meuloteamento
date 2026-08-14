@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/tenant';
+import { requireAdmin, whereClienteDaLoteadora } from '@/lib/tenant';
 import { listarContatos } from '@/lib/evolution-go';
 import { telefoneDoJid } from '@/lib/whatsapp-evento';
 import { nomeMelhor } from '@/lib/whatsapp-ingestao';
@@ -89,23 +89,116 @@ export async function buscarNasMensagens(termo: string): Promise<AchadoBusca[]> 
  *
  * Nome manual nunca é sobrescrito (a regra vive em `nomeMelhor`).
  */
-export async function sincronizarContatos(): Promise<Resultado & { atualizados?: number }> {
-  const { instancia } = await minhaInstancia();
+/** Só os últimos 11 dígitos: o 55 e o nono dígito variam entre as fontes. */
+function chaveTelefone(v: string | null | undefined): string | null {
+  const d = String(v ?? '').replace(/\D/g, '');
+  return d.length >= 8 ? d.slice(-11) : null;
+}
+
+/**
+ * Recupera o telefone das conversas em modo LID cruzando com os envios da
+ * régua.
+ *
+ * Conversa que nasceu na sincronia de histórico só tem o LID — 15 dígitos que
+ * não contêm telefone nenhum, e que o gateway não resolve (devolve `LID:
+ * null`). Mas o corpo da mensagem que a régua disparou é único por pessoa:
+ * carrega nome, valor, vencimento e link de pagamento. Casar o texto exato com
+ * `envios_comunicacao` devolve o destinatário.
+ *
+ * Conversa cujo texto casa com destinatários diferentes é descartada: preferir
+ * "Sem nome" a um nome trocado, que é pior porque parece certo.
+ */
+async function recuperarTelefonesPelosEnvios(instanciaId: string): Promise<number> {
+  const linhas = await prisma.$queryRaw<{ conversaId: string; tel: string }[]>`
+    SELECT DISTINCT m."conversaId" AS "conversaId",
+           regexp_replace(e.destinatario, '[^0-9]', '', 'g') AS tel
+    FROM whatsapp_mensagens m
+    JOIN whatsapp_conversas c ON c.id = m."conversaId"
+    JOIN envios_comunicacao e ON btrim(e.corpo) = btrim(m.texto)
+    WHERE c."instanciaId" = ${instanciaId}
+      AND c.telefone IS NULL
+      AND c."ehGrupo" = false
+      AND m."daMim" = true
+      AND m.texto IS NOT NULL
+      AND length(m.texto) > 40
+  `;
+
+  const porConversa = new Map<string, Set<string>>();
+  for (const l of linhas) {
+    const tel = String(l.tel ?? '').replace(/\D/g, '');
+    if (!tel) continue;
+    (porConversa.get(l.conversaId) ?? porConversa.set(l.conversaId, new Set()).get(l.conversaId)!).add(tel);
+  }
+
+  let recuperados = 0;
+  for (const [conversaId, tels] of porConversa) {
+    if (tels.size !== 1) continue;
+    await prisma.whatsappConversa.update({
+      where: { id: conversaId },
+      data: { telefone: [...tels][0] },
+    });
+    recuperados++;
+  }
+  return recuperados;
+}
+
+/** Nomes da nossa base — clientes e leads da própria loteadora. */
+async function nomesDaBase(loteadoraId: string | null): Promise<Map<string, string>> {
+  const [clientes, leads] = await Promise.all([
+    prisma.cliente.findMany({
+      where: whereClienteDaLoteadora(loteadoraId),
+      select: { nome: true, telefone: true },
+    }),
+    prisma.lead.findMany({
+      where: loteadoraId ? { loteamento: { loteadoraId } } : {},
+      select: { nome: true, telefone: true },
+    }),
+  ]);
+
+  // Cliente por último: ele sobrescreve o lead, e comprador é o dado mais
+  // confiável que temos sobre a pessoa.
+  const mapa = new Map<string, string>();
+  for (const l of leads) {
+    const k = chaveTelefone(l.telefone);
+    if (k && l.nome) mapa.set(k, l.nome);
+  }
+  for (const c of clientes) {
+    const k = chaveTelefone(c.telefone);
+    if (k && c.nome) mapa.set(k, c.nome);
+  }
+  return mapa;
+}
+
+/**
+ * Preenche os nomes das conversas, em três etapas.
+ *
+ * A agenda do WhatsApp sozinha não resolvia: ela tem os contatos pessoais de
+ * quem conectou o número, e os compradores da loteadora não estão lá. Por isso
+ * a nossa base entrou como fonte, acima da agenda.
+ */
+export async function sincronizarContatos(): Promise<
+  Resultado & { atualizados?: number; telefonesRecuperados?: number }
+> {
+  const { sessao, instancia } = await minhaInstancia();
   if (!instancia) return { ok: false, erro: 'Sem instância.' };
   if (instancia.status !== 'CONECTADA') return { ok: false, erro: 'Conecte seu número antes.' };
 
+  // 1) Sem telefone não há como cruzar nada — esta etapa vem primeiro.
+  const telefonesRecuperados = await recuperarTelefonesPelosEnvios(instancia.id);
+
+  // 2) Agenda do WhatsApp. Falha aqui não aborta: a base ainda tem o que dar.
+  const daAgenda = new Map<string, string>();
   const r = await listarContatos(instancia.token);
-  if (!r.ok || !Array.isArray(r.data)) {
-    return { ok: false, erro: 'O gateway não devolveu a agenda.' };
+  if (r.ok && Array.isArray(r.data)) {
+    for (const c of r.data) {
+      const k = chaveTelefone(telefoneDoJid(c.Jid ?? ''));
+      const nome = c.FullName || c.FirstName || c.BusinessName || c.PushName || '';
+      if (k && nome) daAgenda.set(k, nome);
+    }
   }
 
-  const porTelefone = new Map<string, string>();
-  for (const c of r.data) {
-    const tel = telefoneDoJid(c.Jid ?? '');
-    const nome = c.FullName || c.FirstName || c.BusinessName || c.PushName || '';
-    if (tel && nome) porTelefone.set(tel, nome);
-  }
-  if (porTelefone.size === 0) return { ok: true, atualizados: 0 };
+  // 3) Nossa base.
+  const daBase = await nomesDaBase(sessao.loteadoraId);
 
   const conversas = await prisma.whatsappConversa.findMany({
     where: { instanciaId: instancia.id, ehGrupo: false, nomeManual: false },
@@ -114,20 +207,29 @@ export async function sincronizarContatos(): Promise<Resultado & { atualizados?:
 
   let atualizados = 0;
   for (const c of conversas) {
-    if (!c.telefone) continue;
-    const candidato = porTelefone.get(c.telefone);
-    if (!candidato) continue;
-    const melhor = nomeMelhor(c, candidato, 'contatos');
-    if (!melhor) continue;
-    await prisma.whatsappConversa.update({
-      where: { id: c.id },
-      data: { nome: melhor, nomeOrigem: 'contatos' },
-    });
-    atualizados++;
+    const k = chaveTelefone(c.telefone);
+    if (!k) continue;
+
+    // Base antes da agenda, e o próprio nomeMelhor recusa o rebaixamento.
+    const candidatos: [string | undefined, string][] = [
+      [daBase.get(k), 'base'],
+      [daAgenda.get(k), 'contatos'],
+    ];
+
+    for (const [candidato, origem] of candidatos) {
+      const melhor = nomeMelhor(c, candidato, origem);
+      if (!melhor) continue;
+      await prisma.whatsappConversa.update({
+        where: { id: c.id },
+        data: { nome: melhor, nomeOrigem: origem },
+      });
+      atualizados++;
+      break;
+    }
   }
 
   revalidatePath('/admin/whatsapp/chat');
-  return { ok: true, atualizados };
+  return { ok: true, atualizados, telefonesRecuperados };
 }
 
 /** Arquiva ou desarquiva. Arquivada some da fila sem perder o histórico. */

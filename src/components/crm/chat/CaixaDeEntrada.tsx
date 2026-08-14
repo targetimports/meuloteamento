@@ -79,6 +79,23 @@ import {
   type AchadoBusca,
 } from '@/app/admin/(dashboard)/whatsapp/organizacao-actions';
 
+/**
+ * Aviso da sincronia. Mostra os telefones recuperados separado dos nomes:
+ * conversa em modo LID precisa primeiro ganhar um número, e sem essa distinção
+ * "0 nome(s) atualizado(s)" não diz se faltou telefone ou faltou cadastro.
+ */
+function avisoDaSincronia(r: {
+  ok: boolean;
+  erro?: string;
+  atualizados?: number;
+  telefonesRecuperados?: number;
+}): string {
+  if (!r.ok) return r.erro ?? 'Não foi possível sincronizar.';
+  const partes = [`${r.atualizados ?? 0} nome(s) atualizado(s)`];
+  if (r.telefonesRecuperados) partes.push(`${r.telefonesRecuperados} telefone(s) recuperado(s)`);
+  return partes.join(', ') + '.';
+}
+
 export interface ConversaUI {
   id: string;
   nome: string | null;
@@ -483,8 +500,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               <DropdownMenuItem
                 onClick={() =>
                   startSync(async () => {
-                    const r = await sincronizarContatos();
-                    setAviso(r.ok ? (r.atualizados ?? 0) + ' nome(s) atualizado(s).' : (r.erro ?? ''));
+                    setAviso(avisoDaSincronia(await sincronizarContatos()));
                     router.refresh();
                   })
                 }
@@ -596,8 +612,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               title="Puxar nomes da agenda do WhatsApp"
               onClick={() =>
                 startSync(async () => {
-                  const r = await sincronizarContatos();
-                  setAviso(r.ok ? `${r.atualizados ?? 0} nome(s) atualizado(s).` : (r.erro ?? ''));
+                  setAviso(avisoDaSincronia(await sincronizarContatos()));
                   router.refresh();
                 })
               }

@@ -108,7 +108,20 @@ const temLetra = (v: string | null | undefined) => /\p{L}/u.test(String(v || '')
  * rebaixado pelo `pushName` da próxima mensagem, que é o apelido escolhido pela
  * pessoa — muitas vezes só um emoji ou o nome da loja.
  */
-const FORCA_NOME: Record<string, number> = { manual: 3, contatos: 2, push: 1, numero: 0 };
+/**
+ * `base` fica acima de `contatos` porque a nossa tabela de clientes é a fonte
+ * certa para quem compra da loteadora: a agenda do celular do responsável tem
+ * os contatos pessoais dele, e ninguém salva duzentos compradores no telefone.
+ * Medido em produção — dos 63 números recuperados, zero estavam na agenda e 62
+ * estavam na base.
+ */
+const FORCA_NOME: Record<string, number> = {
+  manual: 4,
+  base: 3,
+  contatos: 2,
+  push: 1,
+  numero: 0,
+};
 
 /**
  * Decide se `candidato` deve virar o novo nome. `null` quando não há nada
