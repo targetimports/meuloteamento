@@ -55,6 +55,12 @@ import { VisorMidia, type ItemMidia } from './VisorMidia';
 import { Modelos } from './Modelos';
 import { QuadroConversas, type Agrupamento } from './QuadroConversas';
 import { Duplicadas } from './Duplicadas';
+import { MenuConversa, type AlvoMenu } from './MenuConversa';
+import {
+  arquivarConversa,
+  fixarConversa,
+  silenciarConversa,
+} from '@/app/admin/(dashboard)/whatsapp/modelo-actions';
 import {
   apagarParaTodos,
   enviarMensagem,
@@ -71,6 +77,7 @@ import {
   responderMensagem,
 } from '@/app/admin/(dashboard)/whatsapp/midia-actions';
 import {
+  marcarNaoLida,
   mudarSituacao,
   novaConversa,
   sincronizarContatos,
@@ -208,6 +215,8 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [visao, setVisaoTela] = useState<'lista' | 'quadro'>('lista');
   const [agrupamento, setAgrupamento] = useState<Agrupamento>('espera');
   const [longeDoFim, setLongeDoFim] = useState(false);
+  /** Conversa sob o menu de contexto, e onde o botão direito caiu. */
+  const [menuAlvo, setMenuAlvo] = useState<AlvoMenu | null>(null);
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
 
@@ -673,6 +682,10 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               <button
                 key={c.id}
                 onClick={() => setSelecionada(c.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuAlvo({ conversa: c, x: e.clientX, y: e.clientY });
+                }}
                 className={cn(
                   'flex w-full items-start gap-2.5 border-b border-border px-3 py-2.5 text-left transition-colors',
                   ativa ? 'bg-accent' : 'hover:bg-accent/40'
@@ -983,6 +996,29 @@ ${t}` : t))}
       {conversa && painelAberto && visao === 'lista' && (
         <PainelCrm conversa={conversa} onFechar={() => setPainelAberto(false)} />
       )}
+
+      <MenuConversa
+        alvo={menuAlvo}
+        pendente={sincronizando}
+        aoFechar={() => setMenuAlvo(null)}
+        aoEscolher={(acao, c) =>
+          startSync(async () => {
+            const r =
+              acao === 'naoLida'
+                ? await marcarNaoLida(c.id)
+                : acao === 'fixar'
+                  ? await fixarConversa(c.id)
+                  : acao === 'silenciar'
+                    ? await silenciarConversa(c.id)
+                    : await arquivarConversa(c.id);
+            // Marcar como não lida com a conversa aberta se desfaria na hora:
+            // abrir é ler, e o efeito de seleção marca lida de novo.
+            if (acao === 'naoLida' && selecionada === c.id) setSelecionada(null);
+            if (!r.ok) setErro(r.erro ?? 'Não foi possível concluir.');
+            router.refresh();
+          })
+        }
+      />
 
       {/* Encaminhar */}
       <Dialog open={encaminhando !== null} onOpenChange={(a) => !a && setEncaminhando(null)}>
