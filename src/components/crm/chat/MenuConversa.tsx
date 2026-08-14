@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Archive, BellOff, BellRing, Mail, MailOpen, Pin, PinOff } from 'lucide-react';
+import { Archive, BellOff, BellRing, Copy, Mail, MailOpen, Pin, PinOff } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { ConversaUI } from './CaixaDeEntrada';
@@ -34,7 +34,10 @@ export function MenuConversa({
 }: {
   alvo: AlvoMenu | null;
   aoFechar: () => void;
-  aoEscolher: (acao: 'alternarLida' | 'fixar' | 'silenciar' | 'arquivar', conversa: ConversaUI) => void;
+  aoEscolher: (
+    acao: 'alternarLida' | 'fixar' | 'silenciar' | 'arquivar' | 'duplicadas',
+    conversa: ConversaUI
+  ) => void;
   pendente: boolean;
 }) {
   const [montado, setMontado] = useState(false);
@@ -73,22 +76,28 @@ export function MenuConversa({
       chave: 'alternarLida' as const,
       Icone: temNaoLidas ? MailOpen : Mail,
       rotulo: temNaoLidas ? 'Marcar como lida' : 'Marcar como não lida',
+      separar: false,
     },
     {
       chave: 'fixar' as const,
       Icone: c.fixada ? PinOff : Pin,
       rotulo: c.fixada ? 'Desafixar' : 'Fixar no topo',
+      separar: false,
     },
     {
       chave: 'silenciar' as const,
       Icone: c.silenciada ? BellRing : BellOff,
       rotulo: c.silenciada ? 'Reativar avisos' : 'Silenciar',
+      separar: false,
     },
     {
       chave: 'arquivar' as const,
       Icone: Archive,
       rotulo: c.arquivada ? 'Desarquivar' : 'Arquivar',
+      separar: false,
     },
+    // Não age sobre esta conversa, age sobre a fila — daí o separador antes.
+    { chave: 'duplicadas' as const, Icone: Copy, rotulo: 'Conversas duplicadas', separar: true },
   ];
 
   return createPortal(
@@ -109,7 +118,7 @@ export function MenuConversa({
         className="modal-painel fixed z-[61] w-52 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
         style={{ left: x, top: y }}
       >
-        {itens.map(({ chave, Icone, rotulo }) => (
+        {itens.map(({ chave, Icone, rotulo, separar }) => (
           <button
             key={chave}
             type="button"
@@ -121,7 +130,8 @@ export function MenuConversa({
             }}
             className={cn(
               'flex w-full items-center gap-2.5 px-3 py-2 text-left text-body-sm text-foreground transition-colors',
-              'hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60'
+              'hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60',
+              separar && 'mt-1 border-t border-border pt-2'
             )}
           >
             <Icone className="h-4 w-4 shrink-0 text-muted-foreground" />

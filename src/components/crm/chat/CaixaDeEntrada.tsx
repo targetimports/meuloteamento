@@ -208,6 +208,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [longeDoFim, setLongeDoFim] = useState(false);
   /** Conversa sob o menu de contexto, e onde o botão direito caiu. */
   const [menuAlvo, setMenuAlvo] = useState<AlvoMenu | null>(null);
+  const [duplicadasAberto, setDuplicadasAberto] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
 
@@ -627,9 +628,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             >
               <Link2 />
             </Button>
-            <div className="ml-auto">
-              <Duplicadas />
-            </div>
           </div>
 
           {/* O recorte desceu para cá com os outros filtros. Sem ele em lugar
@@ -1008,7 +1006,13 @@ ${t}` : t))}
         alvo={menuAlvo}
         pendente={sincronizando}
         aoFechar={() => setMenuAlvo(null)}
-        aoEscolher={(acao, c) =>
+        aoEscolher={(acao, c) => {
+          // Abre um modal em vez de agir sobre a conversa — sai do fluxo das
+          // outras opções antes de entrar na transição.
+          if (acao === 'duplicadas') {
+            setDuplicadasAberto(true);
+            return;
+          }
           startSync(async () => {
             let r: { ok: boolean; erro?: string };
             if (acao === 'alternarLida') {
@@ -1030,9 +1034,11 @@ ${t}` : t))}
             }
             if (!r.ok) setErro(r.erro ?? 'Não foi possível concluir.');
             router.refresh();
-          })
-        }
+          });
+        }}
       />
+
+      <Duplicadas aberto={duplicadasAberto} aoFechar={() => setDuplicadasAberto(false)} />
 
       {/* Encaminhar */}
       <Dialog open={encaminhando !== null} onOpenChange={(a) => !a && setEncaminhando(null)}>

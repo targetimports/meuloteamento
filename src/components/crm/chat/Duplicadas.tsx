@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Loader2, Merge, TriangleAlert } from 'lucide-react';
+import { Loader2, Merge, TriangleAlert } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -31,16 +31,18 @@ import {
  * sistema mostra o que encontrou, marca a candidata natural a principal (a que
  * tem mais mensagens) e deixa a decisão com quem conhece os contatos.
  */
-export function Duplicadas() {
+export function Duplicadas({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => void }) {
   const router = useRouter();
-  const [aberto, setAberto] = useState(false);
   const [grupos, setGrupos] = useState<GrupoDuplicado[] | null>(null);
   const [principais, setPrincipais] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
 
-  function abrir() {
-    setAberto(true);
+  // A busca dispara ao abrir, não ao montar: o componente vive montado junto
+  // com a caixa, e procurar duplicadas a cada carregamento da tela seria uma
+  // consulta pesada que quase ninguém pediu.
+  useEffect(() => {
+    if (!aberto) return;
     setErro(null);
     setGrupos(null);
     iniciar(async () => {
@@ -50,21 +52,11 @@ export function Duplicadas() {
       // deixar tudo sem escolha faria a tela parecer um formulário em branco.
       setPrincipais(Object.fromEntries(r.map((g) => [g.telefone, g.conversas[0]?.id ?? ''])));
     });
-  }
+  }, [aberto]);
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="icon-sm"
-        onClick={abrir}
-        title="Procurar conversas duplicadas"
-        aria-label="Procurar conversas duplicadas"
-      >
-        <Copy />
-      </Button>
-
-      <Dialog open={aberto} onOpenChange={setAberto}>
+      <Dialog open={aberto} onOpenChange={(v) => !v && aoFechar()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Conversas duplicadas</DialogTitle>
@@ -165,7 +157,7 @@ export function Duplicadas() {
           {erro && <p className="text-body-sm text-destructive">{erro}</p>}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAberto(false)}>
+            <Button variant="outline" onClick={aoFechar}>
               Fechar
             </Button>
           </DialogFooter>
