@@ -35,11 +35,27 @@ import type { ConversaUI } from './CaixaDeEntrada';
 import { formatarTelefone, rotuloConversa } from '@/lib/whatsapp-rotulo';
 
 const SITUACOES = [
-  { valor: 'novo', rotulo: 'Novo' },
-  { valor: 'em_atendimento', rotulo: 'Em atendimento' },
-  { valor: 'aguardando', rotulo: 'Aguardando cliente' },
-  { valor: 'encerrado', rotulo: 'Encerrado' },
+  { valor: 'novo', rotulo: 'Novo', completo: 'Novo' },
+  { valor: 'em_atendimento', rotulo: 'Em atendimento', completo: 'Em atendimento' },
+  // Encurtado: "Aguardando cliente" não cabe na metade de uma coluna de 240px
+  // e aparecia cortado. O texto inteiro segue no title.
+  { valor: 'aguardando', rotulo: 'Aguardando', completo: 'Aguardando cliente' },
+  { valor: 'encerrado', rotulo: 'Encerrado', completo: 'Encerrado' },
 ];
+
+/**
+ * Escala do painel: três tamanhos, e nada além disso.
+ *
+ * Cada bloco vinha escolhendo o seu — o nome em text-body, o telefone em
+ * text-body-sm, os botões no padrão do componente, as situações em outro — e a
+ * coluna parecia montada por pessoas diferentes. Título, texto e apoio bastam
+ * para o que existe aqui.
+ */
+const TITULO = 'text-caption uppercase tracking-wide text-muted-foreground';
+const TEXTO = 'text-body-sm';
+const APOIO = 'text-caption text-muted-foreground';
+/** Um só tamanho de controle na coluna, botão ou campo. */
+const CONTROLE = 'h-7 text-caption';
 
 /**
  * Painel do CRM ao lado da conversa.
@@ -78,7 +94,7 @@ export function PainelCrm({
   return (
     <aside className="flex w-60 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-card p-3 lg:w-64 xl:w-72 xl:p-4">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="text-body-lg font-semibold text-foreground">Sobre o contato</h2>
+        <h2 className="text-body font-semibold text-foreground">Sobre o contato</h2>
         <Button variant="ghost" size="icon-sm" onClick={onFechar} aria-label="Fechar painel">
           <X />
         </Button>
@@ -86,17 +102,18 @@ export function PainelCrm({
 
       {/* Nome */}
       <div>
-        <Label className="text-caption uppercase tracking-wide text-muted-foreground">Nome</Label>
+        <Label className={TITULO}>Nome</Label>
         {renomeando ? (
           <div className="mt-1 flex gap-1.5">
             <Input
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              className="h-8 text-body-sm"
+              className={CONTROLE}
               autoFocus
             />
             <Button
               size="sm"
+              className={CONTROLE}
               disabled={pendente || !nome.trim()}
               onClick={() =>
                 acao(async () => {
@@ -111,7 +128,7 @@ export function PainelCrm({
           </div>
         ) : (
           <div className="mt-0.5 flex items-center gap-1.5">
-            <p className="min-w-0 flex-1 truncate text-body text-foreground">
+            <p className={cn("min-w-0 flex-1 truncate text-foreground", TEXTO)}>
               {rotuloConversa(conversa.nome, conversa.telefone)}
             </p>
             <Button
@@ -124,27 +141,24 @@ export function PainelCrm({
             </Button>
           </div>
         )}
-        <p className="text-body-sm text-muted-foreground">
-          {formatarTelefone(conversa.telefone) || '—'}
-        </p>
+        <p className={APOIO}>{formatarTelefone(conversa.telefone) || '—'}</p>
       </div>
 
       {/* Lead */}
       <div>
-        <Label className="text-caption uppercase tracking-wide text-muted-foreground">
-          Lead no funil
-        </Label>
+        <Label className={TITULO}>Lead no funil</Label>
         {conversa.lead ? (
           <div className="mt-1 space-y-1.5">
             <Link
               href={`/admin/leads`}
-              className="block truncate text-body font-medium text-primary-strong hover:underline"
+              className={cn("block truncate font-medium text-primary-strong hover:underline", TEXTO)}
             >
               {conversa.lead.nome}
             </Link>
             <Button
               variant="ghost"
               size="sm"
+              className={CONTROLE}
               disabled={pendente}
               onClick={() => acao(() => vincularAoLead(conversa.id, null))}
             >
@@ -157,7 +171,7 @@ export function PainelCrm({
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full"
+                className={cn('w-full', CONTROLE)}
                 disabled={pendente}
                 onClick={() => acao(() => criarLeadDaConversa(conversa.id))}
               >
@@ -170,9 +184,7 @@ export function PainelCrm({
 
       {/* Situação */}
       <div>
-        <Label className="text-caption uppercase tracking-wide text-muted-foreground">
-          Atendimento
-        </Label>
+        <Label className={TITULO}>Atendimento</Label>
         {/* Grade de duas colunas em vez de pilulas que quebram a linha: com
             rotulos de larguras muito diferentes, o flex-wrap deixava uma
             sozinha em cada linha e a secao parecia desalinhada. Quatro opcoes
@@ -187,10 +199,11 @@ export function PainelCrm({
                 type="button"
                 disabled={pendente}
                 aria-pressed={ativa}
-                title={s.rotulo}
+                title={s.completo}
                 onClick={() => acao(() => mudarSituacao(conversa.id, s.valor))}
                 className={cn(
-                  'truncate rounded-md border px-2 py-1.5 text-center text-body-sm transition-colors',
+                  'truncate rounded-md border px-1.5 text-center transition-colors',
+                  CONTROLE,
                   'disabled:cursor-not-allowed disabled:opacity-60',
                   ativa
                     ? 'border-primary bg-primary font-medium text-primary-foreground'
@@ -206,9 +219,7 @@ export function PainelCrm({
 
       {/* Etiquetas */}
       <div>
-        <Label className="text-caption uppercase tracking-wide text-muted-foreground">
-          Etiquetas
-        </Label>
+        <Label className={TITULO}>Etiquetas</Label>
         <div className="mt-1 flex flex-wrap gap-1">
           {etiquetas.map((e) => (
             <button
@@ -221,7 +232,7 @@ export function PainelCrm({
             </button>
           ))}
           {etiquetas.length === 0 && (
-            <p className="text-caption text-muted-foreground">Nenhuma etiqueta.</p>
+            <p className={APOIO}>Nenhuma etiqueta.</p>
           )}
         </div>
         <div className="mt-1.5 flex gap-1.5">
@@ -238,7 +249,7 @@ export function PainelCrm({
               }
             }}
             placeholder="nova etiqueta"
-            className="h-8 text-body-sm"
+            className={CONTROLE}
           />
           <Button
             variant="outline"
@@ -263,7 +274,7 @@ export function PainelCrm({
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start"
+          className={cn("w-full justify-start", CONTROLE)}
           disabled={pendente}
           onClick={() => acao(() => marcarNaoLida(conversa.id))}
         >
@@ -272,7 +283,7 @@ export function PainelCrm({
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start"
+          className={cn("w-full justify-start", CONTROLE)}
           disabled={pendente}
           onClick={() => acao(() => fixarConversa(conversa.id))}
         >
@@ -281,7 +292,7 @@ export function PainelCrm({
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start"
+          className={cn("w-full justify-start", CONTROLE)}
           disabled={pendente}
           onClick={() => acao(() => silenciarConversa(conversa.id))}
         >
@@ -291,18 +302,18 @@ export function PainelCrm({
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start"
+          className={cn("w-full justify-start", CONTROLE)}
           disabled={pendente}
           onClick={() => acao(() => arquivarConversa(conversa.id))}
         >
           <Archive /> {conversa.arquivada ? 'Desarquivar' : 'Arquivar'}
         </Button>
-        <p className="px-1 text-caption text-muted-foreground">
+        <p className={cn("px-1", APOIO)}>
           Fixar, silenciar e arquivar valem também no seu celular.
         </p>
       </div>
 
-      {erro && <p className="text-body-sm text-destructive">{erro}</p>}
+      {erro && <p className={cn('text-destructive', TEXTO)}>{erro}</p>}
     </aside>
   );
 }
