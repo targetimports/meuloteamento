@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Settings2 } from 'lucide-react';
 
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/tenant';
@@ -58,41 +57,22 @@ export default async function ChatPage() {
     lead: c.lead,
   }));
 
-  const naoLidas = ui.filter((c) => !c.arquivada).reduce((a, c) => a + c.naoLidas, 0);
-
   // A margem negativa puxa contra o padding do main: esta tela é do tipo
   // "aplicativo", ocupa a altura toda, e cada pixel gasto no topo sai da
-  // lista de conversas.
+  // lista de conversas. O título saiu pelo mesmo motivo — a barra da caixa já
+  // diz onde se está, e os contadores ela mostra em badge.
   return (
     <div className="-mt-3 space-y-2 lg:-mt-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Conversas</h1>
-          <p className="text-body-sm text-muted-foreground">
-            {instancia.status === 'CONECTADA' ? (
-              <>
-                {ui.filter((c) => !c.arquivada).length} conversa(s)
-                {naoLidas > 0 && (
-                  <>
-                    {' · '}
-                    <span className="font-medium text-success-strong">{naoLidas} não lida(s)</span>
-                  </>
-                )}
-              </>
-            ) : (
-              <span className="text-destructive">
-                Seu WhatsApp está desconectado — você não recebe nem envia mensagens.
-              </span>
-            )}
-          </p>
-        </div>
-        <Link
-          href="/admin/whatsapp"
-          className="inline-flex items-center gap-1.5 text-body-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Settings2 className="h-4 w-4" /> Conexão
-        </Link>
-      </div>
+      {/* O aviso de desconexão fica: sem ele a tela parece funcionar enquanto
+          nada entra nem sai, e a pessoa só descobre pelo cliente reclamando. */}
+      {instancia.status !== 'CONECTADA' && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-body-sm text-destructive">
+          Seu WhatsApp está desconectado — você não recebe nem envia mensagens.
+          <Link href="/admin/whatsapp" className="font-medium underline underline-offset-2">
+            Reconectar
+          </Link>
+        </p>
+      )}
 
       <CaixaDeEntrada conversas={ui} />
     </div>
