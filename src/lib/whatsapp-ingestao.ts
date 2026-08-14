@@ -247,7 +247,25 @@ async function acharOuCriarConversa(input: {
       instanciaId_remoteJid: { instanciaId: input.instanciaId, remoteJid: input.remoteJid },
     },
   });
-  if (porJid) return porJid;
+  if (porJid) {
+    /**
+     * A conversa pode ter nascido na sincronia de histórico, que entrega só o
+     * LID — um identificador de 15 dígitos, sem telefone nenhum. O número real
+     * aparece depois, no `senderAlt` do primeiro evento ao vivo, e este é o
+     * único momento em que dá para gravá-lo.
+     *
+     * Sem isto a conversa fica sem número para sempre, e sem número a agenda
+     * do WhatsApp não tem como lhe dar nome: era a causa das 218 conversas
+     * listadas como "Sem nome" mesmo com a agenda inteira sincronizada.
+     */
+    if (input.telefone && !porJid.telefone) {
+      return prisma.whatsappConversa.update({
+        where: { id: porJid.id },
+        data: { telefone: input.telefone },
+      });
+    }
+    return porJid;
+  }
 
   if (input.telefone) {
     const irma = await prisma.whatsappConversa.findFirst({
