@@ -71,11 +71,9 @@ import {
   responderMensagem,
 } from '@/app/admin/(dashboard)/whatsapp/midia-actions';
 import {
-  buscarNasMensagens,
   mudarSituacao,
   novaConversa,
   sincronizarContatos,
-  type AchadoBusca,
 } from '@/app/admin/(dashboard)/whatsapp/organizacao-actions';
 
 /**
@@ -212,8 +210,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [longeDoFim, setLongeDoFim] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
-  const [buscaMsg, setBuscaMsg] = useState('');
-  const [achados, setAchados] = useState<AchadoBusca[] | null>(null);
 
   const fimDaLista = useRef<HTMLDivElement>(null);
   const areaMensagens = useRef<HTMLDivElement>(null);
@@ -331,24 +327,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     const el = e.currentTarget;
     setLongeDoFim(el.scrollHeight - el.scrollTop - el.clientHeight > 250);
   }
-
-  // Busca nas mensagens, com respiro para não consultar a cada tecla.
-  useEffect(() => {
-    const q = buscaMsg.trim();
-    if (q.length < 2) {
-      setAchados(null);
-      return;
-    }
-    let vivo = true;
-    const t = setTimeout(async () => {
-      const r = await buscarNasMensagens(q);
-      if (vivo) setAchados(r);
-    }, 400);
-    return () => {
-      vivo = false;
-      clearTimeout(t);
-    };
-  }, [buscaMsg]);
 
   function limparComposer() {
     setRascunho('');
@@ -786,16 +764,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                 </p>
               </div>
 
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={buscaMsg}
-                  onChange={(e) => setBuscaMsg(e.target.value)}
-                  placeholder="Buscar nas mensagens"
-                  className="h-8 w-48 pl-8 text-body-sm"
-                />
-              </div>
-
               {conversa.lead ? (
                 <Badge variant="primarySoft">{conversa.lead.nome}</Badge>
               ) : (
@@ -822,48 +790,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               </Button>
             </div>
 
-            {/* Resultados da busca substituem a timeline enquanto durarem */}
-            {achados ? (
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-body-sm text-muted-foreground">
-                    {achados.length} resultado(s) para “{buscaMsg}”
-                  </p>
-                  <Button variant="ghost" size="sm" onClick={() => setBuscaMsg('')}>
-                    <X /> Fechar busca
-                  </Button>
-                </div>
-                <div className="space-y-1.5">
-                  {achados.map((a) => (
-                    <button
-                      key={a.mensagemId}
-                      onClick={() => {
-                        setSelecionada(a.conversaId);
-                        setBuscaMsg('');
-                      }}
-                      className="w-full rounded-md border border-border bg-card p-2.5 text-left transition-colors hover:bg-accent"
-                    >
-                      <p className="flex items-baseline justify-between gap-2 text-body-sm font-medium text-foreground">
-                        <span className="truncate">{a.conversaNome}</span>
-                        <span className="shrink-0 text-caption text-muted-foreground">
-                          {quando(a.enviadaEm)}
-                        </span>
-                      </p>
-                      <p className="mt-0.5 truncate text-body-sm text-muted-foreground">
-                        {a.daMim ? 'Você: ' : ''}
-                        {a.trecho}
-                      </p>
-                    </button>
-                  ))}
-                  {achados.length === 0 && (
-                    <p className="py-6 text-center text-body-sm text-muted-foreground">
-                      Nada encontrado.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div
+            <div
                 ref={areaMensagens}
                 onScroll={aoRolar}
                 className="relative min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
@@ -912,10 +839,9 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
                   ))
                 )}
                 <div ref={fimDaLista} />
-              </div>
-            )}
+            </div>
 
-            {longeDoFim && !achados && (
+            {longeDoFim && (
               <button
                 onClick={() => fimDaLista.current?.scrollIntoView({ behavior: 'smooth' })}
                 className="absolute bottom-24 right-8 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card shadow-md transition-colors hover:bg-accent"
