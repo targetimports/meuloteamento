@@ -30,6 +30,7 @@ import {
   EditarLoteForm,
   type TipoLoteUI,
 } from '@/components/LoteForms';
+import { MapaDoLote } from '@/components/lotes/MapaDoLote';
 import {
   atualizarLote,
   criarLote,
@@ -51,6 +52,10 @@ export interface LoteLinha {
   esquina: boolean;
   fronteAreaVerde: boolean;
   fotos: string[];
+  mapaX: number | null;
+  mapaY: number | null;
+  mapaLargura: number | null;
+  mapaAltura: number | null;
 }
 
 interface Filtros {
@@ -165,10 +170,12 @@ export function GerenciarLotes({
   loteamentoId,
   lotes,
   tipos,
+  imagemMapa,
 }: {
   loteamentoId: string;
   lotes: LoteLinha[];
   tipos: TipoLoteUI[];
+  imagemMapa: string | null;
 }) {
   const router = useRouter();
   const [cadastrando, setCadastrando] = useState(false);
@@ -667,7 +674,15 @@ export function GerenciarLotes({
             <DialogTitle>Lote {editando?.codigo}</DialogTitle>
           </DialogHeader>
           {editando && (
-            <div className="max-h-[65vh] overflow-y-auto overscroll-contain pr-3 -mr-3">
+            <div className="max-h-[65vh] overflow-y-auto overscroll-contain pr-3 -mr-3 space-y-3">
+              <MapaDoLote
+                imagemMapa={imagemMapa}
+                codigo={editando.codigo}
+                x={editando.mapaX}
+                y={editando.mapaY}
+                largura={editando.mapaLargura}
+                altura={editando.mapaAltura}
+              />
               <EditarLoteForm
                 embutido
                 tipos={tipos}

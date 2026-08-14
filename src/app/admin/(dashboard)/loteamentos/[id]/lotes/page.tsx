@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function LotesPage({ params }: { params: { id: string } }) {
   const loteamento = await prisma.loteamento.findUnique({
     where: { id: params.id },
-    select: { id: true, nome: true, loteadoraId: true },
+    select: { id: true, nome: true, loteadoraId: true, imagemMapa: true },
   });
   if (!loteamento) notFound();
   // Sem esta checagem um admin abre o loteamento de outra empresa pelo id.
@@ -53,6 +53,10 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
     esquina: l.esquina,
     fronteAreaVerde: l.fronteAreaVerde,
     fotos: l.fotos,
+    mapaX: l.mapaX,
+    mapaY: l.mapaY,
+    mapaLargura: l.mapaLargura,
+    mapaAltura: l.mapaAltura,
   }));
 
   return (
@@ -67,7 +71,12 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
         <h1 className="text-2xl font-bold text-slate-900 mt-1">Gerenciar lotes</h1>
       </div>
 
-      <GerenciarLotes loteamentoId={loteamento.id} lotes={linhas} tipos={tipos} />
+      <GerenciarLotes
+        loteamentoId={loteamento.id}
+        lotes={linhas}
+        tipos={tipos}
+        imagemMapa={loteamento.imagemMapa}
+      />
     </div>
   );
 }
