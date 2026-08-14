@@ -32,13 +32,6 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
     select: { id: true, nome: true },
   });
 
-  const stats = await prisma.lote.groupBy({
-    by: ['status'],
-    where: { loteamentoId: loteamento.id },
-    _count: { _all: true },
-  });
-  const statusMap = Object.fromEntries(stats.map((s) => [s.status, s._count._all]));
-
   const updateAction = atualizarLoteamento.bind(null, loteamento.id);
   const deleteAction = async () => {
     'use server';
@@ -105,66 +98,34 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
         </div>
       </div>
 
-      {/* KPIs / STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <KpiCard label="Total de lotes" value={loteamento._count.lotes} />
-        <KpiCard
-          label="Disponíveis"
-          value={statusMap.DISPONIVEL ?? 0}
-          tint="text-emerald-600 dark:text-emerald-400"
-          dot="bg-emerald-500"
-        />
-        <KpiCard
-          label="Reservados"
-          value={statusMap.RESERVADO ?? 0}
-          tint="text-amber-600 dark:text-amber-400"
-          dot="bg-amber-500"
-        />
-        <KpiCard
-          label="Vendidos"
-          value={statusMap.VENDIDO ?? 0}
-          tint="text-blue-600 dark:text-blue-400"
-          dot="bg-blue-500"
-        />
-        <KpiCard
-          label="Bloqueados"
-          value={statusMap.BLOQUEADO ?? 0}
-          tint="text-slate-500"
-          dot="bg-slate-400"
-        />
-      </div>
-
-      {/* QUICK ACTIONS */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Grade em vez de flex-wrap: com larguras livres a última linha ficava
+          com cards esticados, de tamanhos diferentes dos de cima. */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <QuickActionLink
           href={`/admin/loteamentos/${loteamento.id}/lotes`}
-          icon="📋"
           label="Gerenciar lotes"
           desc={`${loteamento._count.lotes} cadastrados`}
         />
         <QuickActionLink
           href={`/admin/loteamentos/${loteamento.id}/mapa`}
-          icon="🗺️"
           label="Editor visual do mapa"
-          desc="redimensionar · calibrar · zoom"
+          desc="Redimensionar, calibrar e posicionar"
         />
         <QuickActionLink
           href={`/admin/loteamentos/${loteamento.id}/tabelas-preco`}
-          icon="💰"
           label="Tabelas de preço"
-          desc="planos e condições"
+          desc="Planos e condições"
         />
         <QuickActionLink
           href={`/admin/loteamentos/${loteamento.id}/simulador`}
-          icon="🧮"
           label="Simulador"
-          desc="valores do site público"
+          desc="Valores do site público"
         />
         <QuickActionLink
           href={`/touch/${loteamento.slug}`}
-          icon="🖥"
           label="Stand 3D touch"
-          desc="abrir em nova aba"
+          desc="Vitrine para tela sensível ao toque"
+          externo
         />
       </div>
 
@@ -234,55 +195,37 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  tint,
-  dot,
-}: {
-  label: string;
-  value: number;
-  tint?: string;
-  dot?: string;
-}) {
-  return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 relative">
-      {dot && (
-        <span className={`absolute top-3 right-3 w-2 h-2 rounded-full ${dot}`} />
-      )}
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold">
-        {label}
-      </p>
-      <p className={`text-2xl font-black mt-1 ${tint ?? 'text-slate-900 dark:text-slate-100'}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
+/**
+ * Atalho para as telas do loteamento.
+ *
+ * Sem ícone: os emojis anteriores (prancheta, mapa, saco de dinheiro, ábaco)
+ * eram decoração — nenhum deles dizia algo que o rótulo ao lado já não
+ * dissesse, e cinco desenhos coloridos em fila competiam com o conteúdo da
+ * página. O que sobrou é o que se lê.
+ */
 function QuickActionLink({
   href,
-  icon,
   label,
   desc,
+  externo,
 }: {
   href: string;
-  icon: string;
   label: string;
   desc: string;
+  externo?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-primary-300 dark:hover:border-primary-500/50 hover:bg-primary-50/30 dark:hover:bg-primary-500/5 rounded-xl transition-colors group flex-1 min-w-[180px]"
+      target={externo ? '_blank' : undefined}
+      rel={externo ? 'noopener noreferrer' : undefined}
+      className="group rounded-xl border border-slate-200 bg-white px-4 py-3 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/50"
     >
-      <span className="text-2xl">{icon}</span>
-      <div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-primary-700 dark:group-hover:text-primary-400">
-          {label}
-        </p>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">{desc}</p>
-      </div>
+      <p className="flex items-center gap-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+        {label}
+        {externo && <span className="text-slate-400">↗</span>}
+      </p>
+      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{desc}</p>
     </Link>
   );
 }
