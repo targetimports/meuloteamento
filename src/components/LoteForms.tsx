@@ -206,15 +206,25 @@ export function NovoLoteForm({
             <option value="SUDOESTE">Sudoeste</option>
           </select>
         </div>
-        <div className="flex items-end gap-3">
-          <label className="inline-flex items-center gap-1.5 text-xs">
-            <input name="esquina" type="checkbox" className="rounded" />
-            <span>Esquina</span>
-          </label>
-          <label className="inline-flex items-center gap-1.5 text-xs">
-            <input name="fronteAreaVerde" type="checkbox" className="rounded" />
-            <span>Frente p/ área verde</span>
-          </label>
+        {/* Empilhados, não lado a lado: na largura de uma coluna da grade
+            "Frente p/ área verde" quebrava em duas linhas e o quadradinho
+            ficava centralizado no meio do texto, desalinhado do vizinho. */}
+        <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1">Características</label>
+          <div className="flex flex-col gap-1.5 pt-1">
+            <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+              <input name="esquina" type="checkbox" className="shrink-0 rounded border-slate-300" />
+              <span>Esquina</span>
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+              <input
+                name="fronteAreaVerde"
+                type="checkbox"
+                className="shrink-0 rounded border-slate-300"
+              />
+              <span>Frente p/ área verde</span>
+            </label>
+          </div>
         </div>
         <div className="md:col-span-4">
           <label className="block text-xs font-medium text-slate-700 mb-1">Descrição</label>
@@ -389,13 +399,23 @@ export function EditarLoteForm({
           />
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          <label className="inline-flex items-center gap-1.5 text-xs">
-            <input name="esquina" type="checkbox" defaultChecked={initial.esquina} className="rounded" />
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+            <input
+              name="esquina"
+              type="checkbox"
+              defaultChecked={initial.esquina}
+              className="shrink-0 rounded border-slate-300"
+            />
             <span>Esquina</span>
           </label>
-          <label className="inline-flex items-center gap-1.5 text-xs">
-            <input name="fronteAreaVerde" type="checkbox" defaultChecked={initial.fronteAreaVerde} className="rounded" />
+          <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+            <input
+              name="fronteAreaVerde"
+              type="checkbox"
+              defaultChecked={initial.fronteAreaVerde}
+              className="shrink-0 rounded border-slate-300"
+            />
             <span>Frente para área verde</span>
           </label>
         </div>
