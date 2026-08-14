@@ -195,7 +195,12 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
   const [citando, setCitando] = useState<MensagemUI | null>(null);
   const [encaminhando, setEncaminhando] = useState<MensagemUI | null>(null);
   const [modoNota, setModoNota] = useState(false);
-  const [painelAberto, setPainelAberto] = useState(true);
+  /**
+   * Fechado por padrão: abrir uma conversa é para ler a conversa. O painel
+   * ocupa um terço da largura com dados de cadastro que só interessam quando
+   * se vai mexer neles — e quem quer vê-los abre pelo botão no cabeçalho.
+   */
+  const [painelAberto, setPainelAberto] = useState(false);
   const [emojisAbertos, setEmojisAbertos] = useState(false);
   const [novoNumero, setNovoNumero] = useState('');
   const [abrindoNova, setAbrindoNova] = useState(false);
