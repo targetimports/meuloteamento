@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { formatarTelefone, rotuloConversa } from '@/lib/whatsapp-rotulo';
 import { Bolha } from './Bolha';
 import { PainelCrm } from './PainelCrm';
 import { AvatarContato } from './AvatarContato';
@@ -170,16 +171,6 @@ function rotuloDia(dia: string): string {
   ontem.setDate(hoje.getDate() - 1);
   if (d.toDateString() === ontem.toDateString()) return 'Ontem';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-}
-
-/** 5575984904920 → +55 75 98490-4920 */
-function formatarTelefone(v: string | null): string {
-  if (!v) return '';
-  const d = v.replace(/\D/g, '');
-  if (d.length < 12) return v;
-  const resto = d.slice(4);
-  const meio = resto.length > 8 ? resto.slice(0, 5) : resto.slice(0, 4);
-  return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${meio}-${resto.slice(meio.length)}`;
 }
 
 /** Recortes da fila — o mesmo vocabulario do ERP. */
@@ -676,7 +667,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {visiveis.map((c) => {
             const ativa = c.id === selecionada;
-            const nome = c.nome || formatarTelefone(c.telefone) || 'Sem nome';
+            const nome = rotuloConversa(c.nome, c.telefone);
             return (
               <button
                 key={c.id}
@@ -765,7 +756,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body-lg font-medium text-foreground">
-                  {conversa.nome || formatarTelefone(conversa.telefone) || 'Sem nome'}
+                  {rotuloConversa(conversa.nome, conversa.telefone)}
                 </p>
                 <p className="truncate text-caption text-muted-foreground">
                   {conversa.ehGrupo ? 'Grupo' : formatarTelefone(conversa.telefone)}

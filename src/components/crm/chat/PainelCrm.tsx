@@ -36,6 +36,7 @@ import {
   type LeadParaVincular,
 } from '@/app/admin/(dashboard)/whatsapp/organizacao-actions';
 import type { ConversaUI } from './CaixaDeEntrada';
+import { formatarTelefone, rotuloConversa } from '@/lib/whatsapp-rotulo';
 
 const SITUACOES = [
   { valor: 'novo', rotulo: 'Novo' },
@@ -137,7 +138,7 @@ export function PainelCrm({
         ) : (
           <div className="mt-0.5 flex items-center gap-1.5">
             <p className="min-w-0 flex-1 truncate text-body text-foreground">
-              {conversa.nome || 'Sem nome'}
+              {rotuloConversa(conversa.nome, conversa.telefone)}
             </p>
             <Button
               variant="ghost"
@@ -149,7 +150,9 @@ export function PainelCrm({
             </Button>
           </div>
         )}
-        <p className="text-body-sm text-muted-foreground">{conversa.telefone ?? '—'}</p>
+        <p className="text-body-sm text-muted-foreground">
+          {formatarTelefone(conversa.telefone) || '—'}
+        </p>
       </div>
 
       {/* Lead */}

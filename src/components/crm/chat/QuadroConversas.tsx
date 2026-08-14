@@ -6,6 +6,7 @@ import { Check, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AvatarContato } from './AvatarContato';
 import type { ConversaUI } from './CaixaDeEntrada';
+import { rotuloConversa } from '@/lib/whatsapp-rotulo';
 
 /**
  * A fila como QUADRO, em dois agrupamentos.
@@ -142,7 +143,7 @@ export function QuadroConversas({
 
           <div className="space-y-1.5 overflow-y-auto">
             {col.itens.map((c) => {
-              const nome = c.nome || c.telefone || 'Sem nome';
+              const nome = rotuloConversa(c.nome, c.telefone);
               return (
                 <div
                   key={c.id}
