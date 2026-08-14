@@ -7,6 +7,7 @@ import {
   enviarFotosDoLote,
   removerFotoDoLote,
 } from '@/app/admin/(dashboard)/loteamentos/[id]/lotes/actions';
+import { CarrosselFotos } from '@/components/lotes/CarrosselFotos';
 
 type FormState = { error?: string; ok?: boolean; criados?: number };
 
@@ -323,6 +324,8 @@ const MAX_FOTO_BYTES = 8 * 1024 * 1024;
  */
 function FotosDoLote({ loteId, fotos }: { loteId: string; fotos: string[] }) {
   const [lista, setLista] = useState(fotos);
+  /** Índice da foto aberta em tela cheia; null = visualizador fechado. */
+  const [vendo, setVendo] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const campo = useRef<HTMLInputElement>(null);
@@ -366,14 +369,23 @@ function FotosDoLote({ loteId, fotos }: { loteId: string; fotos: string[] }) {
 
       {lista.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
-          {lista.map((url) => (
+          {lista.map((url, i) => (
             <div key={url} className="relative group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt="Foto do lote"
-                className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
-              />
+              {/* Botão, não img com onClick: o teclado precisa alcançar a foto
+                  para abri-la, e o cursor precisa dizer que ali se clica. */}
+              <button
+                type="button"
+                onClick={() => setVendo(i)}
+                title="Ver maior"
+                className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Foto ${i + 1} do lote`}
+                  className="h-20 w-20 rounded-lg border border-slate-200 object-cover transition hover:brightness-90"
+                />
+              </button>
               <button
                 type="button"
                 onClick={() => remover(url)}
@@ -403,6 +415,8 @@ function FotosDoLote({ loteId, fotos }: { loteId: string; fotos: string[] }) {
       </p>
       {pendente && <p className="text-[11px] text-slate-500 mt-1">Enviando…</p>}
       {erro && <p className="text-[11px] text-red-600 mt-1">{erro}</p>}
+
+      <CarrosselFotos fotos={lista} inicial={vendo} aoFechar={() => setVendo(null)} />
     </div>
   );
 }
