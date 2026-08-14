@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { assertAcessoLoteamento, assertAcessoLote } from '@/lib/tenant';
 import { mudarStatusLote } from '@/lib/lote-status';
 import { getSession } from '@/lib/auth';
+import { saveUploadedFile } from '@/lib/upload';
 import type { LoteStatus, LoteTipo, OrientacaoSolar } from '@prisma/client';
 
 type FormState = { error?: string; ok?: boolean; criados?: number };
@@ -207,13 +208,121 @@ export async function atualizarLote(loteId: string, _prev: FormState, formData: 
       orientacaoSolar: data.orientacaoSolar ? (data.orientacaoSolar as OrientacaoSolar) : null,
       esquina: data.esquina,
       fronteAreaVerde: data.fronteAreaVerde,
-      fotos: parseLines(data.fotos),
+      // As fotos agora são gravadas pelo upload, não por este formulário. Sem
+      // esta condição, salvar o lote apagaria todas elas — o campo deixou de
+      // existir no envio e parseLines(undefined) devolve lista vazia.
+      ...(data.fotos !== undefined ? { fotos: parseLines(data.fotos) } : {}),
       ...comCategoria(data.tipo),
     },
   });
 
   revalidatePath(`/admin/loteamentos/${lote.loteamentoId}/lotes`);
   revalidatePath(`/admin/loteamentos/${lote.loteamentoId}`);
+  return { ok: true };
+}
+
+// =====================================================================
+// FOTOS DO LOTE
+// =====================================================================
+
+/** 8 MB por imagem. */
+const MAX_FOTO_BYTES = 8 * 1024 * 1024;
+
+const TIPOS_IMAGEM = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+
+/**
+ * Recebe as imagens do formulário e guarda no servidor.
+ *
+ * As fotos moram em `public/uploads/lote-<id>/` e o banco guarda só a URL — o
+ * mesmo arranjo do resto do sistema. Antes o campo pedia a URL pronta, o que
+ * transferia para quem cadastra o trabalho de hospedar a imagem em algum lugar
+ * e colar o endereço.
+ *
+ * Cada arquivo é validado por conta própria: um lote com quatro fotos boas e
+ * uma grande demais grava as quatro e avisa qual ficou de fora, em vez de
+ * recusar o envio inteiro.
+ */
+export async function enviarFotosDoLote(
+  loteId: string,
+  formData: FormData
+): Promise<{ ok: boolean; fotos?: string[]; erro?: string }> {
+  await assertAcessoLote(loteId);
+
+  const lote = await prisma.lote.findUnique({
+    where: { id: loteId },
+    select: { id: true, fotos: true, loteamentoId: true },
+  });
+  if (!lote) return { ok: false, erro: 'Lote não encontrado' };
+
+  const arquivos = formData.getAll('fotos').filter((f): f is File => f instanceof File && f.size > 0);
+  if (arquivos.length === 0) return { ok: false, erro: 'Nenhuma imagem selecionada.' };
+
+  const novas: string[] = [];
+  const recusadas: string[] = [];
+
+  for (const arquivo of arquivos) {
+    if (arquivo.size > MAX_FOTO_BYTES) {
+      recusadas.push(`${arquivo.name} (acima de 8 MB)`);
+      continue;
+    }
+    if (!TIPOS_IMAGEM.has(arquivo.type)) {
+      recusadas.push(`${arquivo.name} (formato não aceito)`);
+      continue;
+    }
+    try {
+      const { url } = await saveUploadedFile({
+        file: arquivo,
+        subdir: `lote-${loteId}`,
+        filenameBase: `foto-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      });
+      novas.push(url);
+    } catch (e) {
+      recusadas.push(`${arquivo.name} (${e instanceof Error ? e.message : 'falhou'})`);
+    }
+  }
+
+  const fotos = [...lote.fotos, ...novas];
+  if (novas.length > 0) {
+    await prisma.lote.update({ where: { id: loteId }, data: { fotos } });
+    revalidatePath(`/admin/loteamentos/${lote.loteamentoId}/lotes`);
+  }
+
+  // Devolve a lista inteira para a tela não precisar de outra consulta só para
+  // redesenhar as miniaturas.
+  if (recusadas.length > 0) {
+    return {
+      ok: novas.length > 0,
+      fotos,
+      erro: `Não enviadas: ${recusadas.join(', ')}.`,
+    };
+  }
+  return { ok: true, fotos };
+}
+
+/**
+ * Tira a foto da lista do lote.
+ *
+ * O arquivo continua no disco de propósito: apagar exigiria ter certeza de que
+ * nenhuma outra tela guardou aquela URL, e um arquivo órfão de alguns KB custa
+ * menos que uma imagem que some de onde ainda era esperada.
+ */
+export async function removerFotoDoLote(
+  loteId: string,
+  url: string
+): Promise<{ ok: boolean; erro?: string }> {
+  await assertAcessoLote(loteId);
+
+  const lote = await prisma.lote.findUnique({
+    where: { id: loteId },
+    select: { fotos: true, loteamentoId: true },
+  });
+  if (!lote) return { ok: false, erro: 'Lote não encontrado' };
+
+  await prisma.lote.update({
+    where: { id: loteId },
+    data: { fotos: lote.fotos.filter((f) => f !== url) },
+  });
+  revalidatePath(`/admin/loteamentos/${lote.loteamentoId}/lotes`);
   return { ok: true };
 }
 

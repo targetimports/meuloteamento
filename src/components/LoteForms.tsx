@@ -1,7 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
+
+import {
+  enviarFotosDoLote,
+  removerFotoDoLote,
+} from '@/app/admin/(dashboard)/loteamentos/[id]/lotes/actions';
 
 type FormState = { error?: string; ok?: boolean; criados?: number };
 
@@ -303,6 +308,106 @@ export function NovosLotesEmMassaForm({
 }
 
 // =====================================================================
+// FOTOS DO LOTE
+// =====================================================================
+
+/** 8 MB, o mesmo teto que o servidor aplica. */
+const MAX_FOTO_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Envia as fotos na hora, fora do formulário do lote.
+ *
+ * De propósito não faz parte do "Salvar": upload de imagem é lento e falha por
+ * motivos próprios (arquivo grande, formato errado), e amarrá-lo ao salvamento
+ * faria uma foto recusada derrubar a edição inteira do lote.
+ */
+function FotosDoLote({ loteId, fotos }: { loteId: string; fotos: string[] }) {
+  const [lista, setLista] = useState(fotos);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pendente, iniciar] = useTransition();
+  const campo = useRef<HTMLInputElement>(null);
+
+  function enviar(arquivos: FileList | null) {
+    if (!arquivos || arquivos.length === 0) return;
+    setErro(null);
+
+    // Barra o arquivo grande antes de subir: esperar o upload de 20 MB para
+    // ouvir "acima de 8 MB" é o pior jeito de dar essa notícia.
+    const grandes = Array.from(arquivos).filter((a) => a.size > MAX_FOTO_BYTES);
+    if (grandes.length > 0) {
+      setErro(`Acima de 8 MB: ${grandes.map((a) => a.name).join(', ')}.`);
+      if (campo.current) campo.current.value = '';
+      return;
+    }
+
+    const dados = new FormData();
+    for (const a of Array.from(arquivos)) dados.append('fotos', a);
+
+    iniciar(async () => {
+      const r = await enviarFotosDoLote(loteId, dados);
+      if (r.erro) setErro(r.erro);
+      if (r.fotos) setLista(r.fotos);
+      if (campo.current) campo.current.value = '';
+    });
+  }
+
+  function remover(url: string) {
+    setErro(null);
+    iniciar(async () => {
+      const r = await removerFotoDoLote(loteId, url);
+      if (!r.ok) setErro(r.erro ?? 'Não foi possível remover.');
+      else setLista((l) => l.filter((f) => f !== url));
+    });
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-700 mb-1">Fotos</label>
+
+      {lista.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {lista.map((url) => (
+            <div key={url} className="relative group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt="Foto do lote"
+                className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => remover(url)}
+                disabled={pendente}
+                title="Remover foto"
+                aria-label="Remover foto"
+                className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full bg-slate-900/80 text-white text-xs leading-none opacity-0 group-hover:opacity-100 focus:opacity-100 transition disabled:opacity-40"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input
+        ref={campo}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        multiple
+        disabled={pendente}
+        onChange={(e) => enviar(e.target.files)}
+        className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:opacity-60"
+      />
+      <p className="text-[11px] text-slate-400 mt-1">
+        PNG, JPG ou WebP, até 8 MB cada. A foto é enviada na hora, sem precisar salvar o lote.
+      </p>
+      {pendente && <p className="text-[11px] text-slate-500 mt-1">Enviando…</p>}
+      {erro && <p className="text-[11px] text-red-600 mt-1">{erro}</p>}
+    </div>
+  );
+}
+
+// =====================================================================
 // EDITAR LOTE
 // =====================================================================
 
@@ -420,16 +525,7 @@ export function EditarLoteForm({
           </label>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Fotos (uma URL por linha)</label>
-          <textarea
-            name="fotos"
-            defaultValue={initial.fotos.join('\n')}
-            rows={2}
-            className={inputClass}
-            placeholder="https://exemplo.com/foto1.jpg"
-          />
-        </div>
+        <FotosDoLote loteId={loteId} fotos={initial.fotos} />
 
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Descrição</label>
