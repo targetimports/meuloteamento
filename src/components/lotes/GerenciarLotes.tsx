@@ -116,6 +116,43 @@ function Campo({
 /** Linhas por página. 25 cabe numa tela sem rolar a lista inteira. */
 const POR_PAGINA = 25;
 
+type CampoOrdem = 'codigo' | 'quadra' | 'area' | 'preco' | 'tipo' | 'status';
+
+/**
+ * Cabeçalho clicável. O indicador só aparece na coluna ativa — uma seta em
+ * cada uma diria "ordenável" quatro vezes e não diria por qual está ordenado.
+ */
+function Cabecalho({
+  campo,
+  rotulo,
+  ordem,
+  aoOrdenar,
+  alinhamento = 'text-left',
+}: {
+  campo: CampoOrdem;
+  rotulo: string;
+  ordem: { campo: CampoOrdem; asc: boolean };
+  aoOrdenar: (campo: CampoOrdem) => void;
+  alinhamento?: string;
+}) {
+  const ativa = ordem.campo === campo;
+  return (
+    <th className={`${alinhamento} font-medium px-5 py-2.5`}>
+      <button
+        type="button"
+        onClick={() => aoOrdenar(campo)}
+        className="inline-flex items-center gap-1 hover:text-slate-800 transition"
+        title={`Ordenar por ${rotulo.toLowerCase()}`}
+      >
+        {rotulo}
+        <span className={ativa ? 'text-slate-700' : 'invisible'} aria-hidden>
+          {ativa && !ordem.asc ? '▾' : '▴'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 const ROTULO_STATUS: Record<string, { texto: string; classe: string }> = {
   DISPONIVEL: { texto: 'Disponível', classe: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' },
   RESERVADO: { texto: 'Reservado', classe: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
@@ -140,6 +177,11 @@ export function GerenciarLotes({
   const [excluindo, iniciarExclusao] = useTransition();
 
   const [pagina, setPagina] = useState(1);
+  /** Começa como a consulta já entrega: por quadra e número. */
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdem; asc: boolean }>({
+    campo: 'codigo',
+    asc: true,
+  });
   const [filtros, setFiltros] = useState<Filtros>(FILTRO_VAZIO);
   const [filtrando, setFiltrando] = useState(false);
   /** Cópia editável enquanto o modal está aberto: fechar sem aplicar não muda a tabela. */
@@ -179,17 +221,34 @@ export function GerenciarLotes({
 
   const ativos = contarFiltros(filtros);
 
+  const ordenados = useMemo(() => {
+    const { campo, asc } = ordem;
+    const sinal = asc ? 1 : -1;
+    // Cópia: ordenar no lugar mutaria o array do memo do filtro, e o React
+    // compara por referência — a tabela não redesenharia de forma confiável.
+    return [...visiveis].sort((a, b) => {
+      if (campo === 'area' || campo === 'preco') return (a[campo] - b[campo]) * sinal;
+      // numeric: "A-2" antes de "A-10", mesmo sem o zero à esquerda.
+      return String(a[campo]).localeCompare(String(b[campo]), 'pt-BR', { numeric: true }) * sinal;
+    });
+  }, [visiveis, ordem]);
+
+  function ordenarPor(campo: CampoOrdem) {
+    setOrdem((o) => (o.campo === campo ? { campo, asc: !o.asc } : { campo, asc: true }));
+    setPagina(1);
+  }
+
   /**
    * Paginação no cliente: os lotes já vieram todos na carga da página, então
    * fatiar aqui é instantâneo e não cobra outra ida ao banco. Vale enquanto um
    * loteamento tiver centenas de lotes; se chegar a milhares, o recorte precisa
    * subir para a consulta.
    */
-  const totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
   // Filtrar encurta a lista e pode deixar a página atual sem conteúdo: em vez
   // de mostrar tabela vazia, cai na última que existe.
   const paginaAtual = Math.min(pagina, totalPaginas);
-  const daPagina = visiveis.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  const daPagina = ordenados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   return (
     <div className="space-y-4">
@@ -247,12 +306,30 @@ export function GerenciarLotes({
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="text-left font-medium px-5 py-2.5">Código</th>
-                  <th className="text-left font-medium px-5 py-2.5">Quadra</th>
-                  <th className="text-right font-medium px-5 py-2.5">Área</th>
-                  <th className="text-right font-medium px-5 py-2.5">Preço</th>
-                  <th className="text-left font-medium px-5 py-2.5">Tipo</th>
-                  <th className="text-center font-medium px-5 py-2.5">Situação</th>
+                  <Cabecalho campo="codigo" rotulo="Código" ordem={ordem} aoOrdenar={ordenarPor} />
+                  <Cabecalho campo="quadra" rotulo="Quadra" ordem={ordem} aoOrdenar={ordenarPor} />
+                  <Cabecalho
+                    campo="area"
+                    rotulo="Área"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                    alinhamento="text-right"
+                  />
+                  <Cabecalho
+                    campo="preco"
+                    rotulo="Preço"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                    alinhamento="text-right"
+                  />
+                  <Cabecalho campo="tipo" rotulo="Tipo" ordem={ordem} aoOrdenar={ordenarPor} />
+                  <Cabecalho
+                    campo="status"
+                    rotulo="Situação"
+                    ordem={ordem}
+                    aoOrdenar={ordenarPor}
+                    alinhamento="text-center"
+                  />
                   <th className="text-right font-medium px-5 py-2.5">Ações</th>
                 </tr>
               </thead>
