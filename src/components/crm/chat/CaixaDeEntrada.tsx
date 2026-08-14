@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Archive,
   ArrowDown,
   Columns3,
   Contact,
@@ -39,7 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Segmented } from '@/components/ui/segmented';
 import {
   DropdownMenu,
@@ -562,20 +560,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </Button>
           </div>
 
-          <Tabs value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
-            <TabsList className="w-full">
-              <TabsTrigger value="ativas" className="flex-1">
-                Ativas
-              </TabsTrigger>
-              <TabsTrigger value="nao_lidas" className="flex-1">
-                Não lidas
-              </TabsTrigger>
-              <TabsTrigger value="arquivadas" className="flex-1">
-                <Archive className="h-3 w-3" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Quatro ações do mesmo peso, uma linha só. O histórico ocupava uma
               linha inteira por causa do rótulo, e as duplicadas outra — três
               linhas de barra numa coluna que existe para listar conversas. */}
@@ -637,7 +621,19 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             </div>
           </div>
 
+          {/* O recorte desceu para cá com os outros filtros. Sem ele em lugar
+              nenhum, conversa arquivada ficaria inalcançável. */}
           <div className="flex flex-wrap gap-1.5">
+            <select
+              value={recorte}
+              onChange={(e) => setRecorte(e.target.value as Recorte)}
+              className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-body-sm text-foreground"
+              aria-label="Recorte da fila"
+            >
+              <option value="ativas">Ativas</option>
+              <option value="nao_lidas">Não lidas</option>
+              <option value="arquivadas">Arquivadas</option>
+            </select>
             <select
               value={filtroSituacao}
               onChange={(e) => setFiltroSituacao(e.target.value)}
