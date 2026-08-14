@@ -308,9 +308,6 @@ export function PainelCrm({
         >
           <Archive /> {conversa.arquivada ? 'Desarquivar' : 'Arquivar'}
         </Button>
-        <p className={cn("px-1", APOIO)}>
-          Fixar, silenciar e arquivar valem também no seu celular.
-        </p>
       </div>
 
       {erro && <p className={cn('text-destructive', TEXTO)}>{erro}</p>}
