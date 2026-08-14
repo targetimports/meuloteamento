@@ -123,15 +123,6 @@ const INTERVALO_ATUALIZACAO_MS = 12_000;
 
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👏', '🔥', '✅', '❌'];
 
-function iniciais(nome: string): string {
-  return nome
-    .split(' ')
-    .map((n) => n.charAt(0))
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
 function quando(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
