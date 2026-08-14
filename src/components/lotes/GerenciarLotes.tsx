@@ -248,6 +248,7 @@ export function GerenciarLotes({
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="text-left font-medium px-5 py-2.5">Código</th>
+                  <th className="text-left font-medium px-5 py-2.5">Quadra</th>
                   <th className="text-right font-medium px-5 py-2.5">Área</th>
                   <th className="text-right font-medium px-5 py-2.5">Preço</th>
                   <th className="text-left font-medium px-5 py-2.5">Tipo</th>
@@ -267,6 +268,7 @@ export function GerenciarLotes({
                       <td className="px-5 py-2.5 font-mono font-medium text-slate-900 whitespace-nowrap">
                         {l.codigo}
                       </td>
+                      <td className="px-5 py-2.5 text-slate-600 whitespace-nowrap">{l.quadra}</td>
                       <td className="px-5 py-2.5 text-right tabular-nums text-slate-600 whitespace-nowrap">
                         {formatArea(l.area)}
                       </td>
