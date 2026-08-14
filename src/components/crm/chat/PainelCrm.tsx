@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -8,8 +8,6 @@ import {
   BellOff,
   BellRing,
   Pin,
-  Link2,
-  Loader2,
   Pencil,
   Tag,
   UserPlus,
@@ -30,10 +28,8 @@ import {
 import {
   alternarEtiqueta,
   criarLeadDaConversa,
-  leadsParaVincular,
   marcarNaoLida,
   mudarSituacao,
-  type LeadParaVincular,
 } from '@/app/admin/(dashboard)/whatsapp/organizacao-actions';
 import type { ConversaUI } from './CaixaDeEntrada';
 import { formatarTelefone, rotuloConversa } from '@/lib/whatsapp-rotulo';
@@ -67,28 +63,6 @@ export function PainelCrm({
   const [renomeando, setRenomeando] = useState(false);
   const [nome, setNome] = useState(conversa.nome ?? '');
   const [etiqueta, setEtiqueta] = useState('');
-
-  const [buscaLead, setBuscaLead] = useState('');
-  const [leads, setLeads] = useState<LeadParaVincular[]>([]);
-  const [buscandoLead, setBuscandoLead] = useState(false);
-
-  // Busca o lead enquanto digita, com respiro para não consultar a cada tecla.
-  useEffect(() => {
-    if (conversa.lead) return;
-    let vivo = true;
-    setBuscandoLead(true);
-    const t = setTimeout(async () => {
-      const r = await leadsParaVincular(buscaLead);
-      if (vivo) {
-        setLeads(r);
-        setBuscandoLead(false);
-      }
-    }, 350);
-    return () => {
-      vivo = false;
-      clearTimeout(t);
-    };
-  }, [buscaLead, conversa.lead]);
 
   function acao(fn: () => Promise<{ ok: boolean; erro?: string }>) {
     setErro(null);
@@ -179,34 +153,6 @@ export function PainelCrm({
           </div>
         ) : (
           <div className="mt-1 space-y-2">
-            <Input
-              value={buscaLead}
-              onChange={(e) => setBuscaLead(e.target.value)}
-              placeholder="Buscar lead por nome ou telefone"
-              className="h-8 text-body-sm"
-            />
-            <div className="max-h-40 space-y-1 overflow-y-auto">
-              {buscandoLead ? (
-                <Loader2 className="mx-auto my-2 h-4 w-4 animate-spin text-muted-foreground" />
-              ) : leads.length === 0 ? (
-                <p className="py-1 text-caption text-muted-foreground">Nenhum lead encontrado.</p>
-              ) : (
-                leads.map((l) => (
-                  <button
-                    key={l.id}
-                    disabled={pendente}
-                    onClick={() => acao(() => vincularAoLead(conversa.id, l.id))}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-accent"
-                  >
-                    <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-body-sm">{l.nome}</span>
-                    {l.etapa && (
-                      <span className="shrink-0 text-caption text-muted-foreground">{l.etapa}</span>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
             {!conversa.ehGrupo && (
               <Button
                 variant="outline"
