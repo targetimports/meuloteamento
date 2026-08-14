@@ -633,7 +633,10 @@ export function GerenciarLotes({
             ))}
           </div>
 
-          <div className="max-h-[65vh] overflow-y-auto pt-1">
+          {/* -mr puxa o container até o padding do modal, para a barra correr
+              na borda; o pr devolve o espaço por dentro, para os campos não
+              ficarem embaixo dela. */}
+          <div className="max-h-[65vh] overflow-y-auto overscroll-contain pt-1 pr-3 -mr-3">
             {aba === 'individual' ? (
               <NovoLoteForm
                 embutido
@@ -664,7 +667,7 @@ export function GerenciarLotes({
             <DialogTitle>Lote {editando?.codigo}</DialogTitle>
           </DialogHeader>
           {editando && (
-            <div className="max-h-[65vh] overflow-y-auto">
+            <div className="max-h-[65vh] overflow-y-auto overscroll-contain pr-3 -mr-3">
               <EditarLoteForm
                 embutido
                 tipos={tipos}
