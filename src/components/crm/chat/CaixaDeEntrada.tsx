@@ -38,7 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Segmented } from '@/components/ui/segmented';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -438,90 +437,6 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
         telaCheia ? 'fixed inset-0 z-50 bg-background p-3' : 'h-[calc(100vh-7rem)]'
       )}
     >
-      {/* Barra de comando. O agrupamento so aparece no quadro — na lista ele
-          nao teria o que agrupar, e controle que nao faz nada ensina a duvidar
-          dos outros. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-        <div className="ml-auto flex items-center gap-1.5">
-          {visao === 'quadro' && (
-            <Segmented
-              size="sm"
-              value={agrupamento}
-              onChange={setAgrupamento}
-              options={[
-                { value: 'espera', label: 'Por espera' },
-                { value: 'status', label: 'Por status' },
-              ]}
-            />
-          )}
-          <Segmented
-            size="sm"
-            value={visao}
-            onChange={setVisaoTela}
-            options={[
-              { value: 'lista', label: 'Lista' },
-              { value: 'quadro', label: 'Quadro' },
-            ]}
-          />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Acoes">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  startSync(async () => {
-                    const r = await sincronizarHistorico();
-                    setAviso(r.ok ? 'Historico pedido.' : (r.erro ?? ''));
-                    router.refresh();
-                  })
-                }
-              >
-                <History /> Puxar historico
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  startSync(async () => {
-                    setAviso(avisoDaSincronia(await sincronizarContatos()));
-                    router.refresh();
-                  })
-                }
-              >
-                <Contact /> Atualizar contatos
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  startSync(async () => {
-                    const r = await vincularConversasAosLeads();
-                    setAviso(r.ok ? (r.vinculadas ?? 0) + ' conversa(s) ligada(s) a leads.' : (r.erro ?? ''));
-                    router.refresh();
-                  })
-                }
-              >
-                <Link2 /> Ligar conversas aos leads
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setAbrindoNova(true)}>
-                <Plus /> Nova conversa
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a href="/admin/whatsapp/desempenho">
-                  <BarChart3 /> Desempenho
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a href="/admin/whatsapp">
-                  <Smartphone /> Meu numero
-                </a>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
       {aviso && (
         <p className="rounded-md bg-surface-soft px-3 py-1.5 text-body-sm text-muted-foreground">
           {aviso}
@@ -612,6 +527,44 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
             >
               <Link2 />
             </Button>
+
+            {/* O menu herdou a troca de visão junto com as demais ações: a
+                barra que a hospedava saiu, e sem ela o quadro ficaria
+                inalcançável. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm" className="ml-auto" aria-label="Mais ações">
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setVisaoTela(visao === 'lista' ? 'quadro' : 'lista')}>
+                  <Columns3 /> {visao === 'lista' ? 'Ver em quadro' : 'Ver em lista'}
+                </DropdownMenuItem>
+                {visao === 'quadro' && (
+                  <DropdownMenuItem
+                    onClick={() => setAgrupamento(agrupamento === 'espera' ? 'status' : 'espera')}
+                  >
+                    <Columns3 />{' '}
+                    {agrupamento === 'espera' ? 'Agrupar por status' : 'Agrupar por espera'}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setAbrindoNova(true)}>
+                  <Plus /> Nova conversa
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/admin/whatsapp/desempenho">
+                    <BarChart3 /> Desempenho
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/admin/whatsapp">
+                    <Smartphone /> Meu número
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* O recorte desceu para cá com os outros filtros. Sem ele em lugar
