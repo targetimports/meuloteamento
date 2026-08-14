@@ -171,6 +171,11 @@ function rotuloDia(dia: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+/** Compara ignorando acento e caixa: "joao" acha "João". */
+function semAcento(v: string): string {
+  return v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
 /** Recortes da fila — o mesmo vocabulario do ERP. */
 type Recorte = 'ativas' | 'nao_lidas' | 'arquivadas';
 
@@ -218,13 +223,24 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
     if (filtroSituacao) lista = lista.filter((c) => c.situacao === filtroSituacao);
     if (filtroEtiqueta) lista = lista.filter((c) => c.etiquetas.includes(filtroEtiqueta));
 
-    const q = busca.trim().toLowerCase();
+    const q = busca.trim();
     if (q) {
-      lista = lista.filter((c) =>
-        `${c.nome ?? ''} ${c.telefone ?? ''} ${c.previa ?? ''} ${c.etiquetas.join(' ')}`
-          .toLowerCase()
-          .includes(q)
-      );
+      const alvo = semAcento(q);
+      // Digitado como número: compara só dígitos, então "(75) 99123-4567",
+      // "75991234567" e "99123" acham o mesmo contato guardado como
+      // "5575991234567". Abaixo de 3 dígitos qualquer coisa casa e a busca
+      // deixa de filtrar.
+      const digitos = q.replace(/\D/g, '');
+      lista = lista.filter((c) => {
+        const texto = semAcento(
+          `${c.nome ?? ''} ${c.previa ?? ''} ${c.etiquetas.join(' ')} ${c.lead?.nome ?? ''}`
+        );
+        if (texto.includes(alvo)) return true;
+        if (digitos.length >= 3 && c.telefone) {
+          return c.telefone.replace(/\D/g, '').includes(digitos);
+        }
+        return false;
+      });
     }
     // Fixadas sobem: é o que "fixar" significa.
     return [...lista].sort((a, b) => Number(b.fixada) - Number(a.fixada));
@@ -544,7 +560,7 @@ export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
               <Input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar conversa…"
+                placeholder="Nome, número ou mensagem…"
                 className="h-9 pl-9 text-body-sm"
               />
             </div>
