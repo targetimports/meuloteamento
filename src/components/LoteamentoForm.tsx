@@ -66,14 +66,14 @@ type TabId =
   | 'contato'
   | 'configuracoes';
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: 'geral', label: 'Geral', icon: '📋' },
-  { id: 'localizacao', label: 'Localização', icon: '📍' },
-  { id: 'marketing', label: 'Marketing', icon: '✨' },
-  { id: 'midia', label: 'Mídia', icon: '🖼️' },
-  { id: 'documentos', label: 'Documentos', icon: '📄' },
-  { id: 'contato', label: 'Contato', icon: '📞' },
-  { id: 'configuracoes', label: 'Configurações', icon: '⚙️' },
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'geral', label: 'Geral' },
+  { id: 'localizacao', label: 'Localização' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'midia', label: 'Mídia' },
+  { id: 'documentos', label: 'Documentos' },
+  { id: 'contato', label: 'Contato' },
+  { id: 'configuracoes', label: 'Configurações' },
 ];
 
 // =====================================================================
@@ -215,9 +215,12 @@ export function LoteamentoForm({
         </div>
       )}
 
-      {/* TABS */}
-      <div className="border-b border-slate-200 dark:border-slate-800 -mx-1 px-1 overflow-x-auto">
-        <nav className="flex gap-1 min-w-max">
+      {/* Abas: quebram de linha em vez de rolar. O overflow-x-auto de antes
+          fazia o CSS calcular overflow-y como auto, e o -mb-px dos botões
+          estourava um pixel — daí a barra de rolagem vertical numa faixa de
+          40px de altura. */}
+      <div className="border-b border-slate-200 dark:border-slate-800">
+        <nav className="flex flex-wrap gap-0.5">
           {TABS.map((t) => {
             const active = tab === t.id;
             const issues = counts[t.id];
@@ -226,16 +229,16 @@ export function LoteamentoForm({
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`relative px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+                aria-current={active ? 'page' : undefined}
+                className={`relative -mb-px whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2.5 text-sm transition-colors ${
                   active
-                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-200 dark:hover:border-slate-700'
+                    ? 'border-primary-600 bg-primary-50/70 font-semibold text-primary-700 dark:bg-primary-500/10 dark:text-primary-400'
+                    : 'border-transparent font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100'
                 }`}
               >
-                <span className="mr-1.5">{t.icon}</span>
                 {t.label}
                 {issues > 0 && (
-                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-500 align-middle" />
+                  <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 align-middle" />
                 )}
               </button>
             );
@@ -444,7 +447,7 @@ export function LoteamentoForm({
 
         {tab === 'midia' && (
           <div className="space-y-4">
-            <Card title="🖼️ Imagens principais">
+            <Card title="Imagens principais">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ImageUrlField
                   label="Imagem de capa"
@@ -461,11 +464,11 @@ export function LoteamentoForm({
               </div>
             </Card>
 
-            <Card title="📸 Galeria de fotos">
+            <Card title="Galeria de fotos">
               <GaleriaEditor items={galeria} onChange={setGaleria} />
             </Card>
 
-            <Card title="🎥 Vídeos">
+            <Card title="Vídeos">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Vídeo de apresentação (URL)" hint="seção 'sobre o loteamento'">
                   <input
@@ -509,7 +512,7 @@ export function LoteamentoForm({
         )}
 
         {tab === 'documentos' && (
-          <Card title="📄 Documentos do loteamento">
+          <Card title="Documentos do loteamento">
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
               Matrícula, memorial descritivo, alvarás. Aparecem na seção
               &ldquo;documentos&rdquo; do site público.
@@ -519,7 +522,7 @@ export function LoteamentoForm({
         )}
 
         {tab === 'contato' && (
-          <Card title="📞 Contato comercial">
+          <Card title="Contato comercial">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Nome do responsável">
                 <input
