@@ -14,12 +14,31 @@ import { cn } from '@/lib/utils';
  * navegador: um contato sem foto é normal; um retângulo quebrado parece defeito
  * do sistema.
  *
- * Antes o lugar da foto trazia as iniciais sobre uma cor derivada do nome. Só
- * que a maior parte da fila não tem nome — são conversas identificadas pelo
- * telefone, e a "inicial" virava um par de dígitos que não diz nada e ainda
- * pinta cada uma de uma cor diferente, como se fossem informação. A silhueta
- * neutra admite o que de fato se sabe do contato: nada além do número.
+ * A cor do círculo é derivada do contato, não sorteada: o mesmo contato tem
+ * sempre a mesma cor, e é isso que faz reconhecer a conversa na fila sem ler o
+ * nome. O que saiu foram as iniciais — a maior parte da fila é identificada
+ * pelo telefone, e a "inicial" virava um par de dígitos que não diz nada.
+ *
+ * A paleta é escolhida entre tons fechados o bastante para a silhueta branca
+ * sobre eles passar no contraste; por isso não há amarelo nem lima aqui.
  */
+
+const CORES = [
+  'bg-sky-600',
+  'bg-emerald-600',
+  'bg-violet-600',
+  'bg-rose-600',
+  'bg-teal-600',
+  'bg-indigo-600',
+  'bg-orange-600',
+  'bg-fuchsia-600',
+];
+
+function corDe(semente: string): string {
+  let h = 0;
+  for (let i = 0; i < semente.length; i++) h = (h * 31 + semente.charCodeAt(i)) >>> 0;
+  return CORES[h % CORES.length];
+}
 export function AvatarContato({
   nome,
   fotoUrl,
@@ -58,8 +77,11 @@ export function AvatarContato({
   return (
     <span
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground',
+        'flex shrink-0 items-center justify-center rounded-full text-white',
         dimensao,
+        // Grupo fora da paleta: ele não é uma pessoa, e a cor neutra é o que
+        // separa os dois tipos de conversa de relance.
+        ehGrupo ? 'bg-slate-500' : corDe(nome),
         className
       )}
       aria-hidden
