@@ -124,6 +124,13 @@ function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel?: s
 const inputClass =
   'w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm';
 
+/**
+ * Dentro de um modal o formulario nao precisa da propria moldura: o modal ja e
+ * o cartao, e dois quadros aninhados sao ruido.
+ */
+const moldura = (embutido?: boolean) =>
+  embutido ? '' : 'bg-white border border-slate-200 rounded-xl p-5';
+
 // =====================================================================
 // CRIAR LOTE INDIVIDUAL
 // =====================================================================
@@ -131,16 +138,20 @@ const inputClass =
 export function NovoLoteForm({
   action,
   tipos,
+  embutido,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   tipos?: TipoLoteUI[];
+  embutido?: boolean;
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
   const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(tipos);
 
   return (
-    <form action={formAction} className="bg-white border border-slate-200 rounded-xl p-5">
-      <h3 className="font-semibold text-slate-900 mb-3">Adicionar lote individual</h3>
+    <form action={formAction} className={moldura(embutido)}>
+      {!embutido && (
+        <h3 className="font-semibold text-slate-900 mb-3">Adicionar lote individual</h3>
+      )}
 
       {state.error && (
         <div className="mb-3 p-2 rounded bg-red-50 border border-red-200 text-xs text-red-700">
@@ -223,16 +234,18 @@ export function NovoLoteForm({
 export function NovosLotesEmMassaForm({
   action,
   tipos,
+  embutido,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   tipos?: TipoLoteUI[];
+  embutido?: boolean;
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
   const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(tipos);
 
   return (
-    <form action={formAction} className="bg-white border border-slate-200 rounded-xl p-5">
-      <h3 className="font-semibold text-slate-900 mb-1">Criar lotes em massa</h3>
+    <form action={formAction} className={moldura(embutido)}>
+      {!embutido && <h3 className="font-semibold text-slate-900 mb-1">Criar lotes em massa</h3>}
       <p className="text-xs text-slate-500 mb-3">
         Útil para cadastrar uma quadra inteira de uma vez. Todos os lotes terão a mesma área e preço — ajuste individualmente depois se necessário.
       </p>
@@ -289,6 +302,7 @@ export function EditarLoteForm({
   action,
   onDelete,
   tipos,
+  embutido,
 }: {
   loteId: string;
   initial: {
@@ -305,6 +319,7 @@ export function EditarLoteForm({
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   onDelete: () => Promise<void>;
   tipos?: TipoLoteUI[];
+  embutido?: boolean;
 }) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
   const { lista, tipo, tipoId, setTipoId, preco, setPreco } = usePrecoPorTipo(
@@ -313,7 +328,7 @@ export function EditarLoteForm({
   );
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5">
+    <div className={moldura(embutido)}>
       <form action={formAction} className="space-y-3">
         {state.error && (
           <div className="p-2 rounded bg-red-50 border border-red-200 text-xs text-red-700">

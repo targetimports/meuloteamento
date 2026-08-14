@@ -2,20 +2,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento } from '@/lib/tenant';
-import { formatBRL, formatArea } from '@/lib/format';
-import {
-  NovoLoteForm,
-  NovosLotesEmMassaForm,
-  EditarLoteForm,
-} from '@/components/LoteForms';
-import { criarLote, criarLotesEmMassa, atualizarLote, excluirLote } from './actions';
+import { GerenciarLotes, type LoteLinha } from '@/components/lotes/GerenciarLotes';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LotesPage({ params }: { params: { id: string } }) {
   const loteamento = await prisma.loteamento.findUnique({
     where: { id: params.id },
-    select: { id: true, nome: true , loteadoraId: true },
+    select: { id: true, nome: true, loteadoraId: true },
   });
   if (!loteamento) notFound();
   // Sem esta checagem um admin abre o loteamento de outra empresa pelo id.
@@ -44,17 +38,25 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
     categoria: t.categoria ?? ('' as const),
   }));
 
-  const criarAction = criarLote.bind(null, loteamento.id);
-  const bulkAction = criarLotesEmMassa.bind(null, loteamento.id);
-
-  // Agrupa por quadra
-  const porQuadra = lotes.reduce<Record<string, typeof lotes>>((acc, l) => {
-    (acc[l.quadra] ||= []).push(l);
-    return acc;
-  }, {});
+  // Decimal do Prisma não atravessa para Client Component; vira number aqui.
+  const linhas: LoteLinha[] = lotes.map((l) => ({
+    id: l.id,
+    codigo: l.codigo,
+    quadra: l.quadra,
+    area: Number(l.area),
+    preco: Number(l.preco),
+    status: l.status,
+    tipo: l.tipo,
+    descricao: l.descricao,
+    motivoBloqueio: l.motivoBloqueio,
+    orientacaoSolar: l.orientacaoSolar,
+    esquina: l.esquina,
+    fronteAreaVerde: l.fronteAreaVerde,
+    fotos: l.fotos,
+  }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <Link
           href={`/admin/loteamentos/${loteamento.id}`}
@@ -63,69 +65,9 @@ export default async function LotesPage({ params }: { params: { id: string } }) 
           ← {loteamento.nome}
         </Link>
         <h1 className="text-2xl font-bold text-slate-900 mt-1">Gerenciar lotes</h1>
-        <p className="text-sm text-slate-500">{lotes.length} lote(s) cadastrado(s)</p>
       </div>
 
-      <NovosLotesEmMassaForm action={bulkAction} tipos={tipos} />
-      <NovoLoteForm action={criarAction} tipos={tipos} />
-
-      {/* Listagem agrupada por quadra */}
-      {Object.entries(porQuadra).map(([quadra, items]) => (
-        <section key={quadra}>
-          <h2 className="font-semibold text-slate-900 mb-2">Quadra {quadra}</h2>
-          <div className="space-y-3">
-            {items.map((lote) => {
-              const updateAction = atualizarLote.bind(null, lote.id);
-              const deleteAction = async () => {
-                'use server';
-                await excluirLote(lote.id);
-              };
-
-              const vendavel = lote.status === 'DISPONIVEL' || lote.status === 'RESERVADO';
-
-              return (
-                <div key={lote.id}>
-                  <div className="flex items-baseline justify-between mb-1 px-1 gap-2 flex-wrap">
-                    <h3 className="font-mono text-sm font-semibold text-slate-700">
-                      {lote.codigo}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">
-                        {formatArea(Number(lote.area))} · {formatBRL(Number(lote.preco))}
-                      </span>
-                      {vendavel && (
-                        <Link
-                          href={`/admin/vendas/novo?lote=${lote.id}`}
-                          className="bg-primary-600 hover:bg-primary-700 text-white text-xs px-2 py-0.5 rounded font-medium"
-                        >
-                          + Vender
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                  <EditarLoteForm
-                    tipos={tipos}
-                    loteId={lote.id}
-                    initial={{
-                      area: Number(lote.area),
-                      preco: Number(lote.preco),
-                      descricao: lote.descricao,
-                      status: lote.status,
-                      motivoBloqueio: lote.motivoBloqueio,
-                      orientacaoSolar: lote.orientacaoSolar,
-                      esquina: lote.esquina,
-                      fronteAreaVerde: lote.fronteAreaVerde,
-                      fotos: lote.fotos,
-                    }}
-                    action={updateAction}
-                    onDelete={deleteAction}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+      <GerenciarLotes loteamentoId={loteamento.id} lotes={linhas} tipos={tipos} />
     </div>
   );
 }
