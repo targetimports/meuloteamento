@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Archive, BellOff, BellRing, Pin, PinOff } from 'lucide-react';
+import { Archive, BellOff, BellRing, Mail, MailOpen, Pin, PinOff } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { ConversaUI } from './CaixaDeEntrada';
@@ -34,7 +34,7 @@ export function MenuConversa({
 }: {
   alvo: AlvoMenu | null;
   aoFechar: () => void;
-  aoEscolher: (acao: 'naoLida' | 'fixar' | 'silenciar' | 'arquivar', conversa: ConversaUI) => void;
+  aoEscolher: (acao: 'alternarLida' | 'fixar' | 'silenciar' | 'arquivar', conversa: ConversaUI) => void;
   pendente: boolean;
 }) {
   const [montado, setMontado] = useState(false);
@@ -63,8 +63,17 @@ export function MenuConversa({
   const x = Math.min(alvo.x, window.innerWidth - LARGURA - 8);
   const y = Math.min(alvo.y, window.innerHeight - ALTURA - 8);
 
+  const temNaoLidas = c.naoLidas > 0;
+
   const itens = [
-    { chave: 'naoLida' as const, Icone: BellOff, rotulo: 'Marcar como não lida' },
+    {
+      // Um item só, que alterna: com não-lidas ele zera; sem elas, devolve a
+      // conversa à fila. Oferecer "marcar como não lida" a quem já tem não
+      // lidas era um comando sem efeito possível.
+      chave: 'alternarLida' as const,
+      Icone: temNaoLidas ? MailOpen : Mail,
+      rotulo: temNaoLidas ? 'Marcar como lida' : 'Marcar como não lida',
+    },
     {
       chave: 'fixar' as const,
       Icone: c.fixada ? PinOff : Pin,

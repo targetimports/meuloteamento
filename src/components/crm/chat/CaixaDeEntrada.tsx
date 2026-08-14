@@ -1018,15 +1018,24 @@ ${t}` : t))}
         aoFechar={() => setMenuAlvo(null)}
         aoEscolher={(acao, c) =>
           startSync(async () => {
-            if (acao === 'naoLida') naoLidaManual.current = c.id;
-            const r =
-              acao === 'naoLida'
-                ? await marcarNaoLida(c.id)
-                : acao === 'fixar'
-                  ? await fixarConversa(c.id)
-                  : acao === 'silenciar'
-                    ? await silenciarConversa(c.id)
-                    : await arquivarConversa(c.id);
+            let r: { ok: boolean; erro?: string };
+            if (acao === 'alternarLida') {
+              if (c.naoLidas > 0) {
+                // Voltou a ser lida: a trava sai junto, senão a conversa
+                // ficaria imune ao "marcar lida" ao ser aberta depois.
+                naoLidaManual.current = null;
+                r = await marcarConversaLida(c.id);
+              } else {
+                naoLidaManual.current = c.id;
+                r = await marcarNaoLida(c.id);
+              }
+            } else if (acao === 'fixar') {
+              r = await fixarConversa(c.id);
+            } else if (acao === 'silenciar') {
+              r = await silenciarConversa(c.id);
+            } else {
+              r = await arquivarConversa(c.id);
+            }
             if (!r.ok) setErro(r.erro ?? 'Não foi possível concluir.');
             router.refresh();
           })
