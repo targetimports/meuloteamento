@@ -342,3 +342,40 @@ export default async function VendasPage({
     </div>
   );
 }
+
+function KPI({
+  label,
+  valor,
+  highlight,
+  tint,
+}: {
+  label: string;
+  valor: string;
+  highlight?: boolean;
+  tint?: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl p-4 ${
+        highlight
+          ? 'bg-gradient-to-br from-primary-600 to-primary-700 text-white'
+          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+      }`}
+    >
+      <p
+        className={`text-xs uppercase tracking-wider ${
+          highlight ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
+        }`}
+      >
+        {label}
+      </p>
+      <p
+        className={`text-xl font-bold mt-1 ${
+          highlight ? 'text-white' : tint ?? 'text-slate-900 dark:text-slate-100'
+        }`}
+      >
+        {valor}
+      </p>
+    </div>
+  );
+}
