@@ -11,6 +11,20 @@ export const inputClass =
   'placeholder:text-slate-400 dark:placeholder:text-slate-500 ' +
   'rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm';
 
+/**
+ * Select com a seta do sistema trocada por uma desenhada.
+ *
+ * O select nativo herda o desenho do sistema operacional: a seta muda de forma
+ * entre Windows, macOS e Linux, e nenhuma delas combina com o resto dos campos.
+ * `appearance-none` remove a original e o SVG de fundo entra no lugar, com
+ * padding à direita para o texto não passar por baixo dela.
+ */
+export const selectClass =
+  inputClass +
+  ' appearance-none bg-no-repeat pr-9 cursor-pointer' +
+  " bg-[url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")]" +
+  ' bg-[length:1.1rem] bg-[position:right_0.65rem_center]';
+
 export const labelClass =
   'block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1';
 

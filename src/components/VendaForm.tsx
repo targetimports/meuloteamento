@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useFormState } from 'react-dom';
-import { Field, Section, SubmitButton, ErrorBox, inputClass } from './ui';
+import { Field, Section, SubmitButton, ErrorBox, inputClass, selectClass } from './ui';
+import { CampoMoeda } from '@/components/vendas/CampoMoeda';
 import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 import { ComboboxLote } from '@/components/vendas/ComboboxLote';
 import { CampoCliente } from '@/components/vendas/CampoCliente';
@@ -104,15 +105,11 @@ export function VendaForm({
   const [valorTotal, setValorTotal] = useState(0);
   const [valorTotalManual, setValorTotalManual] = useState(false);
   /**
-   * O input da entrada guarda TEXTO, não número, para poder ficar vazio.
-   *
-   * Com estado numérico, apagar o campo virava `Number('')` === 0 e o zero
-   * reaparecia sob o cursor — não dava para limpar e digitar outro valor sem
-   * apagar por cima. O número continua sendo derivado daqui, então o resto do
-   * formulário (total restante, prévia, regra de venda sem entrada) não muda.
+   * Volta a ser número: o estado em texto existia porque apagar o campo virava
+   * `Number('')` === 0 e o zero reaparecia sob o cursor. A máscara resolve isso
+   * de outro jeito — não há o que apagar, só dígitos que entram e saem.
    */
-  const [entradaTexto, setEntradaTexto] = useState('0');
-  const valorEntrada = Number(entradaTexto) || 0;
+  const [valorEntrada, setValorEntrada] = useState(0);
   const [numeroParcelas, setNumeroParcelas] = useState(60);
   /** Condição de venda escolhida; vazio = preenchimento manual. */
   const [condicaoId, setCondicaoId] = useState('');
@@ -263,7 +260,7 @@ export function VendaForm({
   // Escolher uma condição traz entrada mínima e prazo dela.
   useEffect(() => {
     if (!condicao) return;
-    setEntradaTexto(String(condicao.entradaMinima));
+    setValorEntrada(condicao.entradaMinima);
     setNumeroParcelas(condicao.parcelas);
     setValorTotalManual(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -455,14 +452,14 @@ export function VendaForm({
             value={formaPagamento}
             onChange={(e) => setFormaPagamento(e.target.value as 'A_VISTA')}
             required
-            className={inputClass}
+            className={selectClass}
           >
             <option value="A_VISTA">À vista (PIX/transferência)</option>
-            <option value="A_VISTA_ESPECIE">À vista — Dinheiro em espécie 💵</option>
-            <option value="A_VISTA_CHEQUE">À vista — Cheque 🧾</option>
+            <option value="A_VISTA_ESPECIE">À vista — Dinheiro em espécie</option>
+            <option value="A_VISTA_CHEQUE">À vista — Cheque</option>
             <option value="PARCELADO_PIX">Parcelado — PIX mensal</option>
             <option value="PARCELADO_BOLETO">Parcelado — Boleto</option>
-            <option value="PARCELADO_CHEQUE">Parcelado — Cheque pré-datado 🧾</option>
+            <option value="PARCELADO_CHEQUE">Parcelado — Cheque pré-datado</option>
             <option value="PARCELADO_CARTAO">Parcelado — Cartão</option>
             <option value="PARCELADO_MISTO">Parcelado — Misto</option>
           </select>
@@ -480,7 +477,7 @@ export function VendaForm({
               value={contaId}
               onChange={(e) => setContaId(e.target.value)}
               required={isEspecie}
-              className={inputClass}
+              className={selectClass}
             >
               <option value="">— Selecione —</option>
               {contas.map((c) => (
@@ -510,7 +507,7 @@ export function VendaForm({
             <select
               value={condicaoId}
               onChange={(e) => setCondicaoId(e.target.value)}
-              className={inputClass}
+              className={selectClass}
             >
               <option value="">— Preencher manualmente —</option>
               {condicoesDoLote.map((c) => (
@@ -545,14 +542,11 @@ export function VendaForm({
         >
           {/* Somente leitura sob uma condição: o valor é derivado dela, e um
               número digitado aqui seria sobrescrito no próximo cálculo. */}
-          <input
+          <CampoMoeda
             name="valorTotal"
-            type="number"
-            step="0.01"
-            min="0"
             value={valorTotal}
-            onChange={(e) => {
-              setValorTotal(Number(e.target.value));
+            onChange={(v) => {
+              setValorTotal(v);
               setValorTotalManual(true);
             }}
             readOnly={Boolean(condicao)}
@@ -587,20 +581,17 @@ export function VendaForm({
                   : undefined
               }
             >
-              <input
+              <CampoMoeda
                 name="valorEntrada"
-                type="number"
-                step="0.01"
-                min="0"
-                value={entradaTexto}
-                onChange={(e) => setEntradaTexto(e.target.value)}
+                value={valorEntrada}
+                onChange={setValorEntrada}
                 className={inputClass}
               />
               {/* Atalho — admin: zerar entrada */}
               <div className="flex gap-1.5 mt-1.5">
                 <button
                   type="button"
-                  onClick={() => setEntradaTexto('0')}
+                  onClick={() => setValorEntrada(0)}
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                     valorEntrada === 0
                       ? 'bg-amber-200 text-amber-900'
@@ -613,7 +604,7 @@ export function VendaForm({
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setEntradaTexto(String(v))}
+                    onClick={() => setValorEntrada(v)}
                     className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                       valorEntrada === v
                         ? 'bg-primary-200 text-primary-900'
@@ -1093,7 +1084,7 @@ export function VendaForm({
               name="corretorId"
               value={corretorId}
               onChange={(e) => setCorretorId(e.target.value)}
-              className={inputClass}
+              className={selectClass}
             >
               <option value="">— Sem corretor —</option>
               {corretores.map((c) => (
@@ -1215,7 +1206,7 @@ export function VendaForm({
 
         {!isAvista && (
           <Field label="Status do lote após a venda" wide>
-            <select name="statusLoteFinal" defaultValue="EM_PAGAMENTO" className={inputClass}>
+            <select name="statusLoteFinal" defaultValue="EM_PAGAMENTO" className={selectClass}>
               <option value="EM_PAGAMENTO">Em pagamento (padrão) — fica amarelo no mapa</option>
               <option value="VENDIDO">Já marcar como Vendido — fica vermelho/cruz no mapa</option>
             </select>
