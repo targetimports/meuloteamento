@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatBRL } from '@/lib/format';
+import { ComboboxCliente } from '@/components/vendas/ComboboxCliente';
 
 export interface VendaLinha {
   id: string;
@@ -29,6 +30,7 @@ export interface VendaLinha {
   lotesExtras: number;
   lotesTitulo: string;
   loteamentoNome: string;
+  clienteId: string;
   clienteNome: string;
   clienteCpf: string;
   valorTotal: number;
@@ -49,7 +51,8 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface Filtros {
   status: string;
-  cliente: string;
+  /** Id, não texto: dois clientes podem se chamar "Maria Silva". */
+  clienteId: string;
   lote: string;
   loteamento: string;
   corretor: string;
@@ -61,7 +64,7 @@ interface Filtros {
 
 const FILTRO_VAZIO: Filtros = {
   status: '',
-  cliente: '',
+  clienteId: '',
   lote: '',
   loteamento: '',
   corretor: '',
@@ -152,6 +155,21 @@ export function TabelaVendas({
 
   const ativos = contarFiltros(filtros);
 
+  /**
+   * Clientes que aparecem na tabela, sem repetir. Sai das próprias linhas em
+   * vez de outra consulta: filtrar por alguém que não tem venda nenhuma não
+   * mudaria a lista, então oferecer esse nome só faria perder o clique.
+   */
+  const clientesComVenda = useMemo(() => {
+    const porId = new Map<string, { id: string; nome: string; cpf: string }>();
+    for (const v of vendas) {
+      if (!porId.has(v.clienteId)) {
+        porId.set(v.clienteId, { id: v.clienteId, nome: v.clienteNome, cpf: v.clienteCpf });
+      }
+    }
+    return [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [vendas]);
+
   const visiveis = useMemo(() => {
     const f = filtros;
     const vMin = num(f.valorMin);
@@ -161,7 +179,7 @@ export function TabelaVendas({
 
     return vendas.filter((v) => {
       if (f.status && v.status !== f.status) return false;
-      if (!casa(`${v.clienteNome} ${v.clienteCpf}`, f.cliente)) return false;
+      if (f.clienteId && v.clienteId !== f.clienteId) return false;
       if (!casa(v.loteCodigo, f.lote)) return false;
       if (!casa(v.loteamentoNome, f.loteamento)) return false;
       if (f.corretor && !casa(v.corretorNome ?? '', f.corretor)) return false;
@@ -411,10 +429,11 @@ export function TabelaVendas({
                   ))}
                 </select>
               </Campo>
-              <Campo rotulo="Cliente (nome ou CPF)">
-                <input
-                  value={rascunho.cliente}
-                  onChange={(e) => setRascunho({ ...rascunho, cliente: e.target.value })}
+              <Campo rotulo="Cliente">
+                <ComboboxCliente
+                  clientes={clientesComVenda}
+                  valorId={rascunho.clienteId}
+                  onEscolher={(id) => setRascunho({ ...rascunho, clienteId: id })}
                   className={campoClass}
                 />
               </Campo>

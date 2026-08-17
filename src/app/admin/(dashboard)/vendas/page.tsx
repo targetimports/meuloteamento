@@ -329,6 +329,7 @@ export default async function VendasPage({
           lotesExtras: Math.max(0, v.vendaLotes.length - 1),
           lotesTitulo: v.vendaLotes.map((vl) => vl.lote.codigo).join(', '),
           loteamentoNome: v.lote.loteamento.nome,
+          clienteId: v.cliente.id,
           clienteNome: v.cliente.nome,
           clienteCpf: v.cliente.cpfCnpj,
           valorTotal: Number(v.valorTotal),
