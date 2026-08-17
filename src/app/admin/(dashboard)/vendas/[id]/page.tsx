@@ -215,8 +215,11 @@ export default async function VendaDetalhePage({
     0
   );
 
+  // Sem max-w: a tela é de leitura, com blocos de três e quatro colunas e a
+  // tabela de parcelas embaixo. Travar em 1024px deixava quase metade do
+  // monitor vazia enquanto as colunas se espremiam.
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       {searchParams.msg === 'criada' && (
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800 flex items-center gap-2">
           <span>✓</span>
