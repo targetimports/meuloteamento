@@ -7,6 +7,16 @@ import { atualizarLoteamento, excluirLoteamento } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Grupo Germanos — única empresa que ainda usa o stand 3D touch.
+ *
+ * O id vive aqui, cru, em vez de virar uma coluna de configuração: uma flag no
+ * cadastro diria "escolha se quer", e a decisão já está tomada — o recurso não
+ * será oferecido a mais ninguém. Uma exceção nomeada é mais fácil de apagar
+ * depois do que uma opção que alguém possa marcar sem querer.
+ */
+const LOTEADORA_COM_STAND_TOUCH = 'cmp0f4c9l0000wolaebvnkbqd';
+
 export default async function EditLoteamentoPage({ params }: { params: { id: string } }) {
   const session = await requireAdmin();
 
@@ -121,12 +131,17 @@ export default async function EditLoteamentoPage({ params }: { params: { id: str
           label="Simulador"
           desc="Valores do site público"
         />
-        <QuickActionLink
-          href={`/touch/${loteamento.slug}`}
-          label="Stand 3D touch"
-          desc="Vitrine para tela sensível ao toque"
-          externo
-        />
+        {/* Recurso em desativação: não entra em contrato novo. O Grupo Germanos
+            usa hoje, então o atalho continua só para ele — o dia em que
+            deixarem de usar, esta condição sai e o /touch vai junto. */}
+        {loteamento.loteadoraId === LOTEADORA_COM_STAND_TOUCH && (
+          <QuickActionLink
+            href={`/touch/${loteamento.slug}`}
+            label="Stand 3D touch"
+            desc="Vitrine para tela sensível ao toque"
+            externo
+          />
+        )}
       </div>
 
       {/* EDITOR TABBED */}
