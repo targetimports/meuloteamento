@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { maskTelefone } from '@/lib/format';
+import { inputClass, selectClass } from './ui';
 
 export interface ClienteFormValues {
   nome?: string;
@@ -54,9 +55,6 @@ function maskCep(v: string): string {
     .slice(0, 8)
     .replace(/(\d{5})(\d)/, '$1-$2');
 }
-
-const inputCls =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500';
 
 export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
@@ -120,8 +118,8 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               defaultValue={initial?.nome ?? ''}
               required
               minLength={2}
-              placeholder="Ex: João da Silva"
-              className={inputCls}
+              placeholder="João da Silva"
+              className={inputClass}
             />
           </Field>
           <Field label="CPF / CNPJ" required>
@@ -132,7 +130,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               required
               minLength={11}
               placeholder="000.000.000-00"
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
           <Field label="RG">
@@ -140,7 +138,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               name="rg"
               defaultValue={initial?.rg ?? ''}
               placeholder="000.000.000"
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
           <Field label="Data de nascimento">
@@ -148,14 +146,14 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               name="dataNascimento"
               type="date"
               defaultValue={initial?.dataNascimento ?? ''}
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
           <Field label="Nacionalidade">
             <input
               name="nacionalidade"
               defaultValue={initial?.nacionalidade ?? 'Brasileiro(a)'}
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
         </div>
@@ -171,7 +169,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               defaultValue={initial?.email ?? ''}
               required
               placeholder="cliente@email.com"
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
           <Field label="Telefone / WhatsApp" required>
@@ -182,7 +180,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               required
               minLength={14}
               placeholder="(75) 99999-9999"
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
           <Field label="Preferências de comunicação" wide>
@@ -217,9 +215,9 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
             <select
               name="estadoCivil"
               defaultValue={initial?.estadoCivil ?? ''}
-              className={inputCls}
+              className={selectClass}
             >
-              <option value="">— Selecione —</option>
+              <option value="">Selecione…</option>
               <option value="Solteiro(a)">Solteiro(a)</option>
               <option value="Casado(a)">Casado(a)</option>
               <option value="Divorciado(a)">Divorciado(a)</option>
@@ -231,8 +229,8 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
             <input
               name="profissao"
               defaultValue={initial?.profissao ?? ''}
-              placeholder="Ex: Engenheiro Civil"
-              className={inputCls}
+              placeholder="Engenheiro civil"
+              className={inputClass}
             />
           </Field>
         </div>
@@ -248,7 +246,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 value={cep}
                 onChange={(e) => setCep(maskCep(e.target.value))}
                 placeholder="00000-000"
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -259,7 +257,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 value={enderecoAuto.logradouro}
                 onChange={(e) => setEnderecoAuto({ ...enderecoAuto, logradouro: e.target.value })}
                 placeholder="Rua / Av."
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -269,7 +267,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 name="numero"
                 defaultValue={initial?.numero ?? ''}
                 placeholder="Nº"
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -279,7 +277,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 name="complemento"
                 defaultValue={initial?.complemento ?? ''}
                 placeholder="Apto 12, bloco B…"
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -289,7 +287,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 name="bairro"
                 value={enderecoAuto.bairro}
                 onChange={(e) => setEnderecoAuto({ ...enderecoAuto, bairro: e.target.value })}
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -299,7 +297,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                 name="cidade"
                 value={enderecoAuto.cidade}
                 onChange={(e) => setEnderecoAuto({ ...enderecoAuto, cidade: e.target.value })}
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </div>
@@ -312,7 +310,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
                   setEnderecoAuto({ ...enderecoAuto, estado: e.target.value.toUpperCase() })
                 }
                 maxLength={2}
-                className={`${inputCls} uppercase`}
+                className={`${inputClass} uppercase`}
               />
             </Field>
           </div>
