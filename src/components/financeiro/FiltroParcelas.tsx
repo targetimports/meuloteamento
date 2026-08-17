@@ -3,17 +3,13 @@
 /**
  * Filtro das parcelas do financeiro, em modal.
  *
- * Diferente das outras tabelas do sistema, aqui o filtro não acontece no
+ * Diferente das outras tabelas do sistema, aqui o recorte não acontece no
  * navegador: são milhares de parcelas, e mandá-las todas para a tela só para
- * poder recortar seria pesado sem necessidade. O modal monta a query e navega;
- * quem recorta é o banco.
- *
- * Por consequência os filtros ficam na URL — e um recorte de trabalho ("o que
- * atrasou neste loteamento") vira link que se guarda e se manda para alguém.
+ * poder filtrar seria peso sem retorno. O modal devolve os campos escolhidos e
+ * quem busca é o banco, pela rota da tabela.
  */
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import {
   Dialog,
@@ -21,30 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-
-export interface FiltrosParcela {
-  status: string;
-  cliente: string;
-  lote: string;
-  loteamento: string;
-  forma: string;
-  de: string;
-  ate: string;
-  valorMin: string;
-  valorMax: string;
-}
-
-export const FILTRO_VAZIO: FiltrosParcela = {
-  status: '',
-  cliente: '',
-  lote: '',
-  loteamento: '',
-  forma: '',
-  de: '',
-  ate: '',
-  valorMin: '',
-  valorMax: '',
-};
+import { FILTRO_PARCELA_VAZIO, type FiltrosParcela } from '@/lib/parcelas-consulta';
 
 const STATUS = ['PENDENTE', 'PAGO', 'ATRASADO', 'CANCELADO', 'ESTORNADO'];
 
@@ -71,19 +44,20 @@ function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode
   );
 }
 
-export function FiltroParcelas({ atuais }: { atuais: FiltrosParcela }) {
-  const router = useRouter();
+export function FiltroParcelas({
+  atuais,
+  onAplicar,
+}: {
+  atuais: FiltrosParcela;
+  onAplicar: (f: FiltrosParcela) => void;
+}) {
   const [aberto, setAberto] = useState(false);
   const [rascunho, setRascunho] = useState<FiltrosParcela>(atuais);
 
   const ativos = Object.values(atuais).filter((v) => v !== '').length;
 
   function aplicar(f: FiltrosParcela) {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(f)) if (v) qs.set(k, v);
-    // Trocar o recorte volta para a primeira página: ficar na página 7 de uma
-    // lista que agora tem 2 mostraria uma tabela vazia sem explicação.
-    router.push(qs.size ? `/admin/financeiro?${qs}` : '/admin/financeiro');
+    onAplicar(f);
     setAberto(false);
   }
 
@@ -107,7 +81,7 @@ export function FiltroParcelas({ atuais }: { atuais: FiltrosParcela }) {
       {ativos > 0 && (
         <button
           type="button"
-          onClick={() => aplicar(FILTRO_VAZIO)}
+          onClick={() => aplicar(FILTRO_PARCELA_VAZIO)}
           className="text-xs text-slate-500 transition hover:text-slate-800 dark:hover:text-slate-200"
         >
           Limpar
@@ -225,7 +199,7 @@ export function FiltroParcelas({ atuais }: { atuais: FiltrosParcela }) {
               </button>
               <button
                 type="button"
-                onClick={() => setRascunho(FILTRO_VAZIO)}
+                onClick={() => setRascunho(FILTRO_PARCELA_VAZIO)}
                 className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 Limpar
