@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { maskTelefone } from '@/lib/format';
 import { inputClass, selectClass } from './ui';
@@ -61,40 +61,73 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
   const [cpfCnpj, setCpfCnpj] = useState(initial?.cpfCnpj ? maskCpfCnpj(initial.cpfCnpj) : '');
   const [telefone, setTelefone] = useState(initial?.telefone ? maskTelefone(initial.telefone) : '');
   const [cep, setCep] = useState(initial?.cep ? maskCep(initial.cep) : '');
-  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [cepStatus, setCepStatus] = useState<
+    'parado' | 'buscando' | 'achou' | 'nao_existe' | 'falhou'
+  >('parado');
   const [enderecoAuto, setEnderecoAuto] = useState({
     logradouro: initial?.logradouro ?? '',
     bairro: initial?.bairro ?? '',
     cidade: initial?.cidade ?? '',
     estado: initial?.estado ?? '',
   });
+  const campoNumero = useRef<HTMLInputElement>(null);
 
-  // Lookup ViaCEP quando CEP completo
+  /**
+   * Busca o endereço no ViaCEP assim que o CEP fica completo.
+   *
+   * O resultado é dito na tela, e não só aplicado nos campos: sem isso, CEP
+   * inexistente e ViaCEP fora do ar produziam exatamente o mesmo nada — os
+   * campos ficavam vazios e não havia como saber se o serviço tinha falhado
+   * ou se o número estava errado.
+   *
+   * O complemento que o ViaCEP devolve fica de fora de propósito. Ele
+   * descreve a faixa de numeração da rua ("de 612 a 1510 - lado par"), não o
+   * complemento de quem mora lá, que é o que o campo pede.
+   */
   useEffect(() => {
-    const digits = cep.replace(/\D/g, '');
-    if (digits.length !== 8) return;
-    let cancelled = false;
-    setBuscandoCep(true);
-    fetch(`https://viacep.com.br/ws/${digits}/json/`)
+    const digitos = cep.replace(/\D/g, '');
+    if (digitos.length !== 8) {
+      setCepStatus('parado');
+      return;
+    }
+
+    const controle = new AbortController();
+    setCepStatus('buscando');
+
+    fetch(`https://viacep.com.br/ws/${digitos}/json/`, { signal: controle.signal })
       .then((r) => r.json())
-      .then((data) => {
-        if (cancelled || data.erro) return;
-        setEnderecoAuto({
-          logradouro: data.logradouro || enderecoAuto.logradouro,
-          bairro: data.bairro || enderecoAuto.bairro,
-          cidade: data.localidade || enderecoAuto.cidade,
-          estado: (data.uf || enderecoAuto.estado).toUpperCase(),
-        });
+      .then((dados) => {
+        // O ViaCEP responde 200 com `{"erro": "true"}` — string, não booleano —
+        // quando o CEP não existe. Não dá para confiar no status HTTP.
+        if (dados?.erro) {
+          setCepStatus('nao_existe');
+          return;
+        }
+        setEnderecoAuto((atual) => ({
+          logradouro: dados.logradouro || atual.logradouro,
+          bairro: dados.bairro || atual.bairro,
+          cidade: dados.localidade || atual.cidade,
+          estado: (dados.uf || atual.estado).toUpperCase(),
+        }));
+        setCepStatus('achou');
+        // O que o CEP não traz é o número — é o único campo que sobra para
+        // digitar, então o cursor vai direto para ele.
+        campoNumero.current?.focus();
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setBuscandoCep(false);
+      .catch((e) => {
+        if ((e as Error).name !== 'AbortError') setCepStatus('falhou');
       });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => controle.abort();
   }, [cep]);
+
+  const avisoCep = {
+    parado: 'Preencha para buscar o endereço.',
+    buscando: 'Buscando endereço…',
+    achou: 'Endereço preenchido pelo CEP.',
+    nao_existe: 'CEP não encontrado — preencha o endereço à mão.',
+    falhou: 'Não deu para consultar o CEP agora. Preencha à mão.',
+  }[cepStatus];
 
   return (
     <form action={formAction} className="space-y-5">
@@ -240,7 +273,17 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
       <Card title="Endereço">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="md:col-span-2">
-            <Field label="CEP" hint={buscandoCep ? 'Buscando…' : 'Auto-completa logradouro/cidade/UF'}>
+            <Field
+              label="CEP"
+              hint={avisoCep}
+              hintTom={
+                cepStatus === 'nao_existe' || cepStatus === 'falhou'
+                  ? 'alerta'
+                  : cepStatus === 'achou'
+                    ? 'ok'
+                    : undefined
+              }
+            >
               <input
                 name="cep"
                 value={cep}
@@ -264,6 +307,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
           <div className="md:col-span-1">
             <Field label="Número">
               <input
+                ref={campoNumero}
                 name="numero"
                 defaultValue={initial?.numero ?? ''}
                 placeholder="Nº"
@@ -350,12 +394,15 @@ function Card({
 function Field({
   label,
   hint,
+  hintTom,
   required,
   wide,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Cor da dica quando ela vira resposta a uma ação, e não instrução. */
+  hintTom?: 'ok' | 'alerta';
   required?: boolean;
   wide?: boolean;
   children: React.ReactNode;
@@ -367,7 +414,19 @@ function Field({
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{hint}</p>}
+      {hint && (
+        <p
+          className={`mt-1 text-[11px] ${
+            hintTom === 'alerta'
+              ? 'text-amber-600 dark:text-amber-400'
+              : hintTom === 'ok'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
