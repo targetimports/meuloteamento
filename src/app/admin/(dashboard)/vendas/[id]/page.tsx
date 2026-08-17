@@ -330,9 +330,12 @@ export default async function VendaDetalhePage({
             <Link
               href={`/admin/vendas/${venda.id}/recibo`}
               target="_blank"
-              className="ml-auto inline-flex items-center gap-1 text-xs font-semibold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-1 rounded"
+              rel="noopener noreferrer"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
             >
-              📄 Gerar recibo
+              Gerar recibo
+              {/* Abre em outra aba: a seta diz isso sem precisar de texto. */}
+              <span className="text-slate-400">↗</span>
             </Link>
           )}
         </div>
