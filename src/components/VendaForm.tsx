@@ -85,6 +85,35 @@ interface VendaFormProps {
   action: (prev: { error?: string; ok?: boolean }, formData: FormData) => Promise<{ error?: string; ok?: boolean }>;
 }
 
+/** Um número do resumo: rótulo pequeno em cima, valor em destaque embaixo. */
+function Resumo({
+  rotulo,
+  valor,
+  nota,
+  destaque,
+  alerta,
+}: {
+  rotulo: string;
+  valor: string;
+  nota?: string;
+  destaque?: boolean;
+  alerta?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="truncate text-xs text-slate-500">{rotulo}</dt>
+      <dd
+        className={`truncate font-semibold ${
+          alerta ? 'text-amber-700' : destaque ? 'text-primary-700' : 'text-slate-900'
+        }`}
+      >
+        {valor}
+        {nota && <span className="ml-1 text-xs font-normal text-slate-500">{nota}</span>}
+      </dd>
+    </div>
+  );
+}
+
 type FormState = { error?: string; ok?: boolean };
 
 export function VendaForm({
@@ -956,115 +985,101 @@ export function VendaForm({
           />
         </Field>
 
-        {/* Preview do cálculo */}
-        <div className="md:col-span-2 p-4 bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200 rounded-lg">
-          <p className="text-xs uppercase tracking-wider text-primary-700 mb-2 font-semibold">
+        {/* Resumo em ardósia, não no dourado da marca: ele é leitura, não
+            ação, e a cor de destaque puxava mais atenção que os campos que a
+            pessoa ainda precisa preencher. */}
+        <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Resumo
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div>
-              <p className="text-slate-500 text-xs">Total</p>
-              <p className="font-bold text-slate-900">{formatBRL(valorTotal)}</p>
-            </div>
-            {!isAvista && (
-              <>
-                <div>
-                  <p className="text-slate-500 text-xs">
-                    Entrada
-                    {valorEntrada === 0 && (
-                      <span className="ml-1 text-[10px] uppercase tracking-wider text-amber-700 font-bold">
-                        · sem entrada
-                      </span>
-                    )}
-                  </p>
-                  <p
-                    className={`font-bold ${valorEntrada === 0 ? 'text-amber-700' : 'text-slate-900'}`}
-                  >
-                    {formatBRL(valorEntrada)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-slate-500 text-xs">
-                    {valorEntrada === 0 ? 'A financiar' : 'Restante'}
-                  </p>
-                  <p className="font-bold text-slate-900">{formatBRL(restante)}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500 text-xs">Parcela</p>
-                  <p className="font-bold text-primary-700">
-                    {formatBRL(valorParcela)}
-                    <span className="text-xs font-normal text-slate-500"> × {numeroParcelas}x</span>
-                  </p>
-                </div>
 
-                {mostrarJuros && (
-                  <div className="col-span-2 md:col-span-4 pt-2 mt-2 border-t border-primary-200">
-                    {taxaMensal > 0 ? (
-                      <p className="text-xs text-slate-700">
-                        Preço à vista do lote:{' '}
-                        <strong>{formatBRL(somaPrecosLotes)}</strong> · juros embutidos:{' '}
-                        <strong>{formatBRL(jurosEmbutidos)}</strong> · taxa:{' '}
-                        <strong>
-                          {(taxaMensal * 100).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 3,
-                          })}
-                          % ao mês
-                        </strong>
-                      </p>
-                    ) : (
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        <strong>Venda sem juros.</strong> O valor total está igual ao
-                        preço à vista do lote ({formatBRL(somaPrecosLotes)}), então as
-                        parcelas só devolvem o principal. Se a intenção é vender
-                        parcelado com juros, o valor total precisa ser o do contrato —
-                        entrada mais a soma das parcelas.
-                      </p>
-                    )}
-                  </div>
-                )}
-                {dataPrimeiraParcela && (
-                  <div className="col-span-2 md:col-span-4 pt-2 mt-2 border-t border-primary-200">
-                    <p className="text-slate-500 text-xs">Cronograma</p>
-                    <p className="text-xs text-slate-700">
-                      1ª parcela:{' '}
-                      <strong>
-                        {new Date(dataPrimeiraParcela + 'T00:00:00').toLocaleDateString('pt-BR')}
-                      </strong>
-                      {numeroParcelas > 1 && (
-                        <>
-                          {' '}· última:{' '}
-                          <strong>
-                            {(() => {
-                              const d = new Date(dataPrimeiraParcela + 'T00:00:00');
-                              const dia = Math.min(d.getDate(), 28);
-                              const ult = new Date(d);
-                              ult.setMonth(d.getMonth() + (numeroParcelas - 1));
-                              ult.setDate(dia);
-                              return ult.toLocaleDateString('pt-BR');
-                            })()}
-                          </strong>
-                        </>
-                      )}
-                      {' '}· dia-âncora:{' '}
-                      <strong>
-                        {Math.min(new Date(dataPrimeiraParcela + 'T00:00:00').getDate(), 28)}
-                      </strong>{' '}
-                      do mês
+          {isAvista ? (
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-2xl font-bold text-slate-900">{formatBRL(valorTotal)}</span>
+              <span className="text-sm text-slate-600">
+                à vista — a venda já nasce quitada.
+              </span>
+            </div>
+          ) : (
+            <>
+              {/* Duas colunas no celular, quatro a partir do tablet: quatro
+                  valores lado a lado num telefone viram números de 9px. */}
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                <Resumo rotulo="Total" valor={formatBRL(valorTotal)} />
+                <Resumo
+                  rotulo="Entrada"
+                  valor={formatBRL(valorEntrada)}
+                  nota={valorEntrada === 0 ? 'sem entrada' : undefined}
+                  alerta={valorEntrada === 0}
+                />
+                <Resumo
+                  rotulo={valorEntrada === 0 ? 'A financiar' : 'Restante'}
+                  valor={formatBRL(restante)}
+                />
+                <Resumo
+                  rotulo="Parcela"
+                  valor={formatBRL(valorParcela)}
+                  nota={`${numeroParcelas}x`}
+                  destaque
+                />
+              </dl>
+
+              {mostrarJuros && (
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  {taxaMensal > 0 ? (
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                      <Resumo rotulo="Preço à vista" valor={formatBRL(somaPrecosLotes)} />
+                      <Resumo rotulo="Juros embutidos" valor={formatBRL(jurosEmbutidos)} />
+                      <Resumo
+                        rotulo="Taxa"
+                        valor={`${(taxaMensal * 100).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 3,
+                        })}% a.m.`}
+                      />
+                    </dl>
+                  ) : (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <strong>Sem juros.</strong> O valor total está igual ao preço à vista
+                      ({formatBRL(somaPrecosLotes)}), então as parcelas só devolvem o
+                      principal. Para vender com juros, o total precisa ser o do contrato:
+                      entrada mais a soma das parcelas.
                     </p>
-                  </div>
-                )}
-              </>
-            )}
-            {isAvista && (
-              <div className="col-span-3">
-                <p className="text-slate-500 text-xs">Pagamento</p>
-                <p className="font-bold text-emerald-700">
-                  ✓ {formatBRL(valorTotal)} à vista (venda já será marcada como QUITADA)
-                </p>
-              </div>
-            )}
-          </div>
+                  )}
+                </div>
+              )}
+
+              {dataPrimeiraParcela && (
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                    <Resumo
+                      rotulo="1ª parcela"
+                      valor={new Date(dataPrimeiraParcela + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    />
+                    {numeroParcelas > 1 && (
+                      <Resumo
+                        rotulo="Última"
+                        valor={(() => {
+                          const d = new Date(dataPrimeiraParcela + 'T00:00:00');
+                          const dia = Math.min(d.getDate(), 28);
+                          const ult = new Date(d);
+                          ult.setMonth(d.getMonth() + (numeroParcelas - 1));
+                          ult.setDate(dia);
+                          return ult.toLocaleDateString('pt-BR');
+                        })()}
+                      />
+                    )}
+                    <Resumo
+                      rotulo="Vence todo dia"
+                      valor={String(
+                        Math.min(new Date(dataPrimeiraParcela + 'T00:00:00').getDate(), 28)
+                      )}
+                    />
+                  </dl>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </Section>
 
