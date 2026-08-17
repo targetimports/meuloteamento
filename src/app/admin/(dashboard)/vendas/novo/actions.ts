@@ -130,6 +130,16 @@ const schema = z.object({
 
   contaId: z.string().optional(),
   corretorId: z.string().optional(),
+  /**
+   * Comissão definida na própria venda. Ausentes, valem as regras de sempre:
+   * R$ 2.500 por lote residencial (ou % do corretor nos comerciais), em 4
+   * parcelas. É o que mantém as vendas antigas e o fluxo atual intactos.
+   */
+  comissaoValorManual: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : Number(v)),
+    z.number().min(0).optional()
+  ),
+  comissaoParcelas: z.coerce.number().int().min(1).max(24).optional(),
   comissaoPct: z.preprocess(
     (v) => (v === '' || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()
@@ -553,6 +563,11 @@ export async function criarVenda(
     });
     comissaoValor = calc.valor;
     comissaoUsaRegraFixa = calc.usaRegraFixa;
+    // Valor digitado na venda vence o calculado: a regra automática vira uma
+    // sugestão, e quem negociou diferente registra o que de fato combinou.
+    if (data.comissaoValorManual !== undefined) {
+      comissaoValor = data.comissaoValorManual;
+    }
     // Quando usa regra fixa (residencial), o pct equivalente é só informativo
     if (calc.usaRegraFixa && calc.qtdLotesComerciais === 0) {
       // 100% residencial: zerar pct para não confundir
@@ -718,18 +733,16 @@ export async function criarVenda(
           select: { id: true, tipo: true, numero: true, status: true },
           orderBy: { numero: 'asc' },
         });
-        const ancoras = escolherParcelasAncora(parcelasCliente);
-        const valores = dividirEmParcelasIguais(
-          comissaoValor,
-          COMISSAO_NUMERO_PARCELAS
-        );
+        const qtdComissao = data.comissaoParcelas ?? COMISSAO_NUMERO_PARCELAS;
+        const ancoras = escolherParcelasAncora(parcelasCliente, qtdComissao);
+        const valores = dividirEmParcelasIguais(comissaoValor, qtdComissao);
 
         // Se a parcela-âncora já está PAGA na criação (caso à vista quitada),
         // a comissão já nasce LIBERADA.
         const parcelaPorId = new Map(parcelasCliente.map((p) => [p.id, p]));
 
         await tx.comissaoParcela.createMany({
-          data: Array.from({ length: COMISSAO_NUMERO_PARCELAS }, (_, i) => {
+          data: Array.from({ length: qtdComissao }, (_, i) => {
             const ancoraId = ancoras[i];
             const ancora = ancoraId ? parcelaPorId.get(ancoraId) : null;
             const jaPaga = ancora?.status === 'PAGO';

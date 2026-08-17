@@ -384,6 +384,18 @@ export function VendaForm({
       : 0;
   const comissaoValor = corretorId ? comissaoFixaTotal + comissaoPctTotal : 0;
 
+  /**
+   * Valor efetivamente enviado. Acompanha o cálculo da regra até alguém digitar
+   * outro — a partir daí para de se mexer sozinho, senão trocar de lote apagaria
+   * o que foi combinado.
+   */
+  const [comissaoManual, setComissaoManual] = useState(0);
+  const [comissaoEditada, setComissaoEditada] = useState(false);
+  const [comissaoParcelas, setComissaoParcelas] = useState(4);
+  useEffect(() => {
+    if (!comissaoEditada) setComissaoManual(comissaoValor);
+  }, [comissaoValor, comissaoEditada]);
+
   function formatBRL(n: number) {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -1155,26 +1167,54 @@ export function VendaForm({
                 <input type="hidden" name="comissaoPct" value="" />
               )}
 
-              {/* Total da comissão */}
-              <div className="md:col-span-2 px-3 py-2.5 rounded-lg bg-primary-50 border border-primary-200">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-slate-700">
-                    💰 Total da comissão para o corretor
-                  </span>
-                  <strong className="text-primary-700 text-lg">
-                    {formatBRL(comissaoValor)}
+              <Field
+                label="Valor da comissão"
+                hint={`A regra da loteadora calcula ${formatBRL(comissaoValor)}. Altere se o combinado desta venda for outro.`}
+              >
+                <CampoMoeda
+                  name="comissaoValorManual"
+                  value={comissaoManual}
+                  onChange={(v) => {
+                    setComissaoManual(v);
+                    setComissaoEditada(true);
+                  }}
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Parcelas da comissão"
+                hint="A 1ª sai na entrada do cliente; as demais, uma a cada mensal paga."
+              >
+                <input
+                  name="comissaoParcelas"
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={comissaoParcelas}
+                  onChange={(e) =>
+                    setComissaoParcelas(Math.min(24, Math.max(1, Number(e.target.value) || 1)))
+                  }
+                  className={`${inputClass} max-w-[120px]`}
+                />
+              </Field>
+
+              <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                  <span className="font-medium text-slate-700">Total para o corretor</span>
+                  <strong className="text-lg text-slate-900">
+                    {formatBRL(comissaoManual)}
                   </strong>
                 </div>
-                {qtdResidenciais > 0 && (
-                  <p className="text-[11px] text-slate-600 mt-1">
-                    Liberada conforme cliente paga: 1ª parcela na entrada, depois 1 a cada
-                    mensal pago (até a 4ª). Acompanhe em{' '}
-                    <a href="/admin/comissoes" target="_blank" className="underline font-semibold">
-                      Comissões
-                    </a>
-                    .
-                  </p>
-                )}
+                <p className="mt-1 text-xs text-slate-500">
+                  {comissaoParcelas}x de{' '}
+                  {formatBRL(Math.round((comissaoManual / comissaoParcelas) * 100) / 100)}, liberadas
+                  conforme o cliente paga. Acompanhe em{' '}
+                  <a href="/admin/comissoes" target="_blank" className="underline">
+                    Comissões
+                  </a>
+                  .
+                </p>
               </div>
             </>
           )}

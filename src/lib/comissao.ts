@@ -171,20 +171,29 @@ export async function cancelarComissoesDaVenda(vendaId: string): Promise<number>
   return r.count;
 }
 
-export function escolherParcelasAncora(parcelas: Array<{
-  id: string;
-  tipo: string;
-  numero: number;
-}>): Array<string | null> {
+export function escolherParcelasAncora(
+  parcelas: Array<{
+    id: string;
+    tipo: string;
+    numero: number;
+  }>,
+  /**
+   * Quantas comissões ancorar. O padrão reproduz a regra que valia quando o
+   * número era constante — entrada e as três primeiras mensais —, então venda
+   * que não escolhe nada sai idêntica ao que saía antes.
+   */
+  quantidade: number = COMISSAO_NUMERO_PARCELAS
+): Array<string | null> {
   const entrada = parcelas.find((p) => p.tipo === 'ENTRADA') ?? null;
   const mensais = parcelas
     .filter((p) => p.tipo === 'MENSAL')
     .sort((a, b) => a.numero - b.numero);
 
-  return [
-    entrada?.id ?? mensais[0]?.id ?? null, // 1ª comissão
-    mensais[0]?.id ?? null,                // 2ª comissão (1ª mensal)
-    mensais[1]?.id ?? null,                // 3ª comissão (2ª mensal)
-    mensais[2]?.id ?? null,                // 4ª comissão (3ª mensal)
-  ];
+  // A 1ª comissão sai na entrada; da 2ª em diante, uma por mensal, em ordem.
+  // Sem entrada, tudo desloca para as mensais — e é por isso que a conta usa
+  // índices em vez de uma lista escrita à mão.
+  return Array.from({ length: Math.max(1, quantidade) }, (_, i) => {
+    if (i === 0) return entrada?.id ?? mensais[0]?.id ?? null;
+    return mensais[i - 1]?.id ?? null;
+  });
 }
