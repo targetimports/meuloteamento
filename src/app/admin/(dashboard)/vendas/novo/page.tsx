@@ -119,10 +119,10 @@ export default async function NovaVendaPage({
     }
   }
 
+  // Sem max-w: o formulário tem muitos campos e as seções são de duas colunas —
+  // travar em 896px deixava metade da tela vazia e apertava os pares de campos
+  // que já dividem a linha.
   return (
-    {/* Sem max-w: o formulário tem muitos campos e as seções são de duas
-        colunas — travar em 896px deixava metade da tela vazia e apertava os
-        pares de campos que já dividem a linha. */}
     <div>
       <div className="mb-6">
         <Link href="/admin/vendas" className="text-sm text-slate-500 hover:text-slate-700">
