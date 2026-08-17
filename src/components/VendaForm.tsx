@@ -5,6 +5,7 @@ import { useFormState } from 'react-dom';
 import { Field, Section, SubmitButton, ErrorBox, inputClass } from './ui';
 import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 import { ComboboxLote } from '@/components/vendas/ComboboxLote';
+import { CampoCliente } from '@/components/vendas/CampoCliente';
 
 interface LoteOption {
   id: string;
@@ -100,10 +101,6 @@ export function VendaForm({
   const [loteIds, setLoteIds] = useState<string[]>(
     loteIdInicial ? [loteIdInicial] : []
   );
-  const [clienteMode, setClienteMode] = useState<'existente' | 'novo'>(
-    clienteExistenteId ? 'existente' : 'novo'
-  );
-  const [clienteId, setClienteId] = useState(clienteExistenteId ?? '');
   const [valorTotal, setValorTotal] = useState(0);
   const [valorTotalManual, setValorTotalManual] = useState(false);
   /**
@@ -442,87 +439,12 @@ export function VendaForm({
 
       {/* ====== CLIENTE ====== */}
       <Section title="Cliente comprador">
-        <div className="md:col-span-2 flex gap-2 mb-2">
-          <button
-            type="button"
-            onClick={() => setClienteMode('novo')}
-            className={`px-3 py-1.5 rounded text-xs font-medium transition ${
-              clienteMode === 'novo' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            ➕ Novo cliente
-          </button>
-          <button
-            type="button"
-            onClick={() => setClienteMode('existente')}
-            className={`px-3 py-1.5 rounded text-xs font-medium transition ${
-              clienteMode === 'existente' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            🔍 Cliente existente ({clientes.length})
-          </button>
-        </div>
-
-        {clienteMode === 'existente' ? (
-          <Field label="Selecionar cliente" wide required>
-            <select
-              name="clienteId"
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              required
-              className={inputClass}
-            >
-              <option value="">— Selecione —</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome} · CPF {c.cpfCnpj} · {c.telefone}
-                </option>
-              ))}
-            </select>
-          </Field>
-        ) : (
-          <>
-            <Field label="Nome completo" required wide>
-              <input
-                name="clienteNome"
-                required
-                minLength={2}
-                defaultValue={prefillCliente?.nome ?? ''}
-                className={inputClass}
-                placeholder="João da Silva"
-              />
-            </Field>
-            <Field label="CPF" required>
-              <input
-                name="clienteCpfCnpj"
-                required
-                minLength={11}
-                defaultValue={prefillCliente?.cpfCnpj ?? ''}
-                className={inputClass}
-                placeholder="000.000.000-00"
-              />
-            </Field>
-            <Field label="Telefone" required>
-              <input
-                name="clienteTelefone"
-                required
-                minLength={8}
-                defaultValue={prefillCliente?.telefone ?? ''}
-                className={inputClass}
-                placeholder="(75) 99999-9999"
-              />
-            </Field>
-            <Field label="E-mail" wide>
-              <input
-                name="clienteEmail"
-                type="email"
-                defaultValue={prefillCliente?.email ?? ''}
-                className={inputClass}
-                placeholder="joao@email.com (opcional)"
-              />
-            </Field>
-          </>
-        )}
+        <CampoCliente
+          clientes={clientes}
+          inicialId={clienteExistenteId}
+          inputClass={inputClass}
+          prefill={prefillCliente}
+        />
       </Section>
 
       {/* ====== VALORES ====== */}

@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { canAccessLoteamento, requireAdmin } from '@/lib/tenant';
+import { resolverClientePorCpf } from '@/lib/cliente-upsert';
 import { mudarStatusLote } from '@/lib/lote-status';
 import { getLoteadoraAsaasContext } from '@/lib/asaas-context';
 import { ensureAsaasCustomerForCliente } from '@/lib/asaas-cliente';
@@ -257,87 +258,17 @@ export async function criarVenda(
         error: 'Selecione um cliente existente ou preencha nome, CPF e telefone do novo cliente',
       };
     }
-    const cpfClean = data.clienteCpfCnpj.replace(/\D/g, '');
-    if (cpfClean.length !== 11 && cpfClean.length !== 14) {
-      return { error: 'CPF/CNPJ inválido' };
-    }
-
-    const existente = await prisma.cliente.findUnique({ where: { cpfCnpj: cpfClean } });
-    if (existente) {
-      clienteIdFinal = existente.id;
-      // Evita conflito de email: só atualiza pro email novo se ele NÃO já
-      // está em uso por outro cliente. Senão mantém o que estava.
-      let emailParaUsar: string | null = existente.email;
-      const novoEmail = (data.clienteEmail || '').trim().toLowerCase();
-      if (novoEmail && novoEmail !== existente.email) {
-        const conflito = await prisma.cliente.findUnique({
-          where: { email: novoEmail },
-          select: { id: true },
-        });
-        if (!conflito || conflito.id === existente.id) {
-          emailParaUsar = novoEmail;
-        }
-        // Se conflita, ignora silenciosamente — mantém email anterior.
-      }
-      await prisma.cliente.update({
-        where: { id: existente.id },
-        data: {
-          nome: data.clienteNome,
-          telefone: data.clienteTelefone,
-          email: emailParaUsar ?? existente.email,
-        },
-      });
-    } else {
-      // Resolve um email único pra novo cliente — senão Prisma estoura
-      // P2002 (Unique constraint) que vira erro genérico pro admin.
-      let emailEscolhido = (data.clienteEmail || '').trim().toLowerCase();
-      if (emailEscolhido) {
-        const conflito = await prisma.cliente.findUnique({
-          where: { email: emailEscolhido },
-          select: { id: true, cpfCnpj: true },
-        });
-        if (conflito) {
-          return {
-            error:
-              `O e-mail "${emailEscolhido}" já está cadastrado para outro cliente ` +
-              `(CPF ${conflito.cpfCnpj}). Use um e-mail diferente ou deixe em branco.`,
-          };
-        }
-      } else {
-        // Sem email informado → gera um placeholder único usando o CPF.
-        // Se por algum motivo o placeholder já existe (re-cadastro), trocamos
-        // por uma variante c/ timestamp pra garantir unicidade.
-        emailEscolhido = `${cpfClean}@semcontato.local`;
-        const placeholderExistente = await prisma.cliente.findUnique({
-          where: { email: emailEscolhido },
-          select: { id: true },
-        });
-        if (placeholderExistente) {
-          emailEscolhido = `${cpfClean}.${Date.now()}@semcontato.local`;
-        }
-      }
-
-      try {
-        const novoCli = await prisma.cliente.create({
-          data: {
-            nome: data.clienteNome,
-            cpfCnpj: cpfClean,
-            telefone: data.clienteTelefone,
-            email: emailEscolhido,
-          },
-        });
-        clienteIdFinal = novoCli.id;
-      } catch (e) {
-        // Race condition: alguém criou esse cliente em paralelo. Retorna
-        // mensagem clara em vez do digest genérico.
-        const msg = e instanceof Error ? e.message : String(e);
-        return {
-          error:
-            'Não foi possível criar o cliente (provável duplicidade de e-mail ou CPF). ' +
-            `Detalhe: ${msg.split('\n')[0]}`,
-        };
-      }
-    }
+    // A regra de identidade (CPF manda) e a de e-mail unico vivem em
+    // lib/cliente-upsert: o cadastro rapido do combobox usa exatamente as
+    // mesmas, e duas copias divergiriam justamente nos casos de borda.
+    const r = await resolverClientePorCpf({
+      nome: data.clienteNome,
+      cpfCnpj: data.clienteCpfCnpj,
+      telefone: data.clienteTelefone,
+      email: data.clienteEmail,
+    });
+    if (!r.ok) return { error: r.erro };
+    clienteIdFinal = r.id;
   } else {
     const c = await prisma.cliente.findUnique({ where: { id: clienteIdFinal } });
     if (!c) return { error: 'Cliente não encontrado' };
@@ -945,4 +876,39 @@ export async function criarVenda(
     qs.set('cobranca', entradaCfg.billingType.toLowerCase());
   }
   redirect(`/admin/vendas/${vendaIdCriada}?${qs.toString()}`);
+}
+
+/**
+ * Cadastro rápido do comprador, a partir do combobox da tela de venda.
+ *
+ * Usa a mesma resolução por CPF do lançamento da venda: se o CPF já existe, o
+ * cliente é reaproveitado e atualizado em vez de recusado — quem está lançando
+ * uma venda não quer descobrir ali que o comprador já estava cadastrado.
+ *
+ * Devolve o cliente pronto para o campo, para a tela não precisar recarregar
+ * a lista inteira só por causa de um cadastro.
+ */
+export async function criarClienteRapido(formData: FormData): Promise<{
+  ok: boolean;
+  cliente?: { id: string; nome: string; email: string; cpfCnpj: string; telefone: string };
+  erro?: string;
+}> {
+  await requireAdmin();
+
+  const r = await resolverClientePorCpf({
+    nome: String(formData.get('nome') ?? ''),
+    cpfCnpj: String(formData.get('cpfCnpj') ?? ''),
+    telefone: String(formData.get('telefone') ?? ''),
+    email: String(formData.get('email') ?? ''),
+  });
+  if (!r.ok) return { ok: false, erro: r.erro };
+
+  const c = await prisma.cliente.findUnique({
+    where: { id: r.id },
+    select: { id: true, nome: true, email: true, cpfCnpj: true, telefone: true },
+  });
+  if (!c) return { ok: false, erro: 'Cliente não encontrado após o cadastro.' };
+
+  revalidatePath('/admin/vendas/novo');
+  return { ok: true, cliente: c };
 }
