@@ -1,54 +1,29 @@
-import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { tenantId } from '@/lib/tenant';
 import { formatBRL, formatDate } from '@/lib/format';
-import { ComissaoActions } from '@/components/ComissaoActions';
+import { TabelaComissoes, type ComissaoLinha } from '@/components/comissoes/TabelaComissoes';
 
 export const dynamic = 'force-dynamic';
 
-const STATUS_BG: Record<string, string> = {
-  BLOQUEADA: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-  LIBERADA: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  PAGA: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  CANCELADA: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-};
+const RESUMO = [
+  { status: 'BLOQUEADA', rotulo: 'Bloqueada', nota: 'Espera o cliente pagar a parcela' },
+  { status: 'LIBERADA', rotulo: 'Liberada', nota: 'Pronta para repassar ao corretor' },
+  { status: 'PAGA', rotulo: 'Paga', nota: 'Já saiu do caixa' },
+  { status: 'CANCELADA', rotulo: 'Cancelada', nota: 'Venda desfeita ou corretor removido' },
+] as const;
 
-const STATUS_ICON: Record<string, string> = {
-  BLOQUEADA: '🔒',
-  LIBERADA: '✓',
-  PAGA: '💰',
-  CANCELADA: '✕',
-};
-
-export default async function ComissoesPage({
-  searchParams,
-}: {
-  searchParams: { status?: string; corretor?: string };
-}) {
+export default async function ComissoesPage() {
   const tid = await tenantId();
-  const statusFiltro = searchParams.status;
-  const corretorFiltro = searchParams.corretor;
 
-  const tenantWhere = tid
-    ? { venda: { lote: { loteamento: { loteadoraId: tid } } } }
-    : {};
+  const tenantWhere = tid ? { venda: { lote: { loteamento: { loteadoraId: tid } } } } : {};
 
-  const where = {
-    ...tenantWhere,
-    ...(statusFiltro
-      ? { status: statusFiltro as 'BLOQUEADA' | 'LIBERADA' | 'PAGA' | 'CANCELADA' }
-      : {}),
-    ...(corretorFiltro ? { corretorId: corretorFiltro } : {}),
-  };
-
-  // Resumo (totalizadores por status)
   const totaisRaw = await prisma.comissaoParcela.groupBy({
     by: ['status'],
     where: tenantWhere,
     _sum: { valor: true },
     _count: true,
   });
-  const totais = {
+  const totais: Record<string, { count: number; valor: number }> = {
     BLOQUEADA: { count: 0, valor: 0 },
     LIBERADA: { count: 0, valor: 0 },
     PAGA: { count: 0, valor: 0 },
@@ -58,223 +33,104 @@ export default async function ComissoesPage({
     totais[t.status] = { count: t._count, valor: Number(t._sum.valor ?? 0) };
   }
 
-  // Lista detalhada
+  /**
+   * A lista vai inteira para a tela, e é lá que se filtra e ordena.
+   *
+   * São algumas centenas de comissões por empresa — quatro por venda. O teto
+   * é rede de segurança; se uma empresa passar dele, o recorte precisa voltar
+   * para o banco, como já é no financeiro.
+   */
   const comissoes = await prisma.comissaoParcela.findMany({
-    where,
+    where: tenantWhere,
+    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+    take: 2000,
     include: {
       corretor: { select: { id: true, nome: true } },
-      conta: { select: { id: true, nome: true, tipo: true } },
-      parcelaCliente: {
-        select: { numero: true, tipo: true, status: true, vencimento: true, pagoEm: true },
-      },
+      conta: { select: { nome: true } },
+      parcelaCliente: { select: { numero: true, tipo: true, status: true, pagoEm: true } },
       venda: {
         select: {
           id: true,
           numero: true,
-          status: true,
           cliente: { select: { nome: true } },
           lote: { select: { codigo: true, tipo: true } },
         },
       },
     },
-    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    take: 200,
   });
 
-  // Contas para os modais de pagamento
+  const linhas: ComissaoLinha[] = comissoes.map((c) => ({
+    id: c.id,
+    corretorId: c.corretor.id,
+    corretorNome: c.corretor.nome,
+    vendaId: c.venda.id,
+    vendaNumero: c.venda.numero,
+    loteCodigo: c.venda.lote.codigo,
+    loteTipo: c.venda.lote.tipo,
+    clienteNome: c.venda.cliente.nome,
+    numero: c.numero,
+    valor: Number(c.valor),
+    valorPago: c.valorPago === null ? null : Number(c.valorPago),
+    status: c.status,
+    pagaEmLabel: c.pagaEm ? formatDate(c.pagaEm) : null,
+    contaNome: c.conta?.nome ?? null,
+    vinculo: c.parcelaCliente
+      ? c.parcelaCliente.tipo === 'MENSAL'
+        ? `${c.parcelaCliente.tipo} ${c.parcelaCliente.numero}`
+        : c.parcelaCliente.tipo
+      : null,
+    vinculoStatus: c.parcelaCliente
+      ? c.parcelaCliente.pagoEm
+        ? `${c.parcelaCliente.status} em ${formatDate(c.parcelaCliente.pagoEm)}`
+        : c.parcelaCliente.status
+      : null,
+    vinculoPago: c.parcelaCliente?.status === 'PAGO',
+  }));
+
+  // Corretores que de fato têm comissão: oferecer no filtro quem não tem
+  // nenhuma só faria perder o clique.
+  const corretores = [...new Map(linhas.map((l) => [l.corretorId, l])).values()]
+    .map((l) => ({ id: l.corretorId, nome: l.corretorNome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
   const contas = await prisma.contaFinanceira.findMany({
     where: tid ? { loteadoraId: tid } : {},
     select: { id: true, nome: true, tipo: true },
     orderBy: [{ tipo: 'asc' }, { nome: 'asc' }],
   });
 
-  // Corretores únicos pra filtro
-  const corretoresUnicos = Array.from(
-    new Map(comissoes.map((c) => [c.corretor.id, c.corretor])).values()
-  );
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Comissões
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Pagamentos parcelados aos corretores (R$ 2.500/lote residencial em 4 parcelas).
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Comissões</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Repasses aos corretores, parcelados junto com o pagamento do cliente.
+        </p>
       </div>
 
-      {/* Totalizadores */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(['BLOQUEADA', 'LIBERADA', 'PAGA', 'CANCELADA'] as const).map((s) => (
-          <Link
-            key={s}
-            href={
-              statusFiltro === s
-                ? '/admin/comissoes'
-                : `/admin/comissoes?status=${s}`
-            }
-            className={`p-4 rounded-lg border ${
-              statusFiltro === s
-                ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10'
-                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-            } transition-colors`}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {RESUMO.map((r) => (
+          <div
+            key={r.status}
+            className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {STATUS_ICON[s]} {s}
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {r.rotulo}
               </span>
-              <span className="text-lg">{totais[s].count}</span>
+              <span className="text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                {totais[r.status].count}
+              </span>
             </div>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">
-              {formatBRL(totais[s].valor)}
+            <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+              {formatBRL(totais[r.status].valor)}
             </p>
-          </Link>
+            <p className="mt-0.5 text-[11px] text-slate-400">{r.nota}</p>
+          </div>
         ))}
       </div>
 
-      {/* Filtro por corretor */}
-      {corretoresUnicos.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Corretor:
-          </span>
-          <Link
-            href={`/admin/comissoes${statusFiltro ? `?status=${statusFiltro}` : ''}`}
-            className={`px-3 py-1 text-xs rounded-full ${
-              !corretorFiltro
-                ? 'bg-primary-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            Todos
-          </Link>
-          {corretoresUnicos.map((co) => (
-            <Link
-              key={co.id}
-              href={`/admin/comissoes?corretor=${co.id}${statusFiltro ? `&status=${statusFiltro}` : ''}`}
-              className={`px-3 py-1 text-xs rounded-full ${
-                corretorFiltro === co.id
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
-              }`}
-            >
-              {co.nome}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Tabela */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-        {comissoes.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-            Nenhuma comissão{statusFiltro ? ` com status ${statusFiltro}` : ''}.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="text-left px-3 py-2">Corretor</th>
-                  <th className="text-left px-3 py-2">Venda / Lote</th>
-                  <th className="text-left px-3 py-2">Cliente</th>
-                  <th className="text-center px-3 py-2">Parc.</th>
-                  <th className="text-left px-3 py-2">Vínculo</th>
-                  <th className="text-right px-3 py-2">Valor</th>
-                  <th className="text-left px-3 py-2">Status</th>
-                  <th className="text-right px-3 py-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {comissoes.map((c) => (
-                  <tr key={c.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                    <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
-                      {c.corretor.nome}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Link
-                        href={`/admin/vendas/${c.venda.id}`}
-                        className="text-primary-600 dark:text-primary-400 hover:underline"
-                      >
-                        #{c.venda.numero}
-                      </Link>
-                      <span className="text-slate-500 dark:text-slate-400 text-xs ml-1">
-                        · {c.venda.lote.codigo}
-                        {c.venda.lote.tipo === 'RESIDENCIAL' ? ' 🏠' : ' 🏢'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300 text-xs">
-                      {c.venda.cliente.nome}
-                    </td>
-                    <td className="px-3 py-2 text-center font-mono">
-                      {c.numero}/4
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
-                      {c.parcelaCliente ? (
-                        <>
-                          {c.parcelaCliente.tipo}
-                          {c.parcelaCliente.tipo === 'MENSAL' &&
-                            ` ${c.parcelaCliente.numero}`}
-                          <br />
-                          <span
-                            className={
-                              c.parcelaCliente.status === 'PAGO'
-                                ? 'text-emerald-600'
-                                : 'text-slate-500'
-                            }
-                          >
-                            {c.parcelaCliente.status}
-                            {c.parcelaCliente.pagoEm &&
-                              ` em ${formatDate(c.parcelaCliente.pagoEm)}`}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold">
-                      {formatBRL(Number(c.valor))}
-                      {c.valorPago && Number(c.valorPago) !== Number(c.valor) && (
-                        <div className="text-xs text-slate-500">
-                          pago: {formatBRL(Number(c.valorPago))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`px-2 py-0.5 text-xs rounded ${STATUS_BG[c.status]}`}
-                      >
-                        {STATUS_ICON[c.status]} {c.status}
-                      </span>
-                      {c.pagaEm && (
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {formatDate(c.pagaEm)}
-                        </div>
-                      )}
-                      {c.conta && (
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          via {c.conta.nome}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <ComissaoActions
-                        comissaoId={c.id}
-                        status={c.status}
-                        valorSugerido={Number(c.valor)}
-                        contas={contas}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <TabelaComissoes comissoes={linhas} corretores={corretores} contas={contas} />
     </div>
   );
 }

@@ -65,9 +65,9 @@ export function ComissaoActions({ comissaoId, status, valorSugerido, contas }: P
           <button
             type="button"
             onClick={() => setModal('pagar')}
-            className="text-xs font-semibold px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+            className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700"
           >
-            💰 Pagar
+            Pagar
           </button>
         )}
         {status === 'BLOQUEADA' && (
@@ -75,18 +75,18 @@ export function ComissaoActions({ comissaoId, status, valorSugerido, contas }: P
             <button
               type="button"
               onClick={() => setModal('liberar')}
-              className="text-xs font-medium px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded"
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               title="Forçar liberação mesmo sem o cliente ter pagado"
             >
-              ⏭ Liberar
+              Liberar
             </button>
             <button
               type="button"
               onClick={() => setModal('pagar')}
-              className="text-xs font-medium px-2 py-1 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 rounded"
+              className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
               title="Pagar agora (libera + paga em um único passo)"
             >
-              💰 Pagar
+              Pagar
             </button>
           </>
         )}
@@ -95,9 +95,9 @@ export function ComissaoActions({ comissaoId, status, valorSugerido, contas }: P
             type="button"
             onClick={estornar}
             disabled={pending}
-            className="text-xs font-medium px-2 py-1 bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 rounded"
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
-            ↺ Estornar
+            Estornar
           </button>
         )}
       </div>
@@ -125,10 +125,9 @@ export function ComissaoActions({ comissaoId, status, valorSugerido, contas }: P
               required
               className="w-full px-3 py-2 mb-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-sm"
             >
-              <option value="">— Selecione —</option>
+              <option value="">Selecione…</option>
               {contas.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.tipo === 'CAIXA' ? '💵' : c.tipo === 'BANCO' ? '🏦' : c.tipo === 'ASAAS' ? '⚡' : '•'}{' '}
                   {c.nome} ({c.tipo})
                 </option>
               ))}
