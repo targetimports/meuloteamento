@@ -8,6 +8,7 @@ import { CobrancaPixRapida } from '@/components/CobrancaPixRapida';
 import { RegerarPixButton } from '@/components/RegerarPixButton';
 import { SincronizarAsaasButton } from '@/components/SincronizarAsaasButton';
 import { msgCobrancaParcela } from '@/lib/whatsappMessages';
+import { FiltroParcelas, type FiltrosParcela } from '@/components/financeiro/FiltroParcelas';
 import { marcarParcelaPaga, reabrirParcela } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -20,20 +21,136 @@ const STATUS_BG: Record<string, string> = {
   ESTORNADO: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
 };
 
+const POR_PAGINA = 50;
+
+type CampoOrdem = 'vencimento' | 'contrato' | 'cliente' | 'valor' | 'status';
+
+/**
+ * Tradução do campo da URL para o `orderBy` do Prisma.
+ *
+ * Contrato e cliente moram em tabelas vizinhas — ordenar por eles é ordenar
+ * pela relação, não por uma coluna da parcela.
+ */
+function ordenarPor(campo: CampoOrdem, dir: 'asc' | 'desc') {
+  switch (campo) {
+    case 'contrato':
+      return { venda: { numero: dir } };
+    case 'cliente':
+      return { venda: { cliente: { nome: dir } } };
+    case 'valor':
+      return { valor: dir };
+    case 'status':
+      return { status: dir };
+    default:
+      return { vencimento: dir };
+  }
+}
+
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: { status?: string };
+  searchParams: {
+    status?: string;
+    cliente?: string;
+    lote?: string;
+    loteamento?: string;
+    forma?: string;
+    de?: string;
+    ate?: string;
+    valorMin?: string;
+    valorMax?: string;
+    ordem?: string;
+    dir?: string;
+    pagina?: string;
+  };
 }) {
   const tid = await tenantId();
-  const statusFiltro = searchParams.status;
+
+  const filtros: FiltrosParcela = {
+    status: searchParams.status ?? '',
+    cliente: searchParams.cliente ?? '',
+    lote: searchParams.lote ?? '',
+    loteamento: searchParams.loteamento ?? '',
+    forma: searchParams.forma ?? '',
+    de: searchParams.de ?? '',
+    ate: searchParams.ate ?? '',
+    valorMin: searchParams.valorMin ?? '',
+    valorMax: searchParams.valorMax ?? '',
+  };
+
+  const campoOrdem = (
+    ['vencimento', 'contrato', 'cliente', 'valor', 'status'].includes(searchParams.ordem ?? '')
+      ? searchParams.ordem
+      : 'vencimento'
+  ) as CampoOrdem;
+  const dir: 'asc' | 'desc' = searchParams.dir === 'desc' ? 'desc' : 'asc';
+  const pagina = Math.max(1, Number(searchParams.pagina) || 1);
 
   const tenantWhere = tid
     ? { venda: { lote: { loteamento: { loteadoraId: tid } } } }
     : {};
+
+  const numero = (v: string) => {
+    const n = Number(String(v).replace(',', '.'));
+    return v.trim() !== '' && Number.isFinite(n) ? n : undefined;
+  };
+  // Datas do formulário vêm como AAAA-MM-DD, meia-noite local. O `ate` inclui
+  // o dia inteiro: quem filtra "até 31/08" espera ver o que vence em 31/08.
+  const dataDe = filtros.de ? new Date(`${filtros.de}T00:00:00`) : undefined;
+  const dataAte = filtros.ate ? new Date(`${filtros.ate}T23:59:59`) : undefined;
+  const vMin = numero(filtros.valorMin);
+  const vMax = numero(filtros.valorMax);
+
   const where = {
-    ...(statusFiltro ? { status: statusFiltro as 'PENDENTE' } : {}),
     ...tenantWhere,
+    ...(filtros.status ? { status: filtros.status as 'PENDENTE' } : {}),
+    ...(filtros.forma ? { formaPagamento: filtros.forma as 'PARCELADO_PIX' } : {}),
+    ...(dataDe || dataAte
+      ? { vencimento: { ...(dataDe ? { gte: dataDe } : {}), ...(dataAte ? { lte: dataAte } : {}) } }
+      : {}),
+    ...(vMin !== undefined || vMax !== undefined
+      ? { valor: { ...(vMin !== undefined ? { gte: vMin } : {}), ...(vMax !== undefined ? { lte: vMax } : {}) } }
+      : {}),
+    ...(filtros.cliente || filtros.lote || filtros.loteamento
+      ? {
+          venda: {
+            ...(tid ? { lote: { loteamento: { loteadoraId: tid } } } : {}),
+            ...(filtros.cliente
+              ? {
+                  cliente: {
+                    OR: [
+                      { nome: { contains: filtros.cliente, mode: 'insensitive' as const } },
+                      // Só busca por CPF quando o que foi digitado tem dígito.
+                      // `contains: ''` casa com todo mundo, e o OR devolveria a
+                      // lista inteira em vez de nada.
+                      ...(filtros.cliente.replace(/\D/g, '')
+                        ? [{ cpfCnpj: { contains: filtros.cliente.replace(/\D/g, '') } }]
+                        : []),
+                    ],
+                  },
+                }
+              : {}),
+            ...(filtros.lote || filtros.loteamento
+              ? {
+                  lote: {
+                    ...(tid ? { loteamento: { loteadoraId: tid } } : {}),
+                    ...(filtros.lote
+                      ? { codigo: { contains: filtros.lote, mode: 'insensitive' as const } }
+                      : {}),
+                    ...(filtros.loteamento
+                      ? {
+                          loteamento: {
+                            ...(tid ? { loteadoraId: tid } : {}),
+                            nome: { contains: filtros.loteamento, mode: 'insensitive' as const },
+                          },
+                        }
+                      : {}),
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
   };
 
   const hoje = new Date();
@@ -41,11 +158,13 @@ export default async function FinanceiroPage({
   const em30dias = new Date(hoje);
   em30dias.setDate(em30dias.getDate() + 30);
 
-  const [parcelas, totaisPorStatus, totalAtrasadas, vencendoEm30dias] = await Promise.all([
+  const [parcelas, totalFiltrado, totaisPorStatus, totalAtrasadas, vencendoEm30dias] =
+    await Promise.all([
     prisma.parcela.findMany({
       where,
-      orderBy: [{ vencimento: 'asc' }],
-      take: 200,
+      orderBy: [ordenarPor(campoOrdem, dir)],
+      skip: (pagina - 1) * POR_PAGINA,
+      take: POR_PAGINA,
       include: {
         venda: {
           select: {
@@ -63,6 +182,7 @@ export default async function FinanceiroPage({
         },
       },
     }),
+    prisma.parcela.count({ where }),
     prisma.parcela.groupBy({
       by: ['status'],
       where: tenantWhere,
@@ -175,15 +295,57 @@ export default async function FinanceiroPage({
     0
   );
 
-  const filtros = [
-    {
-      value: '',
-      label: `Todas (${totaisPorStatus.reduce((a, s) => a + s._count._all, 0)})`,
-    },
-    { value: 'PENDENTE', label: `Pendentes (${totalPendente?._count._all ?? 0})` },
-    { value: 'ATRASADO', label: `Atrasadas (${totalAtrasadas._count._all})` },
-    { value: 'PAGO', label: `Pagas (${totalPago?._count._all ?? 0})` },
-  ];
+  const totalPaginas = Math.max(1, Math.ceil(totalFiltrado / POR_PAGINA));
+  const primeiraDaPagina = totalFiltrado === 0 ? 0 : (pagina - 1) * POR_PAGINA + 1;
+
+  /**
+   * Monta um link preservando o recorte atual.
+   *
+   * Ordenar ou virar página não pode apagar o filtro: quem recortou "atrasadas
+   * do Parque Tucano" e clicou em Valor quer o mesmo recorte em outra ordem.
+   */
+  function comParametros(mudancas: Record<string, string | number | undefined>): string {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(filtros)) if (v) qs.set(k, v);
+    if (campoOrdem !== 'vencimento') qs.set('ordem', campoOrdem);
+    if (dir !== 'asc') qs.set('dir', dir);
+    if (pagina > 1) qs.set('pagina', String(pagina));
+    for (const [k, v] of Object.entries(mudancas)) {
+      if (v === undefined || v === '') qs.delete(k);
+      else qs.set(k, String(v));
+    }
+    return qs.size ? `/admin/financeiro?${qs}` : '/admin/financeiro';
+  }
+
+  function Cabecalho({
+    campo,
+    rotulo,
+    alinhamento = 'text-left',
+  }: {
+    campo: CampoOrdem;
+    rotulo: string;
+    alinhamento?: string;
+  }) {
+    const ativa = campoOrdem === campo;
+    // Clicar na coluna já ordenada inverte; clicar em outra começa crescente.
+    // Trocar a ordem volta para a página 1: a linha procurada passa a estar no
+    // começo, não na página em que se estava.
+    const proximaDir = ativa && dir === 'asc' ? 'desc' : 'asc';
+    return (
+      <th className={`${alinhamento} px-4 py-3 font-semibold`}>
+        <Link
+          href={comParametros({ ordem: campo, dir: proximaDir, pagina: undefined })}
+          className="inline-flex items-center gap-1 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+          title={`Ordenar por ${rotulo.toLowerCase()}`}
+        >
+          {rotulo}
+          <span className={ativa ? 'text-slate-600 dark:text-slate-300' : 'invisible'} aria-hidden>
+            {ativa && dir === 'desc' ? '▾' : '▴'}
+          </span>
+        </Link>
+      </th>
+    );
+  }
 
   return (
     <div>
@@ -356,30 +518,17 @@ export default async function FinanceiroPage({
         </section>
       )}
 
-      {/* Filtros */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {filtros.map((f) => {
-          const active = (statusFiltro ?? '') === f.value;
-          return (
-            <Link
-              key={f.value}
-              href={f.value ? `/admin/financeiro?status=${f.value}` : '/admin/financeiro'}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                active
-                  ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-              }`}
-            >
-              {f.label}
-            </Link>
-          );
-        })}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <FiltroParcelas atuais={filtros} />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {totalFiltrado.toLocaleString('pt-BR')} parcela(s)
+        </p>
       </div>
 
       {parcelas.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-          {statusFiltro
-            ? 'Nenhuma parcela neste filtro.'
+          {Object.values(filtros).some((v) => v)
+            ? 'Nenhuma parcela atende aos filtros.'
             : 'Ainda não há parcelas geradas. Parcelas aparecem aqui quando uma venda é criada com financiamento.'}
         </div>
       ) : (
@@ -387,13 +536,13 @@ export default async function FinanceiroPage({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold">Vencimento</th>
-                <th className="text-left px-4 py-3 font-semibold">Contrato / Lote</th>
-                <th className="text-left px-4 py-3 font-semibold">Cliente</th>
-                <th className="text-left px-4 py-3 font-semibold">Parcela</th>
-                <th className="text-left px-4 py-3 font-semibold">Valor</th>
-                <th className="text-left px-4 py-3 font-semibold">Status</th>
-                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+                <Cabecalho campo="vencimento" rotulo="Vencimento" />
+                <Cabecalho campo="contrato" rotulo="Contrato / Lote" />
+                <Cabecalho campo="cliente" rotulo="Cliente" />
+                <th className="px-4 py-3 text-left font-semibold">Parcela</th>
+                <Cabecalho campo="valor" rotulo="Valor" />
+                <Cabecalho campo="status" rotulo="Status" />
+                <th className="px-4 py-3 text-right font-semibold">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -532,7 +681,67 @@ export default async function FinanceiroPage({
           </table>
         </div>
       )}
+
+      {totalFiltrado > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {primeiraDaPagina}–{primeiraDaPagina + parcelas.length - 1} de{' '}
+            {totalFiltrado.toLocaleString('pt-BR')}
+          </p>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-1.5">
+              <PaginaLink href={comParametros({ pagina: pagina - 1 })} desabilitado={pagina === 1}>
+                Anterior
+              </PaginaLink>
+              <span className="px-2 text-xs text-slate-500 dark:text-slate-400">
+                {pagina} de {totalPaginas}
+              </span>
+              <PaginaLink
+                href={comParametros({ pagina: pagina + 1 })}
+                desabilitado={pagina >= totalPaginas}
+              >
+                Próxima
+              </PaginaLink>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * Botão de página.
+ *
+ * Nos extremos vira `<span>`, não um link cinza: link desabilitado continua
+ * clicável pelo teclado e recarrega a mesma página.
+ */
+function PaginaLink({
+  href,
+  desabilitado,
+  children,
+}: {
+  href: string;
+  desabilitado: boolean;
+  children: React.ReactNode;
+}) {
+  const base = 'rounded-lg border px-3 py-1.5 text-xs font-medium transition';
+  if (desabilitado) {
+    return (
+      <span
+        className={`${base} cursor-not-allowed border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600`}
+      >
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className={`${base} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800`}
+    >
+      {children}
+    </Link>
   );
 }
 
