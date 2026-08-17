@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useFormState } from 'react-dom';
 import { Field, Section, SubmitButton, ErrorBox, inputClass } from './ui';
 import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
+import { ComboboxLote } from '@/components/vendas/ComboboxLote';
 
 interface LoteOption {
   id: string;
@@ -413,29 +414,16 @@ export function VendaForm({
             </div>
           )}
           {/* DROPDOWN pra adicionar */}
-          <select
-            value=""
-            onChange={(e) => {
-              if (e.target.value) {
-                adicionarLote(e.target.value);
-                e.target.value = '';
-              }
-            }}
+          <ComboboxLote
+            lotes={lotes.filter((l) => !loteIds.includes(l.id))}
+            onEscolher={adicionarLote}
             className={inputClass}
-          >
-            <option value="">
-              {lotesSelecionados.length === 0
-                ? '— Selecione um lote —'
-                : '+ Adicionar outro lote (cobrança única)...'}
-            </option>
-            {lotes
-              .filter((l) => !loteIds.includes(l.id))
-              .map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.loteamentoNome} · {l.codigo} · {l.area.toFixed(0)} m² · {formatBRL(l.preco)} · {l.status}
-                </option>
-              ))}
-          </select>
+            placeholder={
+              lotesSelecionados.length === 0
+                ? 'Buscar por código, quadra, área ou preço…'
+                : 'Adicionar outro lote (cobrança única)…'
+            }
+          />
         </Field>
 
         {isMultiLote && (
