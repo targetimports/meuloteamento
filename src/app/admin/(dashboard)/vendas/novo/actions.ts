@@ -912,3 +912,62 @@ export async function criarClienteRapido(formData: FormData): Promise<{
   revalidatePath('/admin/vendas/novo');
   return { ok: true, cliente: c };
 }
+
+/**
+ * Cadastro rápido de corretor, a partir do combobox da tela de venda.
+ *
+ * A loteadora vem do loteamento do lote selecionado, não da sessão: assim
+ * funciona igual para o admin da empresa e para o super admin, que não tem
+ * loteadora própria. O acesso é conferido pelo mesmo caminho das demais ações.
+ */
+export async function criarCorretorRapido(formData: FormData): Promise<{
+  ok: boolean;
+  corretor?: { id: string; nome: string; comissaoPadrao: number };
+  erro?: string;
+}> {
+  await requireAdmin();
+
+  const loteamentoId = String(formData.get('loteamentoId') ?? '').trim();
+  if (!loteamentoId) {
+    return { ok: false, erro: 'Selecione o lote antes de cadastrar o corretor.' };
+  }
+
+  const loteamento = await prisma.loteamento.findUnique({
+    where: { id: loteamentoId },
+    select: { loteadoraId: true },
+  });
+  if (!loteamento) return { ok: false, erro: 'Loteamento não encontrado.' };
+  if (!(await canAccessLoteamento(loteamento.loteadoraId))) {
+    return { ok: false, erro: 'Sem permissão para esta loteadora.' };
+  }
+
+  const nome = String(formData.get('nome') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  if (!nome || !email) return { ok: false, erro: 'Informe nome e e-mail.' };
+
+  const comissao = Number(String(formData.get('comissaoPadrao') ?? '0').replace(',', '.'));
+
+  try {
+    const c = await prisma.corretor.create({
+      data: {
+        loteadoraId: loteamento.loteadoraId,
+        nome,
+        email,
+        telefone: String(formData.get('telefone') ?? '').trim() || null,
+        comissaoPadrao: Number.isFinite(comissao) ? comissao : 0,
+      },
+      select: { id: true, nome: true, comissaoPadrao: true },
+    });
+    revalidatePath('/admin/vendas/novo');
+    return {
+      ok: true,
+      corretor: { id: c.id, nome: c.nome, comissaoPadrao: Number(c.comissaoPadrao) },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      erro: `Não foi possível cadastrar o corretor. Detalhe: ${msg.split('\n')[0]}`,
+    };
+  }
+}

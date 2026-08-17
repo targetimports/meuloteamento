@@ -8,6 +8,7 @@ import { SeletorParcelas } from '@/components/vendas/SeletorParcelas';
 import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 import { ComboboxLote } from '@/components/vendas/ComboboxLote';
 import { CampoCliente } from '@/components/vendas/CampoCliente';
+import { CampoCorretor } from '@/components/vendas/CampoCorretor';
 
 interface LoteOption {
   id: string;
@@ -1083,24 +1084,18 @@ export function VendaForm({
         </div>
       </Section>
 
-      {/* ====== CORRETOR (OPCIONAL) ====== */}
-      {corretores.length > 0 && (
-        <Section title="Corretor (opcional)">
-          <Field label="Corretor responsável" wide>
-            <select
-              name="corretorId"
-              value={corretorId}
-              onChange={(e) => setCorretorId(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">— Sem corretor —</option>
-              {corretores.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome} ({c.comissaoPadrao.toFixed(1)}% padrão p/ comerciais)
-                </option>
-              ))}
-            </select>
-          </Field>
+      {/* A seção aparece sempre: antes ela sumia quando não havia corretor
+          cadastrado, e cadastrar o primeiro exigia sair da tela e voltar. */}
+      <Section title="Corretor (opcional)">
+        <Field label="Corretor responsável" wide>
+          <CampoCorretor
+            corretores={corretores}
+            valorId={corretorId}
+            onEscolher={setCorretorId}
+            inputClass={inputClass}
+            loteamentoId={lote?.loteamentoId}
+          />
+        </Field>
 
           {corretorId && (
             <>
@@ -1183,8 +1178,7 @@ export function VendaForm({
               </div>
             </>
           )}
-        </Section>
-      )}
+      </Section>
 
       {/* ====== OPÇÕES AVANÇADAS ====== */}
       <Section title="Opções">
