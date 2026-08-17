@@ -189,7 +189,7 @@ export default async function FinanceiroPage({
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Financeiro</h1>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Financeiro</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Parcelas, recebimentos e inadimplência.
           </p>
@@ -220,28 +220,23 @@ export default async function FinanceiroPage({
         <KPI
           label="Total já recebido"
           valor={formatBRL(Number(totalPago?._sum.valor) || 0)}
-          icon="✓"
-          highlight
+          tint="text-emerald-600 dark:text-emerald-400"
         />
         <KPI
           label="A receber (pendentes)"
           valor={formatBRL(Number(totalPendente?._sum.valor) || 0)}
-          tint="text-slate-700 dark:text-slate-200"
-          icon="📅"
         />
         <KPI
           label="Atrasadas"
           valor={formatBRL(Number(totalAtrasadas._sum.valor) || 0)}
           sublabel={`${totalAtrasadas._count._all} parcela(s)`}
           tint="text-red-600 dark:text-red-400"
-          icon="⚠"
         />
         <KPI
           label="Vencendo em 30 dias"
           valor={formatBRL(Number(vencendoEm30dias._sum.valor) || 0)}
           sublabel={`${vencendoEm30dias._count._all} parcela(s)`}
           tint="text-amber-600 dark:text-amber-400"
-          icon="⏳"
         />
       </div>
 
@@ -252,12 +247,10 @@ export default async function FinanceiroPage({
       {(chequesAguardando._count._all +
         chequesCompensados._count._all +
         chequesDevolvidos._count._all) > 0 && (
-        <section className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-2xl p-5 mb-6">
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
             <div>
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>🧾</span> Cheques
-              </h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Cheques</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Controle de cheques pré-datados — compensação, compensados e devoluções.
               </p>
@@ -266,9 +259,9 @@ export default async function FinanceiroPage({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
               <p className="text-[10px] uppercase tracking-widest text-amber-700 dark:text-amber-300 font-bold">
-                ⏳ Aguardando compensação
+                Aguardando compensação
               </p>
-              <p className="text-2xl font-black text-amber-900 dark:text-amber-200 mt-1">
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-900 dark:text-amber-200">
                 {formatBRL(Number(chequesAguardando._sum.valor) || 0)}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
@@ -277,9 +270,9 @@ export default async function FinanceiroPage({
             </div>
             <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4">
               <p className="text-[10px] uppercase tracking-widest text-emerald-700 dark:text-emerald-300 font-bold">
-                ✓ Compensados
+                Compensados
               </p>
-              <p className="text-2xl font-black text-emerald-900 dark:text-emerald-200 mt-1">
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-900 dark:text-emerald-200">
                 {formatBRL(Number(chequesCompensados._sum.valor) || 0)}
               </p>
               <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
@@ -288,9 +281,9 @@ export default async function FinanceiroPage({
             </div>
             <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4">
               <p className="text-[10px] uppercase tracking-widest text-red-700 dark:text-red-300 font-bold">
-                ⚠ Devolvidos
+                Devolvidos
               </p>
-              <p className="text-2xl font-black text-red-900 dark:text-red-200 mt-1">
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-red-900 dark:text-red-200">
                 {formatBRL(Number(chequesDevolvidos._sum.valor) || 0)}
               </p>
               <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
@@ -299,19 +292,20 @@ export default async function FinanceiroPage({
             </div>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
-            💡 <strong>Como usar:</strong> Cheque pré-datado aparece no fluxo na <strong>data de vencimento</strong>.
-            Para confirmar compensação, clique em <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded font-semibold">✓ Pago</span> na linha da parcela.
-            Para devolução, abra a venda e estorne a parcela.
+            <strong className="font-medium text-slate-600 dark:text-slate-300">Como usar:</strong>{' '}
+            cheque pré-datado aparece no fluxo na data de vencimento. Para confirmar a
+            compensação, clique em <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">Pago</span> na
+            linha da parcela. Para devolução, abra a venda e estorne a parcela.
           </p>
         </section>
       )}
 
       {/* Saldos por conta */}
       {contas.length > 0 && (
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6">
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-baseline justify-between mb-3">
             <div>
-              <h2 className="font-bold text-slate-900 dark:text-slate-100">Saldos por conta</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Saldos por conta</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Onde caem os recebimentos.{' '}
                 <Link
@@ -326,7 +320,7 @@ export default async function FinanceiroPage({
               <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold">
                 Saldo consolidado
               </p>
-              <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
+              <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                 {formatBRL(saldoTotalContas)}
               </p>
             </div>
@@ -335,18 +329,10 @@ export default async function FinanceiroPage({
             {contas.map((c) => {
               const mov = saldoMap.get(c.id) ?? 0;
               const saldo = Number(c.saldoInicial) + mov;
-              const tipoIcon =
-                c.tipo === 'ASAAS'
-                  ? '⚡'
-                  : c.tipo === 'CAIXA'
-                    ? '💵'
-                    : c.tipo === 'BANCO'
-                      ? '🏦'
-                      : '•';
               return (
                 <div
                   key={c.id}
-                  className={`bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border-t-4 ${
+                  className={`rounded-lg border border-slate-200 border-t-4 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 ${
                     c.ativa ? '' : 'opacity-50'
                   }`}
                   style={{ borderTopColor: c.cor ?? '#94a3b8' }}
@@ -355,9 +341,9 @@ export default async function FinanceiroPage({
                     className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate"
                     title={c.nome}
                   >
-                    {tipoIcon} {c.nome}
+                    {c.nome}
                   </p>
-                  <p className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                     {formatBRL(saldo)}
                   </p>
                   <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
@@ -378,10 +364,10 @@ export default async function FinanceiroPage({
             <Link
               key={f.value}
               href={f.value ? `/admin/financeiro?status=${f.value}` : '/admin/financeiro'}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
               }`}
             >
               {f.label}
@@ -391,13 +377,13 @@ export default async function FinanceiroPage({
       </div>
 
       {parcelas.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 text-sm">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           {statusFiltro
             ? 'Nenhuma parcela neste filtro.'
             : 'Ainda não há parcelas geradas. Parcelas aparecem aqui quando uma venda é criada com financiamento.'}
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
               <tr>
@@ -452,17 +438,17 @@ export default async function FinanceiroPage({
                       {(p.formaPagamento === 'A_VISTA_CHEQUE' ||
                         p.formaPagamento === 'PARCELADO_CHEQUE') && (
                         <div
-                          className="mt-1 text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded inline-flex items-center gap-1 font-bold"
+                          className="mt-1 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
                           title={`Cheque${p.chequeNumero ? ' nº ' + p.chequeNumero : ''}${p.chequeBanco ? ' · ' + p.chequeBanco : ''}${p.chequeEmitente ? ' · emitente ' + p.chequeEmitente : ''}${p.chequePraca ? ' · ' + p.chequePraca : ''}`}
                         >
-                          🧾 CHEQUE
+                          Cheque
                           {p.chequeNumero && <span>nº {p.chequeNumero}</span>}
                           {p.chequeBanco && <span>· {p.chequeBanco}</span>}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
+                      <div className="font-medium tabular-nums text-slate-900 dark:text-slate-100">
                         {formatBRL(Number(p.valor))}
                       </div>
                       {p.valorPago && Number(p.valorPago) !== Number(p.valor) && (
@@ -514,7 +500,7 @@ export default async function FinanceiroPage({
                           <ParcelaActionButton
                             parcelaId={p.id}
                             action={marcarParcelaPaga}
-                            label="✓ Pago"
+                            label="Pago"
                             confirmMsg={`Marcar parcela ${p.numero} (${formatBRL(Number(p.valor))}) como paga? Se for a última, a venda vira QUITADA.`}
                           />
                         )}
@@ -522,7 +508,7 @@ export default async function FinanceiroPage({
                           <ParcelaActionButton
                             parcelaId={p.id}
                             action={reabrirParcela}
-                            label="↺ Reabrir"
+                            label="Reabrir"
                             confirmMsg="Reabrir esta parcela (volta pra PENDENTE)?"
                             variant="subtle"
                           />
@@ -555,47 +541,25 @@ function KPI({
   valor,
   sublabel,
   tint,
-  icon,
-  highlight,
 }: {
   label: string;
   valor: string;
   sublabel?: string;
+  /** Cor do número quando ele carrega um alerta (atraso, vencimento). */
   tint?: string;
-  icon?: string;
-  highlight?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl p-4 relative overflow-hidden ${
-        highlight
-          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white'
-          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
-      }`}
-    >
-      {icon && <span className="absolute top-3 right-3 text-2xl opacity-50">{icon}</span>}
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
       <p
-        className={`text-xs uppercase tracking-wider ${
-          highlight ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`text-xl font-bold mt-1 ${
-          highlight ? 'text-white' : tint ?? 'text-slate-900 dark:text-slate-100'
+        className={`mt-1 text-xl font-semibold tabular-nums ${
+          tint ?? 'text-slate-900 dark:text-slate-100'
         }`}
       >
         {valor}
       </p>
       {sublabel && (
-        <p
-          className={`text-xs mt-0.5 ${
-            highlight ? 'text-white/70' : 'text-slate-500 dark:text-slate-400'
-          }`}
-        >
-          {sublabel}
-        </p>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{sublabel}</p>
       )}
     </div>
   );

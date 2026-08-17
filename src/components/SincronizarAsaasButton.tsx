@@ -35,16 +35,16 @@ export function SincronizarAsaasButton() {
           type="button"
           onClick={rodar}
           disabled={pending}
-          className="px-3 py-1.5 text-xs font-semibold bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center gap-1.5"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           title="Consulta o Asaas e detecta pagamentos que ainda não vieram pelo webhook"
         >
           {pending ? (
             <>
-              <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current/30 border-t-current" />
               Sincronizando…
             </>
           ) : (
-            <>🔄 Sincronizar Asaas</>
+            <>Sincronizar Asaas</>
           )}
         </button>
       </div>

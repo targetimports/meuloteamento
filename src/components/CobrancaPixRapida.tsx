@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { criarCobrancaPixAvulsa, type CobrancaPixResult } from '@/app/admin/(dashboard)/financeiro/actions';
+import { IconPix } from '@/components/icons';
 
 interface ClienteOption {
   id: string;
@@ -141,10 +142,10 @@ export function CobrancaPixRapida({
     <>
       <button
         onClick={abrir}
-        className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
       >
-        <span className="text-base leading-none">⚡</span>
-        Nova cobrança PIX
+        <IconPix className="h-4 w-4" />
+        Nova cobrança Pix
       </button>
 
       {open && (
@@ -291,7 +292,7 @@ export function CobrancaPixRapida({
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        💰 Valor manual
+                        Valor manual
                       </button>
                       <button
                         type="button"
@@ -406,7 +407,7 @@ export function CobrancaPixRapida({
                             : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <span className="font-semibold block">🔗 Link de pagamento</span>
+                        <span className="font-semibold block">Link de pagamento</span>
                         <span className="text-[11px] opacity-80">Pix + boleto + cartão</span>
                       </button>
                     </div>
@@ -447,9 +448,9 @@ export function CobrancaPixRapida({
                       Gerando…
                     </>
                   ) : formaCobranca === 'LINK' ? (
-                    <>🔗 Gerar link de pagamento</>
+                    <>Gerar link de pagamento</>
                   ) : (
-                    <>⚡ Gerar Pix</>
+                    <><IconPix className="h-4 w-4" />Gerar Pix</>
                   )}
                 </button>
               </div>
@@ -480,7 +481,7 @@ function ResultadoQrCode({
     <div className="space-y-4 text-center">
       <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4">
         <p className="text-xs text-emerald-700 dark:text-emerald-300 uppercase tracking-wider font-semibold">
-          ✓ Cobrança gerada
+          Cobrança gerada
         </p>
         {clienteNome && (
           <p className="text-sm text-slate-700 dark:text-slate-200 mt-1">{clienteNome}</p>
@@ -499,7 +500,7 @@ function ResultadoQrCode({
       {invoiceUrl && (
         <div className="text-left">
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-            🔗 Link de pagamento
+            Link de pagamento
           </label>
           <div className="flex gap-2">
             <input

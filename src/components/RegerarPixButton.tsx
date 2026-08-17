@@ -82,8 +82,8 @@ export function RegerarPixButton({
         disabled={pending}
         className={
           variant === 'compact'
-            ? 'text-xs font-medium px-2 py-1 bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 rounded disabled:opacity-50 inline-flex items-center gap-1'
-            : 'px-3 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center gap-1.5'
+            ? 'inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+            : 'inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50'
         }
         title={jaTinha ? 'Regenerar QR PIX desta parcela' : 'Gerar QR PIX desta parcela'}
       >
@@ -179,7 +179,7 @@ export function RegerarPixButton({
                         rel="noopener noreferrer"
                         className="flex-1 text-center px-3 py-2 text-xs font-semibold bg-[#25D366] hover:bg-[#1cb858] text-white rounded-lg"
                       >
-                        📱 Enviar WhatsApp
+                        Enviar no WhatsApp
                       </a>
                     )}
                     {result.invoiceUrl && (

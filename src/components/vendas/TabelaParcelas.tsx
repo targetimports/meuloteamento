@@ -372,7 +372,7 @@ export function TabelaParcelas({
                         <ParcelaActionButton
                           parcelaId={p.id}
                           action={marcarParcelaPaga}
-                          label="✓ Pago"
+                          label="Pago"
                           confirmMsg={`Marcar parcela ${p.numero} (${formatBRL(p.valor)}) como paga?`}
                         />
                       )}
@@ -380,7 +380,7 @@ export function TabelaParcelas({
                         <ParcelaActionButton
                           parcelaId={p.id}
                           action={reabrirParcela}
-                          label="↺ Reabrir"
+                          label="Reabrir"
                           confirmMsg="Reabrir esta parcela?"
                           variant="subtle"
                         />
