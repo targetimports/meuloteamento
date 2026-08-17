@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useFormState } from 'react-dom';
 import { Field, Section, SubmitButton, ErrorBox, inputClass, selectClass } from './ui';
 import { CampoMoeda } from '@/components/vendas/CampoMoeda';
+import { SeletorParcelas } from '@/components/vendas/SeletorParcelas';
 import { descobrirTaxaPrice, pmtPrice } from '@/lib/price';
 import { ComboboxLote } from '@/components/vendas/ComboboxLote';
 import { CampoCliente } from '@/components/vendas/CampoCliente';
@@ -200,6 +201,7 @@ export function VendaForm({
   );
   const isMultiLote = lotesSelecionados.length > 1;
 
+
   function adicionarLote(id: string) {
     if (!id || loteIds.includes(id)) return;
     setLoteIds([...loteIds, id]);
@@ -231,6 +233,13 @@ export function VendaForm({
     () => condicoesDoLote.find((c) => c.id === condicaoId) ?? null,
     [condicoesDoLote, condicaoId]
   );
+
+  /**
+   * Teto de parcelas: o da condição do simulador quando há uma escolhida, o
+   * limite do sistema quando não há. O mesmo número alimenta a barra e o
+   * rótulo, para não existir a chance de dizerem coisas diferentes.
+   */
+  const maxParcelas = condicao ? condicao.parcelas : 72;
 
   /** Taxa que a condição embute — é ela que vale se a entrada mudar. */
   const taxaDaCondicao = useMemo(
@@ -616,31 +625,17 @@ export function VendaForm({
                 ))}
               </div>
             </Field>
-            <Field
-              label="Número de parcelas"
-              hint={
-                condicao
-                  ? `Prazo máximo desta condição: ${condicao.parcelas} parcelas.`
-                  : 'Máximo permitido: 72 parcelas.'
-              }
-            >
-              <input
+            <div>
+              <SeletorParcelas
                 name="numeroParcelas"
-                type="number"
-                min="1"
-                max={condicao ? condicao.parcelas : 72}
                 value={numeroParcelas}
-                onChange={(e) =>
-                  setNumeroParcelas(
-                    Math.min(
-                      condicao ? condicao.parcelas : 72,
-                      Math.max(1, Number(e.target.value))
-                    )
-                  )
+                onChange={setNumeroParcelas}
+                max={maxParcelas}
+                rotuloMaximo={
+                  condicao ? `${maxParcelas}x (condição)` : `${maxParcelas}x (máximo)`
                 }
-                className={inputClass}
               />
-            </Field>
+            </div>
             <Field
               label="Data da 1ª parcela"
               hint={
