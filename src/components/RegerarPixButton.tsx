@@ -5,6 +5,7 @@ import {
   regerarPixParcela,
   type RegerarPixResult,
 } from '@/app/admin/(dashboard)/financeiro/actions';
+import { IconPix } from '@/components/icons';
 
 interface Props {
   parcelaId: string;
@@ -66,7 +67,13 @@ export function RegerarPixButton({
     setTimeout(() => setCopied(false), 2500);
   }
 
-  const labelBtn = jaTinha ? '↻ Regerar PIX' : '⚡ Gerar PIX';
+  // O raio era só decoração; a marca do Pix diz na hora do que se trata.
+  const labelBtn = (
+    <>
+      <IconPix className={variant === 'compact' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      {jaTinha ? 'Regerar Pix' : 'Gerar Pix'}
+    </>
+  );
 
   return (
     <>
@@ -104,11 +111,7 @@ export function RegerarPixButton({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-semibold">
-                    {result.ok
-                      ? jaTinha
-                        ? '↻ PIX regenerado'
-                        : '⚡ PIX gerado'
-                      : '⚠ Erro'}
+                    {result.ok ? (jaTinha ? 'Pix regenerado' : 'Pix gerado') : 'Erro'}
                   </p>
                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                     {result.ok

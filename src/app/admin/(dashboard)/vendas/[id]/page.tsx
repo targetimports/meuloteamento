@@ -5,23 +5,19 @@ import { canAccessLoteamento, tenantId, whereLoteadora } from '@/lib/tenant';
 import { formatBRL, formatDate, formatDateTime } from '@/lib/format';
 import { DistratoForm } from '@/components/DistratoForm';
 import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas, mudarDiaVencimento } from './actions';
-import { ParcelaActionButton } from '@/components/ParcelaActionButton';
-import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { IconWhatsApp } from '@/components/icons';
 import { msgCobrancaParcela } from '@/lib/whatsappMessages';
-import { marcarParcelaPaga, reabrirParcela } from '../../financeiro/actions';
 import { VendaTimeline, type TimelineEvent } from '@/components/VendaTimeline';
 import { ReajusteForm } from '@/components/ReajusteForm';
 import ContratoActions from '@/components/ContratoActions';
 import { PixCard } from '@/components/PixCard';
 import { BoletoCartaoCard } from '@/components/BoletoCartaoCard';
-import { RegerarPixButton } from '@/components/RegerarPixButton';
-import { GerarBoletoButton } from '@/components/GerarBoletoButton';
 import { TrocarFormaPagamento } from '@/components/TrocarFormaPagamento';
 import { MudarVencimentoButton } from '@/components/MudarVencimentoButton';
 import { MudarCorretorButton } from '@/components/MudarCorretorButton';
 import { AjustarComissaoButton } from '@/components/AjustarComissaoButton';
 import { VendaArquivosCard } from '@/components/VendaArquivosCard';
+import { TabelaParcelas, type ParcelaLinha } from '@/components/vendas/TabelaParcelas';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,14 +28,6 @@ const STATUS_VENDA: Record<string, string> = {
   CANCELADA: 'bg-slate-100 text-slate-500',
   DISTRATADA: 'bg-slate-100 text-slate-500',
 };
-const STATUS_PARCELA: Record<string, string> = {
-  PENDENTE: 'bg-slate-100 text-slate-600',
-  PAGO: 'bg-emerald-100 text-emerald-700',
-  ATRASADO: 'bg-red-100 text-red-700',
-  CANCELADO: 'bg-slate-100 text-slate-400',
-  ESTORNADO: 'bg-amber-100 text-amber-700',
-};
-
 export default async function VendaDetalhePage({
   params,
   searchParams,
@@ -216,6 +204,52 @@ export default async function VendaDetalhePage({
     }
     return Math.min(28, dia);
   })();
+
+  /**
+   * Linhas da tabela de parcelas.
+   *
+   * Datas viram texto aqui, não no navegador: `new Date('2026-09-05')` é meia-
+   * noite em UTC, e no fuso do Brasil isso vira dia 4. O campo AAAA-MM-DD que
+   * vai junto serve só para filtrar e ordenar, e sai dos mesmos componentes
+   * locais que geraram o rótulo — assim o que se filtra é o que se lê.
+   */
+  const doisDigitos = (n: number) => String(n).padStart(2, '0');
+  const linhasParcelas: ParcelaLinha[] = venda.parcelas.map((p) => ({
+    id: p.id,
+    numero: p.numero,
+    tipo: p.tipo,
+    vencimento: `${p.vencimento.getFullYear()}-${doisDigitos(p.vencimento.getMonth() + 1)}-${doisDigitos(p.vencimento.getDate())}`,
+    vencimentoLabel: formatDate(p.vencimento),
+    valor: Number(p.valor),
+    pagoEm: p.pagoEm?.toISOString() ?? null,
+    pagoEmLabel: p.pagoEm ? formatDateTime(p.pagoEm) : null,
+    status: p.status,
+    formaPropria:
+      p.formaPagamento && p.formaPagamento !== venda.formaPagamento ? p.formaPagamento : null,
+    formaEfetiva: p.formaPagamento ?? venda.formaPagamento,
+    chequeNumero: p.chequeNumero,
+    chequeBanco: p.chequeBanco,
+    chequeEmitente: p.chequeEmitente,
+    chequePraca: p.chequePraca,
+    asaasBoletoUrl: p.asaasBoletoUrl,
+    asaasInvoiceUrl: p.asaasInvoiceUrl,
+    temCobranca: !!p.asaasPaymentId,
+    mensagem: msgCobrancaParcela({
+      cliente: { nome: venda.cliente.nome },
+      venda: {
+        numero: venda.numero,
+        loteCodigo: venda.lote.codigo,
+        loteamentoNome: venda.lote.loteamento.nome,
+      },
+      parcela: {
+        numero: p.numero,
+        vencimento: p.vencimento,
+        valor: Number(p.valor),
+        invoiceUrl: p.asaasInvoiceUrl ?? p.asaasBoletoUrl ?? null,
+      },
+      loteadora: { nome: loteadoraNome },
+    }),
+  }));
 
   const pagas = venda.parcelas.filter((p) => p.status === 'PAGO');
   const totalPago = pagas.reduce((s, p) => s + Number(p.valorPago || p.valor), 0);
@@ -568,159 +602,13 @@ export default async function VendaDetalhePage({
             />
           </div>
         </div>
-        {venda.parcelas.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhuma parcela gerada.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="text-left px-3 py-2">#</th>
-                <th className="text-left px-3 py-2">Tipo</th>
-                <th className="text-left px-3 py-2">Vencimento</th>
-                <th className="text-left px-3 py-2">Valor</th>
-                <th className="text-left px-3 py-2">Pago em</th>
-                <th className="text-left px-3 py-2">Status</th>
-                <th className="text-left px-3 py-2">Asaas</th>
-                <th className="text-right px-3 py-2">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {venda.parcelas.map((p) => (
-                <tr key={p.id} className="text-sm">
-                  <td className="px-3 py-2 font-mono">{p.numero}</td>
-                  <td className="px-3 py-2 text-slate-600 text-xs">
-                    <div>{p.tipo}</div>
-                    {p.formaPagamento && p.formaPagamento !== venda.formaPagamento && (
-                      <div
-                        className="text-[10px] text-amber-700 font-semibold"
-                        title="Forma de pagamento diferente da venda"
-                      >
-                        {p.formaPagamento.replace('PARCELADO_', '').replace('A_VISTA_', '').replace('_', ' ')}
-                      </div>
-                    )}
-                    {/* Badge cheque com dados do cheque (nº, banco, emitente) */}
-                    {(p.formaPagamento === 'A_VISTA_CHEQUE' ||
-                      p.formaPagamento === 'PARCELADO_CHEQUE') && (
-                      <div
-                        className="mt-1 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded inline-flex items-center gap-1 font-semibold"
-                        title={`Cheque${p.chequeNumero ? ' nº ' + p.chequeNumero : ''}${p.chequeBanco ? ' · ' + p.chequeBanco : ''}${p.chequeEmitente ? ' · emitente ' + p.chequeEmitente : ''}${p.chequePraca ? ' · ' + p.chequePraca : ''}`}
-                      >
-                        🧾 Cheque
-                        {p.chequeNumero && (
-                          <span className="font-mono">nº {p.chequeNumero}</span>
-                        )}
-                        {p.chequeBanco && <span>· {p.chequeBanco}</span>}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{formatDate(p.vencimento)}</td>
-                  <td className="px-3 py-2 font-medium">{formatBRL(Number(p.valor))}</td>
-                  <td className="px-3 py-2 text-xs">
-                    {p.pagoEm ? formatDateTime(p.pagoEm) : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`px-1.5 py-0.5 text-xs rounded ${STATUS_PARCELA[p.status]}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {/* Rótulo honesto: "Boleto" só quando existe o PDF do
-                        boleto. Antes, dizia Boleto e abria a página de
-                        pagamento do Asaas — quem clicava esperando o documento
-                        recebia uma tela de opções e achava que estava
-                        quebrado. */}
-                    {p.asaasBoletoUrl ? (
-                      <a
-                        href={p.asaasBoletoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:underline"
-                        title="PDF do boleto"
-                      >
-                        Boleto
-                      </a>
-                    ) : p.asaasInvoiceUrl ? (
-                      <a
-                        href={p.asaasInvoiceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:underline"
-                        title="Página de pagamento do Asaas (Pix, cartão e boleto)"
-                      >
-                        Pagamento
-                      </a>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-1.5 items-center justify-end flex-wrap">
-                      {(p.status === 'PENDENTE' || p.status === 'ATRASADO') &&
-                        venda.cliente.telefone && (
-                          <WhatsAppButton
-                            telefone={venda.cliente.telefone}
-                            label="Cobrar"
-                            message={msgCobrancaParcela({
-                              cliente: { nome: venda.cliente.nome },
-                              venda: {
-                                numero: venda.numero,
-                                loteCodigo: venda.lote.codigo,
-                                loteamentoNome: venda.lote.loteamento.nome,
-                              },
-                              parcela: {
-                                numero: p.numero,
-                                vencimento: p.vencimento,
-                                valor: Number(p.valor),
-                                invoiceUrl: p.asaasInvoiceUrl ?? p.asaasBoletoUrl ?? null,
-                              },
-                              loteadora: { nome: loteadoraNome },
-                            })}
-                          />
-                        )}
-                      {/* O botão segue a forma efetiva da parcela (a dela, ou
-                          a da venda quando não tem própria). Mostrar "Gerar
-                          PIX" numa parcela de boleto recriaria a cobrança como
-                          Pix e desfaria a escolha. */}
-                      {(p.status === 'PENDENTE' || p.status === 'ATRASADO') &&
-                        ((p.formaPagamento ?? venda.formaPagamento) === 'PARCELADO_BOLETO' ? (
-                          <GerarBoletoButton
-                            parcelaId={p.id}
-                            boletoUrl={p.asaasBoletoUrl}
-                            invoiceUrl={p.asaasInvoiceUrl}
-                          />
-                        ) : (
-                          <RegerarPixButton
-                            parcelaId={p.id}
-                            jaTinha={!!p.asaasPaymentId}
-                            clienteTelefone={venda.cliente.telefone}
-                            loteCodigo={venda.lote.codigo}
-                          />
-                        ))}
-                      {(p.status === 'PENDENTE' || p.status === 'ATRASADO') && (
-                        <ParcelaActionButton
-                          parcelaId={p.id}
-                          action={marcarParcelaPaga}
-                          label="✓ Pago"
-                          confirmMsg={`Marcar parcela ${p.numero} (${formatBRL(Number(p.valor))}) como paga?`}
-                        />
-                      )}
-                      {p.status === 'PAGO' && (
-                        <ParcelaActionButton
-                          parcelaId={p.id}
-                          action={reabrirParcela}
-                          label="↺ Reabrir"
-                          confirmMsg="Reabrir esta parcela?"
-                          variant="subtle"
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <TabelaParcelas
+          parcelas={linhasParcelas}
+          clienteTelefone={venda.cliente.telefone}
+          loteCodigo={venda.lote.codigo}
+        />
       </section>
+
 
       {venda.observacoes && (
         <section className="bg-white border border-slate-200 rounded-xl p-6">
