@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export default function NovoClientePage() {
   return (
-    <div className="max-w-4xl">
+    <div>
       <div className="mb-6">
         <Link
           href="/admin/clientes"
@@ -14,7 +14,7 @@ export default function NovoClientePage() {
         >
           ← Clientes
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
           Novo cliente
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">

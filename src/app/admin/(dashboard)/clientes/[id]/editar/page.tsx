@@ -34,7 +34,7 @@ export default async function EditarClientePage({
   const updateAction = atualizarCliente.bind(null, cliente.id);
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <div className="mb-6">
         <Link
           href={`/admin/clientes/${cliente.id}`}
@@ -42,7 +42,7 @@ export default async function EditarClientePage({
         >
           ← {cliente.nome}
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
           Editar cliente
         </h1>
       </div>

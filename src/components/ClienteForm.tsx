@@ -56,7 +56,7 @@ function maskCep(v: string): string {
 }
 
 const inputCls =
-  'w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500';
 
 export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) {
   const [state, formAction] = useFormState<FormState, FormData>(action, {});
@@ -102,18 +102,18 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
     <form action={formAction} className="space-y-5">
       {state.error && (
         <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-sm rounded-lg p-3">
-          ❌ {state.error}
+          {state.error}
         </div>
       )}
       {state.ok && (
         <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm rounded-lg p-3">
-          ✓ Alterações salvas com sucesso.
+          Alterações salvas com sucesso.
         </div>
       )}
 
       {/* IDENTIFICAÇÃO */}
-      <Card title="👤 Identificação">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card title="Identificação">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field label="Nome completo" required wide>
             <input
               name="nome"
@@ -135,7 +135,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               className={inputCls}
             />
           </Field>
-          <Field label="RG (opcional)">
+          <Field label="RG">
             <input
               name="rg"
               defaultValue={initial?.rg ?? ''}
@@ -143,7 +143,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               className={inputCls}
             />
           </Field>
-          <Field label="Data de nascimento (opcional)">
+          <Field label="Data de nascimento">
             <input
               name="dataNascimento"
               type="date"
@@ -151,7 +151,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
               className={inputCls}
             />
           </Field>
-          <Field label="Nacionalidade (opcional)">
+          <Field label="Nacionalidade">
             <input
               name="nacionalidade"
               defaultValue={initial?.nacionalidade ?? 'Brasileiro(a)'}
@@ -162,8 +162,8 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
       </Card>
 
       {/* CONTATO */}
-      <Card title="📞 Contato">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card title="Contato">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field label="E-mail" required wide>
             <input
               name="email"
@@ -211,11 +211,8 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
       </Card>
 
       {/* DADOS PESSOAIS PARA CONTRATO */}
-      <Card title="📄 Dados para contrato (opcional)">
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-          Estes dados aparecem nos contratos de compra e venda. Pode preencher depois.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card title="Dados para contrato" descricao="Aparecem nos contratos de compra e venda. Pode preencher depois.">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field label="Estado civil">
             <select
               name="estadoCivil"
@@ -242,7 +239,7 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
       </Card>
 
       {/* ENDEREÇO */}
-      <Card title="📍 Endereço (opcional)">
+      <Card title="Endereço">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="md:col-span-2">
             <Field label="CEP" hint={buscandoCep ? 'Buscando…' : 'Auto-completa logradouro/cidade/UF'}>
@@ -332,11 +329,22 @@ export function ClienteForm({ action, initial, submitLabel = 'Salvar' }: Props) 
 
 // ===== Helpers =====
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  descricao,
+  children,
+}: {
+  title: string;
+  descricao?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
-      <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-3">{title}</h3>
-      {children}
+    <section className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+      {descricao && (
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{descricao}</p>
+      )}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -356,9 +364,9 @@ function Field({
 }) {
   return (
     <div className={wide ? 'md:col-span-2' : undefined}>
-      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">
+      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
       {children}
       {hint && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{hint}</p>}
@@ -372,7 +380,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white font-semibold rounded-lg inline-flex items-center gap-2"
+      className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
     >
       {pending ? (
         <>
@@ -380,7 +388,7 @@ function SubmitButton({ label }: { label: string }) {
           Salvando…
         </>
       ) : (
-        <>💾 {label}</>
+        label
       )}
     </button>
   );
