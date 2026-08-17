@@ -6,7 +6,11 @@ import { CaixaDeEntrada, type ConversaUI } from '@/components/crm/chat/CaixaDeEn
 
 export const dynamic = 'force-dynamic';
 
-export default async function ChatPage() {
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams: { tel?: string };
+}) {
   const sessao = await requireAdmin();
 
   // 🔴 A caixa é do DONO. Ver a conversa de outra pessoa não é permissão a
@@ -32,6 +36,50 @@ export default async function ChatPage() {
 
   // Arquivadas vêm juntas: a tela tem uma aba para elas, e buscar de novo a
   // cada troca de aba deixaria a alternância lenta sem ganho nenhum.
+  /**
+   * `?tel=` abre a conversa daquele número, criando-a se ainda não existir.
+   *
+   * É o caminho de quem vem de uma venda ou de um cadastro e quer falar com a
+   * pessoa: o contato pode nunca ter escrito, e nesse caso não há conversa
+   * nenhuma para abrir. Criar aqui não envia nada — só reserva o lugar dela na
+   * fila. Diferente de `novaConversa`, não exige o WhatsApp conectado: a tela
+   * abre, avisa que está desconectado, e a mensagem espera a reconexão.
+   */
+  let conversaInicial: string | null = null;
+  const digitos = (searchParams.tel ?? '').replace(/\D/g, '');
+  if (digitos.length >= 10) {
+    const completo = digitos.length <= 11 ? `55${digitos}` : digitos;
+    const remoteJid = `${completo}@s.whatsapp.net`;
+    const achada = await prisma.whatsappConversa.findUnique({
+      where: { instanciaId_remoteJid: { instanciaId: instancia.id, remoteJid } },
+      select: { id: true },
+    });
+    if (achada) {
+      conversaInicial = achada.id;
+    } else {
+      // Pode existir com outro remoteJid (modo LID) e o mesmo telefone — nesse
+      // caso reaproveita, senão o contato ganharia duas conversas.
+      const porTelefone = await prisma.whatsappConversa.findFirst({
+        where: { instanciaId: instancia.id, telefone: completo, ehGrupo: false },
+        orderBy: { ultimaMensagemEm: 'desc' },
+        select: { id: true },
+      });
+      conversaInicial =
+        porTelefone?.id ??
+        (
+          await prisma.whatsappConversa.create({
+            data: {
+              instanciaId: instancia.id,
+              remoteJid,
+              telefone: completo,
+              ehGrupo: false,
+            },
+            select: { id: true },
+          })
+        ).id;
+    }
+  }
+
   const conversas = await prisma.whatsappConversa.findMany({
     where: { instanciaId: instancia.id },
     orderBy: [{ ultimaMensagemEm: 'desc' }, { createdAt: 'desc' }],
@@ -74,7 +122,7 @@ export default async function ChatPage() {
         </p>
       )}
 
-      <CaixaDeEntrada conversas={ui} />
+      <CaixaDeEntrada conversas={ui} conversaInicial={conversaInicial} />
     </div>
   );
 }

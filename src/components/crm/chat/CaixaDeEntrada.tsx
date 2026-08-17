@@ -174,11 +174,18 @@ function semAcento(v: string): string {
 /** Recortes da fila — o mesmo vocabulario do ERP. */
 type Recorte = 'ativas' | 'nao_lidas' | 'arquivadas';
 
-export function CaixaDeEntrada({ conversas }: { conversas: ConversaUI[] }) {
+export function CaixaDeEntrada({
+  conversas,
+  conversaInicial,
+}: {
+  conversas: ConversaUI[];
+  /** Vem do `?tel=`: abre direto na conversa daquele contato. */
+  conversaInicial?: string | null;
+}) {
   const router = useRouter();
   const [recorte, setRecorte] = useState<Recorte>('ativas');
   const [busca, setBusca] = useState('');
-  const [selecionada, setSelecionada] = useState<string | null>(null);
+  const [selecionada, setSelecionada] = useState<string | null>(conversaInicial ?? null);
   const [mensagens, setMensagens] = useState<MensagemUI[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [rascunho, setRascunho] = useState('');

@@ -7,7 +7,7 @@ import { DistratoForm } from '@/components/DistratoForm';
 import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas, mudarDiaVencimento } from './actions';
 import { ParcelaActionButton } from '@/components/ParcelaActionButton';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
-import { msgCobrancaParcela, msgGenerico } from '@/lib/whatsappMessages';
+import { msgCobrancaParcela } from '@/lib/whatsappMessages';
 import { marcarParcelaPaga, reabrirParcela } from '../../financeiro/actions';
 import { VendaTimeline, type TimelineEvent } from '@/components/VendaTimeline';
 import { ReajusteForm } from '@/components/ReajusteForm';
@@ -363,13 +363,18 @@ export default async function VendaDetalhePage({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold text-slate-900">Cliente</h2>
           <div className="flex flex-wrap items-center gap-3">
+            {/* Leva para a caixa de entrada do sistema, não para o wa.me: a
+                conversa fica registrada no CRM, com histórico e vínculo ao
+                lead. A tela cria a conversa se aquele número ainda não tiver
+                uma, então o botão funciona mesmo com cliente que nunca
+                escreveu. */}
             {venda.cliente.telefone && (
-              <WhatsAppButton
-                telefone={venda.cliente.telefone}
-                label="Falar com cliente"
-                variant="full"
-                message={msgGenerico({ nome: loteadoraNome })}
-              />
+              <Link
+                href={`/admin/whatsapp/chat?tel=${encodeURIComponent(venda.cliente.telefone)}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+              >
+                Falar com cliente
+              </Link>
             )}
             <Link
               href={`/admin/clientes/${venda.cliente.id}`}
