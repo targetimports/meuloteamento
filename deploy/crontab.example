@@ -27,3 +27,8 @@ CRON_TOKEN=COLE_SEU_CRON_TOKEN_AQUI
 # alerta continua funcionando mesmo se o arquivo perder o bit de execucao —
 # que foi exatamente a falha que deixou o backup 3 dias parado em 31/07/2026.
 0 13 * * * bash /var/www/meuloteamento/deploy/checar-backup.sh >> /var/log/meuloteamento/backup.log 2>&1
+
+# Vigia das sessoes de WhatsApp (a cada 5 min). Em 14/08/2026 o gateway caiu e
+# ficou 3 dias mudo com a tela dizendo CONECTADA -- este cron grava o estado
+# real e tenta religar uma vez por rodada.
+*/5 * * * * curl -fsS -m 60 -H "X-Cron-Token: $CRON_TOKEN" https://meuloteamento.com/api/cron/vigiar-whatsapp > /dev/null
