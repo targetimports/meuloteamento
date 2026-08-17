@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { tenantId } from '@/lib/tenant';
+import { TabelaVendas } from '@/components/vendas/TabelaVendas';
 import { LotesReservados } from '@/components/vendas/LotesReservados';
 import { formatBRL, formatDate } from '@/lib/format';
 import { ReservaRapidaForm } from '@/components/ReservaRapidaForm';
@@ -21,17 +22,15 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function VendasPage({
   searchParams,
 }: {
-  searchParams: { status?: string; msg?: string };
+  searchParams: { msg?: string };
 }) {
   const tid = await tenantId();
-  const status = searchParams.status;
   const msg = searchParams.msg;
 
   const tenantWhere = tid ? { lote: { loteamento: { loteadoraId: tid } } } : {};
-  const where = {
-    ...(status ? { status: status as 'ATIVA' } : {}),
-    ...tenantWhere,
-  };
+  // Sem recorte por status: quem filtra é a tabela, no cliente. Filtrar aqui
+  // também esconderia da busca as vendas fora do recorte.
+  const where = { ...tenantWhere };
 
   const tenantLoteWhere = tid ? { loteamento: { loteadoraId: tid } } : {};
   const [lotesDisponiveis, lotesReservados] = await Promise.all([
@@ -90,7 +89,7 @@ export default async function VendasPage({
     prisma.venda.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 500,
       include: {
         cliente: { select: { id: true, nome: true, cpfCnpj: true } },
         lote: {
@@ -317,189 +316,29 @@ export default async function VendasPage({
         />
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {filtros.map((f) => {
-          const active = (status ?? '') === f.value;
-          return (
-            <Link
-              key={f.value}
-              href={f.value ? `/admin/vendas?status=${f.value}` : '/admin/vendas'}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {f.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      {vendas.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400">
-          {status
-            ? 'Nenhuma venda neste filtro.'
-            : 'Nenhuma venda registrada ainda. Vendas aparecem aqui quando uma reserva é convertida.'}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="text-left px-4 py-3 font-semibold">Contrato</th>
-                <th className="text-left px-4 py-3 font-semibold">Lote</th>
-                <th className="text-left px-4 py-3 font-semibold">Cliente</th>
-                <th className="text-left px-4 py-3 font-semibold">Valor</th>
-                <th className="text-left px-4 py-3 font-semibold">Parcelas</th>
-                <th className="text-left px-4 py-3 font-semibold">Corretor</th>
-                <th className="text-left px-4 py-3 font-semibold">Status</th>
-                <th className="text-right px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {vendas.map((v) => {
-                const pagas = v.parcelas.filter((p) => p.status === 'PAGO').length;
-                const total = v.parcelas.length;
-                return (
-                  <tr
-                    key={v.id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="font-mono font-semibold text-slate-900 dark:text-slate-100 inline-flex items-center gap-1.5">
-                        #{v.numero}
-                        {v.origem === 'CHECKOUT_ONLINE' && (
-                          <span
-                            className="text-[9px] px-1.5 py-0.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded font-bold uppercase tracking-wider shadow-sm inline-flex items-center gap-1"
-                            title="Venda feita pelo próprio cliente no site (checkout online — sem corretor)"
-                          >
-                            Online
-                          </span>
-                        )}
-                        {v.origem === 'IMPORTACAO' && (
-                          <span
-                            className="text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-semibold uppercase tracking-wider"
-                            title="Venda importada de planilha/migração"
-                          >
-                            Importada
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatDate(v.dataContrato)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-mono text-slate-900 dark:text-slate-100 inline-flex items-center gap-1.5">
-                        {v.lote.codigo}
-                        {v.vendaLotes.length > 1 && (
-                          <span
-                            className="text-[9px] px-1 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded font-semibold"
-                            title={v.vendaLotes.map((vl) => vl.lote.codigo).join(', ')}
-                          >
-                            +{v.vendaLotes.length - 1} lote(s)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {v.lote.loteamento.nome}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-slate-900 dark:text-slate-100">{v.cliente.nome}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        CPF {v.cliente.cpfCnpj}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatBRL(Number(v.valorTotal))}
-                      </div>
-                      {Number(v.valorEntrada) > 0 && (
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          + {formatBRL(Number(v.valorEntrada))} entrada
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-slate-600 dark:text-slate-300 text-xs">
-                        {pagas}/{total}
-                      </div>
-                      <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500"
-                          style={{ width: total > 0 ? `${(pagas / total) * 100}%` : '0%' }}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
-                      {v.corretor?.nome ?? (
-                        <span className="text-slate-400 dark:text-slate-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 text-xs rounded ${
-                          STATUS_STYLES[v.status] ?? 'bg-slate-100 dark:bg-slate-800'
-                        }`}
-                      >
-                        {v.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/admin/vendas/${v.id}`}
-                        className="text-primary-600 dark:text-primary-400 hover:opacity-80 font-medium"
-                      >
-                        Detalhes →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function KPI({
-  label,
-  valor,
-  highlight,
-  tint,
-}: {
-  label: string;
-  valor: string;
-  highlight?: boolean;
-  tint?: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl p-4 ${
-        highlight
-          ? 'bg-gradient-to-br from-primary-600 to-primary-700 text-white'
-          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
-      }`}
-    >
-      <p
-        className={`text-xs uppercase tracking-wider ${
-          highlight ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`text-xl font-bold mt-1 ${
-          highlight ? 'text-white' : tint ?? 'text-slate-900 dark:text-slate-100'
-        }`}
-      >
-        {valor}
-      </p>
+      <TabelaVendas
+        statusDisponiveis={['ATIVA', 'INADIMPLENTE', 'QUITADA', 'CANCELADA', 'DISTRATADA']}
+        vendas={vendas.map((v) => ({
+          id: v.id,
+          numero: v.numero,
+          // ISO curto: a comparação de período no filtro usa ordem alfabética,
+          // que só coincide com a cronológica neste formato.
+          data: new Date(v.dataContrato).toISOString().slice(0, 10),
+          origem: v.origem,
+          loteCodigo: v.lote.codigo,
+          lotesExtras: Math.max(0, v.vendaLotes.length - 1),
+          lotesTitulo: v.vendaLotes.map((vl) => vl.lote.codigo).join(', '),
+          loteamentoNome: v.lote.loteamento.nome,
+          clienteNome: v.cliente.nome,
+          clienteCpf: v.cliente.cpfCnpj,
+          valorTotal: Number(v.valorTotal),
+          valorEntrada: Number(v.valorEntrada ?? 0),
+          parcelasPagas: v.parcelas.filter((p) => p.status === 'PAGO').length,
+          parcelasTotal: v.parcelas.length,
+          corretorNome: v.corretor?.nome ?? null,
+          status: v.status,
+        }))}
+      />
     </div>
   );
 }
