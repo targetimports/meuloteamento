@@ -674,27 +674,24 @@ export function VendaForm({
                 NÃO se aplica a vendas À VISTA (o valor inteiro vira parcela
                 única paga no ato — não há entrada). */}
             {valorEntrada === 0 && !isAvista && (
-              <Field label="🔐 Autorização — venda SEM entrada" wide>
-                <div className="p-3 rounded-lg border border-amber-300 bg-amber-50">
-                  <p className="text-xs text-amber-900 mb-2 leading-snug">
-                    <strong>Atenção:</strong> você está lançando uma venda sem entrada.
-                    O lote será marcado como <strong>VENDIDO</strong> e as parcelas
-                    usarão o <strong>valor total do lote</strong> ({formatBRL(valorTotal)})
-                    como base. Esta operação exige a <strong>senha de autorização</strong>{' '}
-                    cadastrada na loteadora.
+              {/* Um parágrafo de aviso mais o campo: o texto anterior explicava
+                  em cinco linhas o que o rótulo já diz, repetia o valor total
+                  que está logo acima e ensinava onde cadastrar a senha — coisa
+                  de quem administra, não de quem está lançando a venda. */}
+              <Field label="Venda sem entrada" wide>
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+                  <p className="mb-3 text-xs text-amber-900">
+                    O lote será marcado como <strong>VENDIDO</strong> e as parcelas usarão
+                    o valor total. Exige a senha de autorização da loteadora.
                   </p>
                   <input
                     type="password"
                     name="senhaAutorizacaoSemEntrada"
                     autoComplete="off"
-                    placeholder="Digite a senha de autorização da loteadora"
-                    className={`${inputClass} max-w-md`}
+                    placeholder="Senha de autorização"
+                    className={`${inputClass} max-w-xs`}
                     minLength={4}
                   />
-                  <p className="text-[11px] text-amber-700 mt-2">
-                    Não tem a senha? Peça ao administrador. A senha é definida em{' '}
-                    <em>Loteadoras → editar → Senha de autorização</em>.
-                  </p>
                 </div>
               </Field>
             )}
