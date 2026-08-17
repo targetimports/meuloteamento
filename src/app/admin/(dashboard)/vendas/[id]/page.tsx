@@ -20,6 +20,7 @@ import { GerarBoletoButton } from '@/components/GerarBoletoButton';
 import { TrocarFormaPagamento } from '@/components/TrocarFormaPagamento';
 import { MudarVencimentoButton } from '@/components/MudarVencimentoButton';
 import { MudarCorretorButton } from '@/components/MudarCorretorButton';
+import { AjustarComissaoButton } from '@/components/AjustarComissaoButton';
 import { VendaArquivosCard } from '@/components/VendaArquivosCard';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,7 @@ export default async function VendaDetalhePage({
         include: {
           loteamento: {
             select: {
+              id: true,
               nome: true,
               slug: true,
               loteadoraId: true,
@@ -74,7 +76,7 @@ export default async function VendaDetalhePage({
       },
       corretor: { select: { id: true, nome: true, comissaoPadrao: true } },
       parcelas: { orderBy: { numero: 'asc' } },
-      comissaoParcelas: { select: { status: true } },
+      comissaoParcelas: { select: { status: true, valor: true } },
       arquivos: {
         orderBy: { createdAt: 'desc' },
         select: {
@@ -96,13 +98,19 @@ export default async function VendaDetalhePage({
   const corretoresAtivos = await prisma.corretor.findMany({
     where: { ...(await whereLoteadora()), ativo: true },
     orderBy: { nome: 'asc' },
-    select: { id: true, nome: true },
+    select: { id: true, nome: true, comissaoPadrao: true },
   });
 
   // Contagem de comissões por status (pra warning no modal)
   const comissoesPagas = venda.comissaoParcelas.filter((c) => c.status === 'PAGA').length;
   const comissoesLiberadas = venda.comissaoParcelas.filter((c) => c.status === 'LIBERADA').length;
   const comissoesBloqueadas = venda.comissaoParcelas.filter((c) => c.status === 'BLOQUEADA').length;
+
+  // O que já saiu do caixa ou virou compromisso com o corretor: é o piso de
+  // qualquer ajuste no valor da comissão.
+  const comissaoComprometida = venda.comissaoParcelas
+    .filter((c) => c.status === 'PAGA' || c.status === 'LIBERADA')
+    .reduce((s, c) => s + Number(c.valor), 0);
 
   // Resolve lista efetiva de lotes (multi-lote tem vendaLotes; legado tem só venda.lote)
   const lotesDaVenda = venda.vendaLotes.length > 0
@@ -479,27 +487,52 @@ export default async function VendaDetalhePage({
               Vendas QUITADAS/CANCELADAS/DISTRATADAS não devem ter o corretor mexido
               (já fecharam). */}
           {(venda.status === 'ATIVA' || venda.status === 'INADIMPLENTE') && (
-            <MudarCorretorButton
-              vendaId={venda.id}
-              corretorAtualId={venda.corretor?.id ?? null}
-              corretorAtualNome={venda.corretor?.nome ?? null}
-              corretores={corretoresAtivos}
-              comissoesPagas={comissoesPagas}
-              comissoesLiberadas={comissoesLiberadas}
-              comissoesBloqueadas={comissoesBloqueadas}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <MudarCorretorButton
+                vendaId={venda.id}
+                corretorAtualId={venda.corretor?.id ?? null}
+                corretorAtualNome={venda.corretor?.nome ?? null}
+                corretores={corretoresAtivos.map((c) => ({
+                  ...c,
+                  comissaoPadrao: Number(c.comissaoPadrao ?? 0),
+                }))}
+                loteamentoId={venda.lote.loteamento.id}
+                comissoesPagas={comissoesPagas}
+                comissoesLiberadas={comissoesLiberadas}
+                comissoesBloqueadas={comissoesBloqueadas}
+              />
+              {venda.corretor && (
+                <AjustarComissaoButton
+                  vendaId={venda.id}
+                  valorAtual={Number(venda.comissaoValor ?? 0)}
+                  comprometido={comissaoComprometida}
+                  bloqueadas={comissoesBloqueadas}
+                />
+              )}
+            </div>
           )}
         </div>
         {venda.corretor ? (
-          <dl className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <Item label="Corretor" value={venda.corretor.nome} />
-            {venda.comissaoPct && (
-              <Item label="Comissão %" value={`${Number(venda.comissaoPct).toFixed(2)}%`} />
+          <>
+            <dl className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <Item label="Corretor" value={venda.corretor.nome} />
+              {venda.comissaoPct && (
+                <Item label="Comissão %" value={`${Number(venda.comissaoPct).toFixed(2)}%`} />
+              )}
+              {venda.comissaoValor && (
+                <Item label="Comissão valor" value={formatBRL(Number(venda.comissaoValor))} />
+              )}
+            </dl>
+            {/* A quebra por status responde de cara o que dá pra mexer: só as
+                bloqueadas ainda dependem do cliente pagar. */}
+            {venda.comissaoParcelas.length > 0 && (
+              <p className="mt-3 text-xs text-slate-500">
+                {comissoesPagas} paga(s) · {comissoesLiberadas} liberada(s) ·{' '}
+                {comissoesBloqueadas} bloqueada(s) — {formatBRL(comissaoComprometida)} já
+                comprometido.
+              </p>
             )}
-            {venda.comissaoValor && (
-              <Item label="Comissão valor" value={formatBRL(Number(venda.comissaoValor))} />
-            )}
-          </dl>
+          </>
         ) : (
           <p className="text-sm text-slate-500 italic">
             Sem corretor atribuído nesta venda.

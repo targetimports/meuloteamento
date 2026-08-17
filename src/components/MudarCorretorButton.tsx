@@ -12,11 +12,7 @@
 
 import { useState, useTransition } from 'react';
 import { mudarCorretorVenda } from '@/app/admin/(dashboard)/vendas/[id]/actions';
-
-interface CorretorOpcao {
-  id: string;
-  nome: string;
-}
+import { CampoCorretor, type CorretorOpcao } from '@/components/vendas/CampoCorretor';
 
 interface Props {
   vendaId: string;
@@ -24,6 +20,8 @@ interface Props {
   corretorAtualNome: string | null;
   /** Corretores ativos disponíveis */
   corretores: CorretorOpcao[];
+  /** Define a loteadora de um corretor cadastrado aqui mesmo. */
+  loteamentoId: string;
   /** Comissões da venda agrupadas por status (pra mostrar warning) */
   comissoesPagas?: number;
   comissoesLiberadas?: number;
@@ -35,18 +33,21 @@ export function MudarCorretorButton({
   corretorAtualId,
   corretorAtualNome,
   corretores,
+  loteamentoId,
   comissoesPagas = 0,
   comissoesLiberadas = 0,
   comissoesBloqueadas = 0,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [novoId, setNovoId] = useState<string>(corretorAtualId ?? '');
+  const [remover, setRemover] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
     setNovoId(corretorAtualId ?? '');
+    setRemover(false);
     setMotivo('');
     setError(null);
   }
@@ -58,8 +59,14 @@ export function MudarCorretorButton({
 
   function submit() {
     setError(null);
-    // Vazio = remover corretor
-    const finalId = novoId.trim() === '' ? null : novoId.trim();
+    // Remover é escolha explícita: campo vazio aqui só quer dizer "ainda não
+    // escolheu", e tratar os dois como a mesma coisa já tirou corretor de venda
+    // sem ninguém pedir.
+    const finalId = remover ? null : novoId.trim() === '' ? '' : novoId.trim();
+    if (finalId === '') {
+      setError('Escolha um corretor ou marque a opção de deixar a venda sem corretor.');
+      return;
+    }
     if (finalId === (corretorAtualId ?? null)) {
       setError('Você precisa escolher um corretor diferente do atual.');
       return;
@@ -151,20 +158,29 @@ export function MudarCorretorButton({
             <label className="block text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold mb-1">
               Novo corretor
             </label>
-            <select
-              value={novoId}
-              onChange={(e) => setNovoId(e.target.value)}
-              disabled={pending}
-              className="w-full px-3 py-2 mb-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-sm"
-            >
-              <option value="">— Sem corretor (remover) —</option>
-              {corretores.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                  {c.id === corretorAtualId ? ' (atual)' : ''}
-                </option>
-              ))}
-            </select>
+            <div className={remover ? 'pointer-events-none opacity-50' : ''}>
+              <CampoCorretor
+                corretores={corretores}
+                valorId={novoId}
+                onEscolher={setNovoId}
+                loteamentoId={loteamentoId}
+                inputClass="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-sm"
+              />
+            </div>
+
+            {corretorAtualId && (
+              <label className="mt-2 mb-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={remover}
+                  onChange={(e) => setRemover(e.target.checked)}
+                  disabled={pending}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Deixar esta venda sem corretor
+              </label>
+            )}
+            {!corretorAtualId && <div className="mb-3" />}
 
             <label className="block text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold mb-1">
               Motivo (opcional)
@@ -196,7 +212,7 @@ export function MudarCorretorButton({
               <button
                 type="button"
                 onClick={submit}
-                disabled={pending || novoId === (corretorAtualId ?? '')}
+                disabled={pending || (!remover && novoId === (corretorAtualId ?? ''))}
                 className="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg"
               >
                 {pending ? 'Salvando…' : 'Confirmar troca'}

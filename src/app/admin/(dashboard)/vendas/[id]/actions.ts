@@ -569,3 +569,95 @@ export async function mudarDiaVencimento(
 
   return { ok: true, alteradas, falharam };
 }
+
+/**
+ * Ajusta o valor total da comissão de uma venda já lançada.
+ *
+ * A regra segue a mesma lógica da troca de corretor: o que já foi prometido não
+ * se mexe. Comissão PAGA saiu do caixa; LIBERADA é compromisso assumido com
+ * quem vendeu, porque o cliente pagou a parcela que a destravou. Só as
+ * BLOQUEADAS ainda dependem de pagamento futuro, e é entre elas que a diferença
+ * é redistribuída.
+ *
+ * Por isso o novo total não pode ficar abaixo do que já está comprometido: não
+ * haveria de onde tirar.
+ */
+export async function ajustarComissaoVenda(
+  vendaId: string,
+  novoValorTotal: number,
+  motivo?: string
+): Promise<{ ok: boolean; erro?: string }> {
+  const session = await requireAdmin();
+
+  const venda = await prisma.venda.findUnique({
+    where: { id: vendaId },
+    include: {
+      lote: { include: { loteamento: { select: { loteadoraId: true } } } },
+      comissaoParcelas: { select: { id: true, status: true, valor: true } },
+    },
+  });
+  if (!venda) return { ok: false, erro: 'Venda não encontrada' };
+  if (!(await canAccessLoteamento(venda.lote.loteamento.loteadoraId))) {
+    return { ok: false, erro: 'Sem permissão para esta venda' };
+  }
+  if (!Number.isFinite(novoValorTotal) || novoValorTotal < 0) {
+    return { ok: false, erro: 'Valor inválido' };
+  }
+
+  const bloqueadas = venda.comissaoParcelas.filter((c) => c.status === 'BLOQUEADA');
+  const comprometido = venda.comissaoParcelas
+    .filter((c) => c.status === 'PAGA' || c.status === 'LIBERADA')
+    .reduce((s, c) => s + Number(c.valor), 0);
+
+  if (novoValorTotal < comprometido) {
+    return {
+      ok: false,
+      erro:
+        `Já há ${comprometido.toFixed(2)} em comissões pagas ou liberadas. ` +
+        `O total não pode ficar abaixo disso.`,
+    };
+  }
+  if (bloqueadas.length === 0) {
+    return {
+      ok: false,
+      erro: 'Não há comissões bloqueadas para ajustar — todas já foram liberadas ou pagas.',
+    };
+  }
+
+  // Divide o que sobra entre as bloqueadas, jogando os centavos da divisão na
+  // última: sem isso a soma das parcelas não fecharia com o total.
+  const restante = Math.round((novoValorTotal - comprometido) * 100) / 100;
+  const base = Math.floor((restante * 100) / bloqueadas.length) / 100;
+  const valores = bloqueadas.map(() => base);
+  const diferenca = Math.round((restante - base * bloqueadas.length) * 100) / 100;
+  if (diferenca !== 0) {
+    valores[valores.length - 1] = Math.round((valores[valores.length - 1] + diferenca) * 100) / 100;
+  }
+
+  const anterior = Number(venda.comissaoValor ?? 0);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.venda.update({
+      where: { id: vendaId },
+      data: {
+        comissaoValor: novoValorTotal,
+        observacoes:
+          (venda.observacoes ? venda.observacoes + '\n\n' : '') +
+          `[${new Date().toLocaleDateString('pt-BR')}] Comissão: ` +
+          `${anterior.toFixed(2)} → ${novoValorTotal.toFixed(2)} (por ${session.email})` +
+          (motivo ? ` — ${motivo}` : ''),
+      },
+    });
+
+    for (const [i, c] of bloqueadas.entries()) {
+      await tx.comissaoParcela.update({
+        where: { id: c.id },
+        data: { valor: valores[i] },
+      });
+    }
+  });
+
+  revalidatePath(`/admin/vendas/${vendaId}`);
+  revalidatePath('/admin/comissoes');
+  return { ok: true };
+}
