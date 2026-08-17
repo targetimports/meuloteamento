@@ -7,6 +7,7 @@ import { DistratoForm } from '@/components/DistratoForm';
 import { distratarVenda, reajustarParcelas, mudarFormaPagamentoParcelas, mudarDiaVencimento } from './actions';
 import { ParcelaActionButton } from '@/components/ParcelaActionButton';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { IconWhatsApp } from '@/components/icons';
 import { msgCobrancaParcela } from '@/lib/whatsappMessages';
 import { marcarParcelaPaga, reabrirParcela } from '../../financeiro/actions';
 import { VendaTimeline, type TimelineEvent } from '@/components/VendaTimeline';
@@ -373,6 +374,7 @@ export default async function VendaDetalhePage({
                 href={`/admin/whatsapp/chat?tel=${encodeURIComponent(venda.cliente.telefone)}`}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
               >
+                <IconWhatsApp className="h-4 w-4" />
                 Falar com cliente
               </Link>
             )}
