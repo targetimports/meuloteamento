@@ -78,7 +78,7 @@ export function ReservaRapidaForm({ lotes, action }: Props) {
         onClick={() => setOpen(true)}
         className="bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 text-sm font-medium px-4 py-2 rounded-lg inline-flex items-center gap-1.5"
       >
-        🔒 Reservar lote
+        Reservar lote
       </button>
     );
   }
@@ -169,7 +169,7 @@ export function ReservaRapidaForm({ lotes, action }: Props) {
 
           {selecionado && (
             <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg p-2 text-xs text-emerald-800 dark:text-emerald-300">
-              ✓ Lote selecionado: <strong>{selecionado.codigo}</strong> ({brl(selecionado.preco)})
+              Lote selecionado: <strong>{selecionado.codigo}</strong> ({brl(selecionado.preco)})
             </div>
           )}
 
@@ -195,12 +195,12 @@ export function ReservaRapidaForm({ lotes, action }: Props) {
               <option value={90}>90 dias</option>
               <option value={180}>180 dias</option>
               <option value={365}>1 ano</option>
-              <option value={0}>♾ Ilimitado / sem prazo</option>
+              <option value={0}>Ilimitado / sem prazo</option>
             </select>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
               {dias === 0 ? (
                 <span className="text-violet-700 dark:text-violet-300 font-medium">
-                  ⚠ O lote ficará RESERVADO indefinidamente até que você o libere manualmente
+                  O lote ficará RESERVADO indefinidamente até que você o libere manualmente
                   ou crie uma venda nele.
                 </span>
               ) : (
@@ -244,7 +244,7 @@ export function ReservaRapidaForm({ lotes, action }: Props) {
                 Reservando...
               </>
             ) : (
-              <>🔒 Confirmar reserva</>
+              <>Confirmar reserva</>
             )}
           </button>
         </div>

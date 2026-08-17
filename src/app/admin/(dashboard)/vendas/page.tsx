@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { tenantId } from '@/lib/tenant';
+import { LotesReservados } from '@/components/vendas/LotesReservados';
 import { formatBRL, formatDate } from '@/lib/format';
 import { ReservaRapidaForm } from '@/components/ReservaRapidaForm';
 import { LiberarReservaButton } from '@/components/LiberarReservaButton';
@@ -182,7 +183,81 @@ export default async function VendasPage({
             Contratos firmados e status de cada um.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Os cartões continuam montados no servidor: eles trazem server actions
+              dentro (editar e liberar reserva), e mover isso para o cliente exigiria
+              reescrever os três botões. O modal só os envolve. */}
+          <LotesReservados quantidade={lotesReservados.length}>
+                {lotesReservados.map((l) => {
+                  const h = l.historico[0];
+                  const motivo = h?.motivo ?? '—';
+                  const desde = h?.createdAt ?? l.updatedAt;
+                  const responsavel = h?.user?.nome ?? h?.user?.email ?? 'sistema';
+                  const dias = Math.floor(
+                    (Date.now() - new Date(desde).getTime()) / (1000 * 60 * 60 * 24)
+                  );
+                  return (
+                    <div
+                      key={l.id}
+                      className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 flex flex-col gap-2"
+                    >
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                            {l.codigo}
+                            {l.tipo === 'COMERCIAL' && (
+                              <span className="ml-1.5 text-[9px] px-1 py-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 rounded font-semibold align-middle">
+                                COMERCIAL
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Quadra {l.quadra} · {Number(l.area).toFixed(0)}m² · {l.loteamento.nome}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          {formatBRL(Number(l.preco))}
+                        </p>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg p-2 leading-snug">
+                        <p>
+                          <span className="font-semibold">
+                            {dias === 0 ? 'Hoje' : `Há ${dias}d`}
+                          </span>
+                          {' · por '}
+                          <span className="font-mono">{responsavel}</span>
+                        </p>
+                        {motivo && motivo !== '—' && (
+                          <p className="text-slate-500 dark:text-slate-500 mt-0.5 italic truncate" title={motivo}>
+                            &ldquo;{motivo}&rdquo;
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-1.5 justify-end flex-wrap">
+                        <Link
+                          href={`/admin/vendas/novo?lote=${l.id}`}
+                          className="text-xs bg-primary-600 hover:bg-primary-700 text-white font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1"
+                        >
+                          Criar venda
+                        </Link>
+                        <EditarReservaButton
+                          action={editarReservaAdmin}
+                          loteId={l.id}
+                          loteCodigo={l.codigo}
+                          motivoAtual={motivo === '—' ? null : motivo}
+                        />
+                        <LiberarReservaButton
+                          action={liberarReservaAdmin}
+                          loteId={l.id}
+                          loteCodigo={l.codigo}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+          </LotesReservados>
           <ReservaRapidaForm lotes={lotesOpts} action={reservarLoteAdmin} />
           <Link
             href="/admin/vendas/novo"
@@ -195,14 +270,12 @@ export default async function VendasPage({
 
       {msg === 'criada' && (
         <div className="mb-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-          <span>✓</span>
           <span>Venda criada com sucesso.</span>
         </div>
       )}
 
       {msg === 'distratada' && (
         <div className="mb-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-          <span>✓</span>
           <span>
             Venda distratada com sucesso. O lote foi liberado e as parcelas em aberto canceladas.
           </span>
@@ -242,117 +315,6 @@ export default async function VendasPage({
           tint="text-emerald-700 dark:text-emerald-300"
         />
       </div>
-
-      {/* Lotes reservados — colapsado por default, clica em "Lotes reservados" pra expandir */}
-      {lotesReservados.length > 0 && (
-        <details className="group mb-6 bg-amber-50/60 dark:bg-amber-500/5 border-2 border-amber-200 dark:border-amber-500/30 rounded-2xl overflow-hidden">
-          <summary
-            className="cursor-pointer list-none flex items-center justify-between gap-3 p-4 hover:bg-amber-50/80 dark:hover:bg-amber-500/10 transition-colors"
-            aria-label="Expandir lista de lotes reservados"
-          >
-            <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
-                Lotes reservados
-                <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                  {lotesReservados.length}
-                </span>
-              </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                Segurados internamente e fora da grade pública.{' '}
-                <span className="text-amber-700 dark:text-amber-400 font-medium group-open:hidden">
-                  Clique para ver
-                </span>
-                <span className="text-amber-700 dark:text-amber-400 font-medium hidden group-open:inline">
-                  Clique para esconder
-                </span>
-              </p>
-            </div>
-            {/* Chevron — gira 180° quando aberto */}
-            <svg
-              className="w-5 h-5 text-amber-700 dark:text-amber-400 flex-shrink-0 transition-transform group-open:rotate-180"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-            </svg>
-          </summary>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 px-4 pb-4">
-            {lotesReservados.map((l) => {
-              const h = l.historico[0];
-              const motivo = h?.motivo ?? '—';
-              const desde = h?.createdAt ?? l.updatedAt;
-              const responsavel = h?.user?.nome ?? h?.user?.email ?? 'sistema';
-              const dias = Math.floor(
-                (Date.now() - new Date(desde).getTime()) / (1000 * 60 * 60 * 24)
-              );
-              return (
-                <div
-                  key={l.id}
-                  className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 flex flex-col gap-2"
-                >
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <p className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                        {l.codigo}
-                        {l.tipo === 'COMERCIAL' && (
-                          <span className="ml-1.5 text-[9px] px-1 py-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 rounded font-semibold align-middle">
-                            COMERCIAL
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Quadra {l.quadra} · {Number(l.area).toFixed(0)}m² · {l.loteamento.nome}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      {formatBRL(Number(l.preco))}
-                    </p>
-                  </div>
-
-                  <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg p-2 leading-snug">
-                    <p>
-                      <span className="font-semibold">
-                        {dias === 0 ? 'Hoje' : `Há ${dias}d`}
-                      </span>
-                      {' · por '}
-                      <span className="font-mono">{responsavel}</span>
-                    </p>
-                    {motivo && motivo !== '—' && (
-                      <p className="text-slate-500 dark:text-slate-500 mt-0.5 italic truncate" title={motivo}>
-                        &ldquo;{motivo}&rdquo;
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-1.5 justify-end flex-wrap">
-                    <Link
-                      href={`/admin/vendas/novo?lote=${l.id}`}
-                      className="text-xs bg-primary-600 hover:bg-primary-700 text-white font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1"
-                    >
-                      → Criar venda
-                    </Link>
-                    <EditarReservaButton
-                      action={editarReservaAdmin}
-                      loteId={l.id}
-                      loteCodigo={l.codigo}
-                      motivoAtual={motivo === '—' ? null : motivo}
-                    />
-                    <LiberarReservaButton
-                      action={liberarReservaAdmin}
-                      loteId={l.id}
-                      loteCodigo={l.codigo}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
 
       {/* Filtros */}
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -412,7 +374,7 @@ export default async function VendasPage({
                             className="text-[9px] px-1.5 py-0.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded font-bold uppercase tracking-wider shadow-sm inline-flex items-center gap-1"
                             title="Venda feita pelo próprio cliente no site (checkout online — sem corretor)"
                           >
-                            🌐 Online
+                            Online
                           </span>
                         )}
                         {v.origem === 'IMPORTACAO' && (
