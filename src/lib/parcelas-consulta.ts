@@ -46,7 +46,7 @@ export const CAMPOS_ORDEM: CampoOrdemParcela[] = [
   'status',
 ];
 
-export const PARCELAS_POR_PAGINA = 50;
+export const PARCELAS_POR_PAGINA = 20;
 
 export interface LinhaParcela {
   id: string;
