@@ -188,75 +188,76 @@ export default async function VendasPage({
               dentro (editar e liberar reserva), e mover isso para o cliente exigiria
               reescrever os três botões. O modal só os envolve. */}
           <LotesReservados quantidade={lotesReservados.length}>
-                {lotesReservados.map((l) => {
-                  const h = l.historico[0];
-                  const motivo = h?.motivo ?? '—';
-                  const desde = h?.createdAt ?? l.updatedAt;
-                  const responsavel = h?.user?.nome ?? h?.user?.email ?? 'sistema';
-                  const dias = Math.floor(
-                    (Date.now() - new Date(desde).getTime()) / (1000 * 60 * 60 * 24)
-                  );
-                  return (
-                    <div
-                      key={l.id}
-                      className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 flex flex-col gap-2"
-                    >
-                      <div className="flex items-baseline justify-between">
-                        <div>
-                          <p className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                            {l.codigo}
-                            {l.tipo === 'COMERCIAL' && (
-                              <span className="ml-1.5 text-[9px] px-1 py-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 rounded font-semibold align-middle">
-                                COMERCIAL
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Quadra {l.quadra} · {Number(l.area).toFixed(0)}m² · {l.loteamento.nome}
-                          </p>
-                        </div>
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          {formatBRL(Number(l.preco))}
-                        </p>
-                      </div>
-
-                      <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg p-2 leading-snug">
-                        <p>
-                          <span className="font-semibold">
-                            {dias === 0 ? 'Hoje' : `Há ${dias}d`}
-                          </span>
-                          {' · por '}
-                          <span className="font-mono">{responsavel}</span>
-                        </p>
-                        {motivo && motivo !== '—' && (
-                          <p className="text-slate-500 dark:text-slate-500 mt-0.5 italic truncate" title={motivo}>
-                            &ldquo;{motivo}&rdquo;
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-1.5 justify-end flex-wrap">
-                        <Link
-                          href={`/admin/vendas/novo?lote=${l.id}`}
-                          className="text-xs bg-primary-600 hover:bg-primary-700 text-white font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1"
-                        >
-                          Criar venda
-                        </Link>
-                        <EditarReservaButton
-                          action={editarReservaAdmin}
-                          loteId={l.id}
-                          loteCodigo={l.codigo}
-                          motivoAtual={motivo === '—' ? null : motivo}
-                        />
-                        <LiberarReservaButton
-                          action={liberarReservaAdmin}
-                          loteId={l.id}
-                          loteCodigo={l.codigo}
-                        />
-                      </div>
+            {lotesReservados.map((l) => {
+              const h = l.historico[0];
+              const motivo = h?.motivo ?? null;
+              const desde = h?.createdAt ?? l.updatedAt;
+              const responsavel = h?.user?.nome ?? h?.user?.email ?? 'sistema';
+              const dias = Math.floor(
+                (Date.now() - new Date(desde).getTime()) / (1000 * 60 * 60 * 24)
+              );
+              return (
+                <tr key={l.id} className="align-top hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+                      {l.codigo}
+                    </span>
+                    {l.tipo === 'COMERCIAL' && (
+                      <span className="ml-1.5 rounded bg-violet-100 px-1 py-0.5 align-middle text-[9px] font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                        COMERCIAL
+                      </span>
+                    )}
+                    <span className="block text-[11px] text-slate-500">
+                      Quadra {l.quadra} · {Number(l.area).toFixed(0)} m²
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                    {l.loteamento.nome}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                    {formatBRL(Number(l.preco))}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {dias === 0 ? 'Hoje' : `Há ${dias} dia${dias > 1 ? 's' : ''}`}
+                    </span>
+                    <span className="block truncate text-[11px] text-slate-500" title={responsavel}>
+                      por {responsavel}
+                    </span>
+                  </td>
+                  <td className="max-w-[220px] px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                    {motivo ? (
+                      <span className="block truncate" title={motivo}>
+                        {motivo}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <Link
+                        href={`/admin/vendas/novo?lote=${l.id}`}
+                        className="rounded bg-primary-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-700"
+                      >
+                        Criar venda
+                      </Link>
+                      <EditarReservaButton
+                        action={editarReservaAdmin}
+                        loteId={l.id}
+                        loteCodigo={l.codigo}
+                        motivoAtual={motivo}
+                      />
+                      <LiberarReservaButton
+                        action={liberarReservaAdmin}
+                        loteId={l.id}
+                        loteCodigo={l.codigo}
+                      />
                     </div>
-                  );
-                })}
+                  </td>
+                </tr>
+              );
+            })}
           </LotesReservados>
           <ReservaRapidaForm lotes={lotesOpts} action={reservarLoteAdmin} />
           <Link
