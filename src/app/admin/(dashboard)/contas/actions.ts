@@ -21,18 +21,32 @@ const schema = z.object({
 
 type FormState = { error?: string; ok?: boolean; id?: string };
 
+/**
+ * Confere que a conta é da empresa de quem está pedindo.
+ *
+ * As ações recebem só o id, e o id vem do navegador. Sem esta conferência, o
+ * admin de uma empresa desativava ou apagava a conta de outra mandando o id
+ * na mão — nada na rota impedia.
+ */
+async function contaDaMinhaEmpresa(id: string) {
+  const conta = await prisma.contaFinanceira.findUnique({
+    where: { id },
+    select: { id: true, ativa: true, loteadoraId: true },
+  });
+  if (!conta) throw new Error('Conta não encontrada');
+  const tid = await tenantId();
+  if (tid && conta.loteadoraId !== tid) throw new Error('Conta de outra empresa');
+  if (!tid && !(await isSuperAdmin())) throw new Error('Sem permissão');
+  return conta;
+}
+
+
 async function resolveLoteadoraId(input: string | undefined): Promise<string> {
   const tid = await tenantId();
   if (tid) return tid;
   if (!(await isSuperAdmin())) throw new Error('Sem permissão');
   if (!input) throw new Error('Selecione a loteadora');
   return input;
-}
-
-/** Wrapper void usado direto em <form action={criarContaSimple}> */
-export async function criarContaSimple(formData: FormData): Promise<void> {
-  const r = await criarConta({}, formData);
-  if (r.error) throw new Error(r.error);
 }
 
 export async function criarConta(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -66,6 +80,7 @@ export async function criarConta(_prev: FormState, formData: FormData): Promise<
 
 export async function atualizarConta(id: string, formData: FormData): Promise<void> {
   await requireAdmin();
+  await contaDaMinhaEmpresa(id);
   const parsed = schema.partial().safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) throw new Error('Dados inválidos');
   await prisma.contaFinanceira.update({
@@ -88,11 +103,7 @@ export async function atualizarConta(id: string, formData: FormData): Promise<vo
 
 export async function toggleAtivaConta(id: string): Promise<void> {
   await requireAdmin();
-  const conta = await prisma.contaFinanceira.findUnique({
-    where: { id },
-    select: { ativa: true },
-  });
-  if (!conta) throw new Error('Conta não encontrada');
+  const conta = await contaDaMinhaEmpresa(id);
   await prisma.contaFinanceira.update({
     where: { id },
     data: { ativa: !conta.ativa },
@@ -102,6 +113,7 @@ export async function toggleAtivaConta(id: string): Promise<void> {
 
 export async function excluirConta(id: string): Promise<void> {
   await requireAdmin();
+  await contaDaMinhaEmpresa(id);
   // Não exclui se tem parcela vinculada (FK protege)
   const parcelas = await prisma.parcela.count({ where: { contaId: id } });
   if (parcelas > 0) {
