@@ -673,11 +673,11 @@ export function VendaForm({
                 contra o bcrypt hash da loteadora.
                 NÃO se aplica a vendas À VISTA (o valor inteiro vira parcela
                 única paga no ato — não há entrada). */}
+            {/* Um parágrafo de aviso mais o campo: o texto anterior explicava
+                em cinco linhas o que o rótulo já diz, repetia o valor total que
+                está logo acima e ensinava onde cadastrar a senha — coisa de quem
+                administra, não de quem está lançando a venda. */}
             {valorEntrada === 0 && !isAvista && (
-              {/* Um parágrafo de aviso mais o campo: o texto anterior explicava
-                  em cinco linhas o que o rótulo já diz, repetia o valor total
-                  que está logo acima e ensinava onde cadastrar a senha — coisa
-                  de quem administra, não de quem está lançando a venda. */}
               <Field label="Venda sem entrada" wide>
                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
                   <p className="mb-3 text-xs text-amber-900">
