@@ -358,9 +358,11 @@ export default async function VendaDetalhePage({
 
       {/* Cliente */}
       <section className="bg-white border border-slate-200 rounded-xl p-6">
-        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        {/* items-center, não items-baseline: com o botão do WhatsApp ao lado, o
+            alinhamento pela linha de base deixava o título flutuando acima. */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold text-slate-900">Cliente</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             {venda.cliente.telefone && (
               <WhatsAppButton
                 telefone={venda.cliente.telefone}
@@ -371,13 +373,17 @@ export default async function VendaDetalhePage({
             )}
             <Link
               href={`/admin/clientes/${venda.cliente.id}`}
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700"
             >
               Ver perfil →
             </Link>
           </div>
         </div>
-        <dl className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+
+        {/* Quatro em três colunas deixava o e-mail sozinho na segunda linha, com
+            dois terços vazios ao lado. Em quatro colunas eles ocupam uma linha
+            só; e 2x2 no tablet, empilhados no celular. */}
+        <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
           <Item label="Nome" value={venda.cliente.nome} />
           <Item label="CPF/CNPJ" value={venda.cliente.cpfCnpj} mono />
           <Item label="Telefone" value={venda.cliente.telefone} />
@@ -724,9 +730,13 @@ export default async function VendaDetalhePage({
 
 function Item({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`text-slate-900 ${mono ? 'font-mono' : ''}`}>{value}</p>
+    <div className="min-w-0">
+      <dt className="text-xs uppercase tracking-wider text-slate-500">{label}</dt>
+      {/* truncate com title: e-mail longo estourava a coluna e empurrava as
+          vizinhas; min-w-0 no pai é o que permite o corte dentro da grade. */}
+      <dd className={`truncate text-slate-900 ${mono ? 'font-mono' : ''}`} title={value}>
+        {value}
+      </dd>
     </div>
   );
 }
