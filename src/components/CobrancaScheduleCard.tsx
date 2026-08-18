@@ -35,14 +35,12 @@ export default function CobrancaScheduleCard({
       atrasoDiario: diario,
     });
     setBusy(false);
-    setMsg(r.ok ? '✅ Agenda salva!' : `❌ ${r.erro}`);
+    setMsg(r.ok ? 'Agenda salva.' : (r.erro ?? 'Não foi possível salvar.'));
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4">
-      <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-        <span>🗓️</span> Quando cobrar
-      </h2>
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-slate-900">Quando cobrar</h2>
       <p className="text-xs text-slate-500 mt-0.5">
         Defina os dias dos lembretes. Toda mensagem vai com link de pagamento + Pix copia e cola.
       </p>
@@ -87,7 +85,7 @@ export default function CobrancaScheduleCard({
           <button
             onClick={salvar}
             disabled={busy}
-            className="rounded-md bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
             {busy ? 'Salvando…' : 'Salvar agenda'}
           </button>

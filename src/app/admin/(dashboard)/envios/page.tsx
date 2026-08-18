@@ -1,17 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { tenantId, loteadoraAlvoId } from '@/lib/tenant';
 import { evolutionConfigured, getConnectionState, instanceNameForLoteadora } from '@/lib/evolution';
-import WhatsAppConnectCard from '@/components/WhatsAppConnectCard';
-import CobrancaScheduleCard from '@/components/CobrancaScheduleCard';
+import { ConfiguracaoEnvios } from '@/components/envios/ConfiguracaoEnvios';
+import { TabelaEnvios, type EnvioLinha } from '@/components/envios/TabelaEnvios';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Envios — Admin' };
 
-export default async function EnviosPage({
-  searchParams,
-}: {
-  searchParams: { canal?: string; status?: string };
-}) {
+export default async function EnviosPage() {
   const tid = await tenantId();
   // Admin geral também consegue operar (usa a única loteadora existente).
   const alvoId = await loteadoraAlvoId();
@@ -81,12 +77,10 @@ export default async function EnviosPage({
   const atrasoDiario = loteadora?.reguaCobranca?.cobrarAtrasoDiario ?? false;
 
   const envios = await prisma.envioComunicacao.findMany({
-    where: {
-      ...(tid ? { loteadoraId: tid } : {}),
-      ...(searchParams.canal ? { canal: searchParams.canal as any } : {}),
-      ...(searchParams.status ? { status: searchParams.status as any } : {}),
-    },
-    take: 100,
+    where: tid ? { loteadoraId: tid } : {},
+    // O teto é rede: são algumas centenas por empresa, e a lista inteira vai
+    // para a tela porque é lá que se filtra.
+    take: 2000,
     orderBy: { createdAt: 'desc' },
     include: {
       parcela: {
@@ -95,89 +89,51 @@ export default async function EnviosPage({
     },
   });
 
+  const doisDigitos = (n: number) => String(n).padStart(2, '0');
+  const linhas: EnvioLinha[] = envios.map((e) => ({
+    id: e.id,
+    data: `${e.createdAt.getFullYear()}-${doisDigitos(e.createdAt.getMonth() + 1)}-${doisDigitos(e.createdAt.getDate())}`,
+    dataLabel: e.createdAt.toLocaleString('pt-BR'),
+    canal: e.canal,
+    destinatario: e.destinatario,
+    clienteNome: e.parcela?.venda?.cliente?.nome ?? null,
+    referencia: e.parcela
+      ? `Venda #${e.parcela.venda.numero} · parcela ${e.parcela.numero}`
+      : null,
+    status: e.status,
+    erro: e.erro,
+  }));
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Envios automáticos</h1>
-      <p className="text-sm text-slate-500">
-        Histórico das comunicações enviadas pela régua de cobrança.
-      </p>
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900">Envios automáticos</h1>
+        <p className="text-sm text-slate-500">
+          Histórico das comunicações enviadas pela régua de cobrança.
+        </p>
+      </div>
 
       {loteadora ? (
-        <>
-          <WhatsAppConnectCard
-            loteadoraId={loteadora.id}
-            connected={whatsappConectado}
-            // Número que a Evolution reporta quando a sessão está viva; o do
-            // cadastro serve de reserva, mas só quando há conexão de fato.
-            number={numeroConectado ?? (whatsappConectado ? loteadora.whatsapp : null)}
-            configured={evolutionConfigured()}
-            cobrancaAtiva={loteadora.reguaCobranca?.ativa ?? false}
-          />
-          <CobrancaScheduleCard
-            loteadoraId={loteadora.id}
-            diasAntes={diasAntes.length ? diasAntes : [5, 3]}
-            noVencimento={passos.length ? noVencimento : true}
-            atrasoDiario={atrasoDiario}
-          />
-        </>
+        <ConfiguracaoEnvios
+          loteadoraId={loteadora.id}
+          conectado={whatsappConectado}
+          // Número que a Evolution reporta quando a sessão está viva; o do
+          // cadastro serve de reserva, mas só quando há conexão de fato.
+          numero={numeroConectado ?? (whatsappConectado ? loteadora.whatsapp : null)}
+          configurado={evolutionConfigured()}
+          cobrancaAtiva={loteadora.reguaCobranca?.ativa ?? false}
+          diasAntes={diasAntes.length ? diasAntes : [5, 3]}
+          noVencimento={passos.length ? noVencimento : true}
+          atrasoDiario={atrasoDiario}
+        />
       ) : (
-        <div className="bg-white border border-slate-200 rounded-lg p-4 text-sm text-slate-500">
+        <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
           Escolha uma loteadora em <span className="font-medium">Loteadoras</span> para conectar o
           WhatsApp e configurar a cobrança.
-        </div>
+        </p>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-3 py-2">Quando</th>
-              <th className="px-3 py-2">Canal</th>
-              <th className="px-3 py-2">Destinatário</th>
-              <th className="px-3 py-2">Cliente / Parcela</th>
-              <th className="px-3 py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {envios.map((e) => (
-              <tr key={e.id}>
-                <td className="px-3 py-2 text-xs text-slate-600">
-                  {e.createdAt.toLocaleString('pt-BR')}
-                </td>
-                <td className="px-3 py-2">{e.canal}</td>
-                <td className="px-3 py-2">{e.destinatario}</td>
-                <td className="px-3 py-2 text-xs text-slate-600">
-                  {e.parcela?.venda?.cliente?.nome ?? '—'}
-                  {e.parcela ? ` · venda #${e.parcela.venda.numero} parcela ${e.parcela.numero}` : ''}
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${
-                      e.status === 'ENVIADO' || e.status === 'ENTREGUE' || e.status === 'LIDO'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : e.status === 'FALHOU'
-                          ? 'bg-red-50 text-red-700'
-                          : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {e.status}
-                  </span>
-                  {e.erro && (
-                    <span className="block text-xs text-red-600 mt-0.5">{e.erro}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {envios.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-slate-500 text-sm">
-                  Nenhum envio registrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <TabelaEnvios envios={linhas} />
     </div>
   );
 }

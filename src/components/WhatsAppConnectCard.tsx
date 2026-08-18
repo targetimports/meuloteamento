@@ -115,7 +115,7 @@ export default function WhatsAppConnectCard({
     setBusy(true);
     const r = await enviarTesteWhatsApp(testNum, loteadoraId);
     setBusy(false);
-    setTestMsg(r.ok ? '✅ Enviado! Confira o WhatsApp do número.' : `❌ ${r.erro}`);
+    setTestMsg(r.ok ? 'Enviado. Confira o WhatsApp do número.' : (r.erro ?? 'Falha no envio.'));
   }
 
   async function toggleCobranca() {
@@ -138,7 +138,7 @@ export default function WhatsAppConnectCard({
     return (
       <div className={`${wrap} border-amber-200`}>
         <p className="text-sm text-amber-700">
-          ⚠️ A integração de WhatsApp (Evolution) ainda não foi habilitada no servidor.
+          A integração de WhatsApp (Evolution) ainda não foi habilitada no servidor.
           Fale com o suporte da plataforma.
         </p>
       </div>
@@ -150,20 +150,18 @@ export default function WhatsAppConnectCard({
       {/* ===== Cabeçalho + status da conexão ===== */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-            <span>📱</span> WhatsApp da cobrança
-          </h2>
+          <h2 className="text-base font-semibold text-slate-900">WhatsApp da cobrança</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Conecte um número e ative quando quiser que a régua comece a enviar.
           </p>
         </div>
         {modo === 'connected' ? (
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            ● Conectado {num ? `· ${formatNumber(num)}` : ''}
+            Conectado {num ? `· ${formatNumber(num)}` : ''}
           </span>
         ) : (
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-            ○ Desconectado
+            Desconectado
           </span>
         )}
       </div>
@@ -281,7 +279,7 @@ export default function WhatsAppConnectCard({
                   : 'bg-slate-100 text-slate-600 border-slate-200'
               }`}
             >
-              {ativa ? '● Ativa' : '○ Pausada'}
+              {ativa ? 'Ativa' : 'Pausada'}
             </span>
             <button
               onClick={toggleCobranca}
