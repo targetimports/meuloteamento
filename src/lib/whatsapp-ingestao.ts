@@ -253,6 +253,18 @@ async function acharOuCriarConversa(input: {
   instanciaId: string;
   remoteJid: string;
   nome: string | null;
+  /**
+   * Nome que custa uma consulta ao servidor do WhatsApp — usado só quando a
+   * conversa vai mesmo ser criada.
+   *
+   * 🔴 É FUNÇÃO, não valor, e isso não é preciosismo. Nome de grupo não vem no
+   * evento: é preciso perguntar. Resolvendo antes de saber se a conversa já
+   * existe, cada mensagem de grupo virava uma pergunta ao WhatsApp, e o
+   * WhatsApp responde 429 quando se pergunta demais. Um grupo com 388
+   * mensagens gerou 388 perguntas — e como todas falharam, ele ficou sem nome
+   * e continuou perguntando.
+   */
+  nomeSobDemanda?: () => Promise<string | null>;
   telefone: string | null;
 }) {
   const porJid = await prisma.whatsappConversa.findUnique({
@@ -294,13 +306,15 @@ async function acharOuCriarConversa(input: {
     }
   }
 
+  const nome = input.nome ?? (input.nomeSobDemanda ? await input.nomeSobDemanda() : null);
+
   return prisma.whatsappConversa.create({
     data: {
       instanciaId: input.instanciaId,
       remoteJid: input.remoteJid,
       telefone: input.telefone,
-      nome: input.nome,
-      nomeOrigem: input.nome ? 'push' : 'numero',
+      nome,
+      nomeOrigem: nome ? 'push' : 'numero',
       ehGrupo: ehGrupo(input.remoteJid),
     },
   });
@@ -415,9 +429,10 @@ export async function tratarMensagem(
   const conversa = await acharOuCriarConversa({
     instanciaId: instancia.id,
     remoteJid,
-    // Em grupo o `pushName` é de quem falou, não do grupo — o nome vem do
-    // servidor, e só quando a conversa é nova (é uma chamada externa).
-    nome: grupo ? await nomeDoGrupo(instancia.token, remoteJid) : pushName || null,
+    // Em grupo o `pushName` é de quem falou, não do grupo. O nome do grupo
+    // vem do servidor, e só é perguntado se a conversa for nova.
+    nome: grupo ? null : pushName || null,
+    nomeSobDemanda: grupo ? () => nomeDoGrupo(instancia.token, remoteJid) : undefined,
     telefone,
   });
 
