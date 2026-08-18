@@ -26,20 +26,20 @@ export default function ImportarParqueTucanoBtn() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-1.5">
       <button
         onClick={importar}
         disabled={busy}
-        className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-sm font-medium px-3 py-2 rounded"
+        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
       >
-        {busy ? 'Importando...' : 'Importar modelo Parque Tucano'}
+        {busy ? 'Importando…' : 'Importar modelo Parque Tucano'}
       </button>
       {msg && (
         <div
-          className={`text-xs px-2 py-1 rounded ${
+          className={`rounded-lg border px-2 py-1 text-xs ${
             msg.tipo === 'ok'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
           {msg.texto}
