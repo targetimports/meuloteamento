@@ -11,7 +11,7 @@ import {
 } from '@/lib/formulario-tipos';
 import { salvarFormulario, atualizarFormulario } from '@/app/admin/(dashboard)/formularios/actions';
 
-interface LoteamentoOption {
+export interface LoteamentoOpcao {
   id: string;
   nome: string;
   loteadoraNome?: string;
@@ -20,7 +20,7 @@ interface LoteamentoOption {
 interface Props {
   modo: 'novo' | 'editar';
   formularioId?: string;
-  loteamentos: LoteamentoOption[];
+  loteamentos: LoteamentoOpcao[];
   initial?: {
     nome: string;
     slug?: string;
@@ -189,7 +189,7 @@ export function FormBuilder({ modo, formularioId, loteamentos, initial }: Props)
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       {error && (
         <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-sm rounded-lg p-3">
           {error}
