@@ -10,15 +10,9 @@ import {
   deletarResposta,
 } from '../../actions';
 import { RespostaActions } from '@/components/RespostaActions';
+import { IconWhatsApp } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
-
-const STATUS_LABEL: Record<string, string> = {
-  NOVA: 'Nova',
-  EM_ANALISE: 'Em análise',
-  PROCESSADA: 'Processada',
-  ARQUIVADA: 'Arquivada',
-};
 
 export default async function RespostaDetalhePage({
   params,
@@ -64,8 +58,8 @@ export default async function RespostaDetalhePage({
   }
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-6">
+    <div className="space-y-6">
+      <div>
         <Link
           href={`/admin/formularios/${resposta.formulario.id}`}
           className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -74,7 +68,7 @@ export default async function RespostaDetalhePage({
         </Link>
         <div className="flex items-start justify-between mt-1 flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
               Resposta de {resposta.nome ?? 'Sem nome'}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -93,16 +87,12 @@ export default async function RespostaDetalhePage({
         </div>
       </div>
 
-      {/* AÇÕES RÁPIDAS — usar dados para criar venda ou cliente */}
-      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-primary-50 dark:from-emerald-500/10 dark:to-primary-500/10 border border-emerald-200 dark:border-emerald-500/30">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex-1 min-w-[240px]">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-              ⚡ Avançar este lead
-            </p>
-            <p className="text-sm text-slate-700 dark:text-slate-200 mt-0.5">
-              Use os dados preenchidos pelo cliente para abrir uma venda já com nome, CPF,
-              e-mail, telefone e lote pré-selecionados.
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-[240px] flex-1">
+            <p className="font-medium text-slate-900 dark:text-slate-100">Avançar este lead</p>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              Abre o lançamento de venda já com nome, CPF, e-mail, telefone e lote preenchidos.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -115,29 +105,35 @@ export default async function RespostaDetalhePage({
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 text-sm font-medium bg-[#25D366] hover:bg-[#1cb858] text-white rounded-lg inline-flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
-                📱 WhatsApp
+                <IconWhatsApp className="h-4 w-4 text-[#25D366]" />
+                WhatsApp
               </a>
             )}
             <Link
               href={`/admin/vendas/novo?fromForm=${resposta.id}`}
-              className="px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg inline-flex items-center gap-1.5"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
             >
-              💰 Criar venda com estes dados →
+              Criar venda com estes dados
             </Link>
           </div>
         </div>
       </div>
 
       {/* Cabeçalho com info-chave */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {resposta.cpfCnpj && (
           <InfoCard label="CPF / CNPJ" value={resposta.cpfCnpj} mono />
         )}
         {resposta.email && <InfoCard label="E-mail" value={resposta.email} />}
         {resposta.telefone && (
-          <InfoCard label="Telefone" value={resposta.telefone} action={`https://wa.me/55${resposta.telefone.replace(/\D/g, '')}`} actionLabel="📱 WhatsApp" />
+          <InfoCard
+            label="Telefone"
+            value={resposta.telefone}
+            action={`/admin/whatsapp/chat?tel=${resposta.telefone.replace(/\D/g, '')}`}
+            actionLabel="Falar no chat"
+          />
         )}
         {resposta.loteCodigo && (
           <InfoCard label="Lote de interesse" value={resposta.loteCodigo} mono />
@@ -145,12 +141,10 @@ export default async function RespostaDetalhePage({
       </div>
 
       {/* Dados completos campo a campo */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-            Respostas
-          </p>
-        </div>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="border-b border-slate-100 px-6 py-4 font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100">
+          Respostas
+        </h2>
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {campos.map((campo) => {
             if (campo.tipo === 'titulo' || campo.tipo === 'paragrafo') return null;
@@ -168,7 +162,7 @@ export default async function RespostaDetalhePage({
 
       {/* Tracking */}
       {(resposta.ipAddress || resposta.userAgent) && (
-        <details className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+        <details className="text-xs text-slate-500 dark:text-slate-400">
           <summary className="cursor-pointer hover:text-slate-700">
             Dados técnicos
           </summary>
@@ -197,25 +191,21 @@ function InfoCard({
 }) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold mb-1">
-        {label}
-      </p>
+      <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
       <p
-        className={`text-sm font-semibold text-slate-900 dark:text-slate-100 ${
+        className={`text-sm font-medium text-slate-900 dark:text-slate-100 ${
           mono ? 'font-mono' : ''
         }`}
       >
         {value}
       </p>
       {action && (
-        <a
+        <Link
           href={action}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block mt-1 text-[11px] text-primary-600 dark:text-primary-400 hover:underline"
+          className="mt-1 inline-block text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400"
         >
           {actionLabel}
-        </a>
+        </Link>
       )}
     </div>
   );
@@ -240,10 +230,8 @@ function CampoResposta({
   const isArquivo = ['arquivo', 'foto', 'documento'].includes(campo.tipo);
 
   return (
-    <div className="px-5 py-3">
-      <p className="text-[11px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold mb-1">
-        {campo.label}
-      </p>
+    <div className="px-6 py-3">
+      <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">{campo.label}</p>
 
       {isArquivo ? (
         arquivos.length === 0 ? (
@@ -267,7 +255,7 @@ function CampoResposta({
         )
       ) : campo.tipo === 'sim_nao' ? (
         <p className="text-sm text-slate-900 dark:text-slate-100">
-          {valor === 'sim' ? '✅ Sim' : valor === 'nao' ? '❌ Não' : <span className="text-slate-400 italic">Não respondido</span>}
+          {valor === 'sim' ? 'Sim' : valor === 'nao' ? 'Não' : <span className="italic text-slate-400">Não respondido</span>}
         </p>
       ) : valor ? (
         <p className={`text-sm text-slate-900 dark:text-slate-100 ${campo.tipo === 'textarea' ? 'whitespace-pre-wrap' : ''}`}>
@@ -286,7 +274,7 @@ function ArquivoCard({ arquivo }: { arquivo: ArquivoSerializavel }) {
   const sizeKb = arquivo.tamanho ? Math.round(arquivo.tamanho / 1024) : null;
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg">
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
       {isImagem ? (
         <a href={href} target="_blank" rel="noopener noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -297,8 +285,8 @@ function ArquivoCard({ arquivo }: { arquivo: ArquivoSerializavel }) {
           />
         </a>
       ) : (
-        <div className="w-16 h-16 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-2xl">
-          📄
+        <div className="flex h-16 w-16 items-center justify-center rounded border border-slate-200 bg-white text-[10px] font-bold tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+          {(arquivo.nomeOriginal.split('.').pop() ?? 'doc').slice(0, 4).toUpperCase()}
         </div>
       )}
       <div className="flex-1 min-w-0">
@@ -314,15 +302,15 @@ function ArquivoCard({ arquivo }: { arquivo: ArquivoSerializavel }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
           Ver
         </a>
         <a
           href={`${href}?download=1`}
-          className="px-3 py-1.5 text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white rounded"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
-          ⬇ Baixar
+          Baixar
         </a>
       </div>
     </div>

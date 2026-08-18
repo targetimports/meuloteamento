@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react';
 
+import { selectClass } from '@/components/ui';
+
 type Status = 'NOVA' | 'EM_ANALISE' | 'PROCESSADA' | 'ARQUIVADA';
 
 interface Props {
@@ -57,7 +59,7 @@ export function RespostaActions({
         value={status}
         onChange={(e) => mudarStatus(e.target.value as Status)}
         disabled={pending}
-        className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200"
+        className={`${selectClass} w-auto`}
       >
         {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
           <option key={s} value={s}>
@@ -68,9 +70,9 @@ export function RespostaActions({
       <button
         onClick={deletar}
         disabled={pending}
-        className="px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-red-200 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg disabled:opacity-50"
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-500/10"
       >
-        🗑 Apagar
+        Apagar
       </button>
     </div>
   );
